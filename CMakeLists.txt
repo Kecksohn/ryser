@@ -1,7 +1,4 @@
-﻿# CMakeList.txt : Top-level CMake project file, do global configuration
-# and include sub-projects here.
-#
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.12)
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
@@ -10,14 +7,14 @@ if (POLICY CMP0141)
 endif()
 
 project ("ryser")
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable (${PROJECT_NAME} "src/main.cpp" "src/videoplayer.cpp" "src/manageconfig.cpp")
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
-endif()
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 
 
+# Boost
 find_package(Boost REQUIRED)
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${Boost_LIBRARIES})
@@ -25,6 +22,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${Boost_LIBRARIES})
 
 
 
+# Copy config.json to build directory
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
                    ${CMAKE_SOURCE_DIR}/config.json

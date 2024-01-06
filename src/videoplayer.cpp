@@ -5,7 +5,20 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
-void launch_videoplayer(const char* video_filepath, bool wait_for_close)
+
+// TODO: Windows only
+std::wstring utf8_to_utf16(const std::string& utf8)
+{
+    std::wstring utf16;
+    int size = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), utf8.size(), NULL, 0);
+    utf16.resize(size);
+    if (size > 0)
+        MultiByteToWideChar(CP_UTF8, 0, utf8.data(), utf8.size(), &utf16[0], size);
+    return utf16;
+}
+
+
+void launch_videoplayer(std::string const& video_filepath, bool wait_for_close)
 {
 
     boost::property_tree::ptree pt;
@@ -22,8 +35,15 @@ void launch_videoplayer(const char* video_filepath, bool wait_for_close)
     const std::string executable_path_str = pt.get<std::string>("VideoPlayer.executable_path");
     const std::string args_str = std::string(" \"") + video_filepath + std::string("\" ") + pt.get<std::string>("VideoPlayer.args");
 
-    const LPCSTR executable_path = executable_path_str.c_str();
-    const LPSTR args = const_cast<char*>(args_str.c_str());
+    //const LPCSTR executable_path = executable_path_str.c_str();
+    //const LPSTR args = const_cast<char*>(args_str.c_str());
+
+    std::wstring executable_path_wstr = utf8_to_utf16(executable_path_str);
+    LPCWSTR executable_path = executable_path_wstr.c_str();
+
+    // Convert std::string to LPWSTR
+    std::wstring args_wstr = utf8_to_utf16(args_str);
+    LPWSTR args = const_cast<LPWSTR>(args_wstr.c_str());
 
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
