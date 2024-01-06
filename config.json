@@ -1,6 +1,22 @@
 {
   "VideoPlayer": {
     "executable_path": "C:\\Program Files (x86)\\K-Lite Codec Pack\\MPC-HC64\\mpc-hc64.exe",
-    "args": "/fullscreen /play /close"
+    "args": "\/fullscreen \/play \/close"
+  },
+  "Libraries": {
+    "Movies": {
+      "paths": {
+        "C:\\Users\\Public\\Videos\\Movies": {
+          "recursive": "true"
+        }
+      }
+    },
+    "TV Shows": {
+      "paths": {
+        "C:\\Users\\Public\\Videos\\TV Shows": {
+          "recursive": "true"
+        }
+      }
+    }
   }
 }

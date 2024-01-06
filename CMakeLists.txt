@@ -11,7 +11,7 @@ endif()
 
 project ("ryser")
 
-add_executable (${PROJECT_NAME} "src/main.cpp" "src/videoplayer.cpp")
+add_executable (${PROJECT_NAME} "src/main.cpp" "src/videoplayer.cpp" "src/manageconfig.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
