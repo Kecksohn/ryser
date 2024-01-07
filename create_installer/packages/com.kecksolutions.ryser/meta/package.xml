@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>ryser</DisplayName>
+    <Description>Media Library &amp; Launcher</Description>
+    <Version>0.1.0-1</Version>
+    <ReleaseDate>2023-01-07</ReleaseDate>
+    <Licenses>
+        <License name="GNU GENERAL PUBLIC LICENSE" file="license.txt" />
+    </Licenses>
+    <Default>true</Default>
+    <UserInterfaces>
+        <UserInterface>page.ui</UserInterface>
+    </UserInterfaces>
+</Package>
