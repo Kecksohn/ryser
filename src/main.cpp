@@ -1,17 +1,17 @@
-﻿
+﻿#include <QApplication>
 
 #include "videoplayer.hh"
 #include "manageconfig.hh"
+#include "QtUI.hh"
 
-int main()
+int main(int argc, char** argv)
 {
-	//launch_videoplayer("C:\\art\\ayylmaoware\\unbestimmterteaser\\teaser_wo_title.mp4");
+	//launch_videoplayer("C:\\art\\ayylmaoware\\unbestimmterteaser\\teaser_wo_title.mp4", true);
 
 	//change_videoplayer("C:\\", "lol");
 
-	add_library("test", "C:\\");
-	add_path_to_library("test", "D:\\");
-	remove_library("test2");
-
-	return 0;
+	QApplication app(argc, argv);
+	QtUI window;
+	window.show();
+	return app.exec();
 }
