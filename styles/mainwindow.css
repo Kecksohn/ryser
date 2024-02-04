@@ -1,0 +1,10 @@
+/* Make the QMainWindow background black */
+QMainWindow {
+    background-color: black;
+}
+
+/* Optionally, style other widgets. For example, make QPushButton text color white */
+QPushButton {
+    color: white;
+    background-color: black;
+}
