@@ -1,5 +1,8 @@
 #pragma once
 #include <string>
+#include <boost/property_tree/json_parser.hpp>
+
+bool load_json(boost::property_tree::ptree& pt);
 
 void change_videoplayer(std::string const& video_filepath, std::string const& args);
 

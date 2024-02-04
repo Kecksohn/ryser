@@ -9,19 +9,16 @@
 #include "LibraryView.hh"
 
 QtUI::QtUI(QWidget* parent) : QMainWindow(parent) {
-	setWindowTitle("My First Qt App");
+	setWindowTitle("ryser");
 	resize(640, 480); // Initial window size (width, height)
 
-	// Initialize the views
-	auto* stacked_widget = new QStackedWidget;
 	auto* home_view = new HomeView;
-	auto* library_view = new LibraryView;
+	setCentralWidget(home_view);
+	home_view->setFocus();
 
-	stacked_widget->addWidget(home_view);
-	stacked_widget->addWidget(library_view);
-
-	// Set the stackedWidget as the central widget
-	setCentralWidget(stacked_widget);
+	auto* fullscreen_button = new QPushButton("Toggle Fullscreen", this);
+	connect(fullscreen_button, &QPushButton::clicked, this, &QtUI::toggleFullscreen);
+	fullscreen_button->move(500, 0); // Move the button down to avoid overlap
 
 	QFile main_css("./styles/mainwindow.css");
 	if (main_css.open(QFile::ReadOnly)) {
@@ -29,18 +26,7 @@ QtUI::QtUI(QWidget* parent) : QMainWindow(parent) {
 		qApp->setStyleSheet(style_sheet);
 		main_css.close();
 	}
-
-	// Button to toggle views
-	auto* toggle_button = new QPushButton("Toggle View", this);
-	connect(toggle_button, &QPushButton::clicked, [stacked_widget]() {
-		int current_index = stacked_widget->currentIndex();
-		int next_index = (current_index + 1) % stacked_widget->count(); // Loop through views
-		stacked_widget->setCurrentIndex(next_index);
-	});
-
-	button = new QPushButton("Toggle Fullscreen", this);
-	connect(button, &QPushButton::clicked, this, &QtUI::toggleFullscreen);
-	button->move(0, 50); // Move the button down to avoid overlap
+	
 }
 
 void QtUI::toggleFullscreen() {

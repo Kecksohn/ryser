@@ -13,5 +13,5 @@ public:
 	void toggleFullscreen();
 
 private:
-	QPushButton* button;
+	
 };
