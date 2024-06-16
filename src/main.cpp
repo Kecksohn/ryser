@@ -2,7 +2,7 @@
 
 #include "videoplayer.hh"
 #include "manageconfig.hh"
-#include "QtUI.hh"
+#include "QtUI/MainWindow.hh"
 
 int main(int argc, char** argv)
 {
@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 	//change_videoplayer("C:\\", "lol");
 
 	QApplication app(argc, argv);
-	QtUI window;
+	MainWindow window;
 	window.show();
 	return app.exec();
 }

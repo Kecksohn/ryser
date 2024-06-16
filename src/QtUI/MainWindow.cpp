@@ -1,14 +1,14 @@
-#include "QtUI.hh"
+#include "MainWindow.hh"
 #include <QString>
 #include <QFile>
 #include <QLabel>
 #include <QPushButton>
 #include <QStackedWidget>
 
-#include "HomeView.hh"
-#include "LibraryView.hh"
+#include "QtUI/HomeView.hh"
+#include "QtUI/LibraryView.hh"
 
-QtUI::QtUI(QWidget* parent) : QMainWindow(parent) {
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 	setWindowTitle("ryser");
 	resize(640, 480); // Initial window size (width, height)
 
@@ -17,7 +17,7 @@ QtUI::QtUI(QWidget* parent) : QMainWindow(parent) {
 	home_view->setFocus();
 
 	auto* fullscreen_button = new QPushButton("Toggle Fullscreen", this);
-	connect(fullscreen_button, &QPushButton::clicked, this, &QtUI::toggleFullscreen);
+	connect(fullscreen_button, &QPushButton::clicked, this, &MainWindow::toggleFullscreen);
 	fullscreen_button->move(500, 0); // Move the button down to avoid overlap
 
 	QFile main_css("./styles/mainwindow.css");
@@ -29,7 +29,7 @@ QtUI::QtUI(QWidget* parent) : QMainWindow(parent) {
 	
 }
 
-void QtUI::toggleFullscreen() {
+void MainWindow::toggleFullscreen() {
 	if (isFullScreen()) {
 		showNormal();
 	}

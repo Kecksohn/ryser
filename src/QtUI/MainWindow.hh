@@ -5,10 +5,10 @@
 #include <QPushButton>
 #include <QString>
 
-class QtUI : public QMainWindow
+class MainWindow : public QMainWindow
 {
 public:
-	QtUI(QWidget* parent = nullptr);
+	MainWindow(QWidget* parent = nullptr);
 
 	void toggleFullscreen();
 

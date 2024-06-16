@@ -7,7 +7,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("ryser")
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(PROJECT_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,11 +23,15 @@ add_executable (
     "src/videoplayer.cpp"
     "src/manageconfig.cpp"
 
-    "src/QtUI.cpp"
-    "src/HomeView.cpp"
-    "src/HomeView.hh"
-    "src/LibraryView.cpp"
-    "src/LibraryView.hh"
+    "src/QtUI/MainWindow.cpp"
+    "src/QtUI/HomeView.cpp"
+    "src/QtUI/HomeView.hh"
+    "src/QtUI/LibraryView.cpp"
+    "src/QtUI/LibraryView.hh"
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+        ${PROJECT_ROOT}/src
 )
 
 
