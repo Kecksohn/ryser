@@ -15,13 +15,13 @@ Go wild on the .css files inside /styles/
 # Dev Set-Up
 
 You need Qt & Boost.
-- Qt6: [Install open source version >=6.6.1](https://www.qt.io/download-qt-installer-oss). \
-Check Qt Creator in the installer and use it for building the application if you wanna save yourself a headache. <details>
-    <summary>If installed elsewhere than the default location</summary>
+- Qt6: [Install open source version >=6.6.3](https://www.qt.io/download-qt-installer-oss). \
+Visual Studio comes with all sorts of issues when compiling Qt. If you wanna save yourself a headache use CLion or check Qt Creator in the installer and use it for building the application.
+<details>
+    <summary>If you do not use QtCreator or installed elsewhere than the default location</summary>
     
-    - It's recommended to add environmental variable "Qt6_DIR" to the `{path_to_qt}\[version]\msvc2019_64\lib\cmake\Qt6`
+    - Add environmental variable "Qt6_DIR" to the `{path_to_qt}\[version]\msvc2019_64\lib\cmake\Qt6`
     - Also add `msvc2019_64\bin` `msvc2019_64\plugins` and `msvc2019_64\plugins\platforms` to PATH
-    - It might work without those in Qt Creator but who knows.
 
 </details>
 
