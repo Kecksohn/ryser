@@ -1,3 +1,4 @@
+#include "pch.hh"
 #include "manageconfig.hh"
 
 #include <iostream>

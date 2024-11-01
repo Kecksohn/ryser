@@ -1,4 +1,6 @@
+#include "../pch.hh"
 #include "MainWindow.hh"
+
 #include <QString>
 #include <QFile>
 #include <QLabel>

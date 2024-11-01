@@ -1,10 +1,12 @@
 #pragma once
+#include "../pch.hh"
 
 #include <QWidget>
 #include <QKeyEvent>
 #include <QPushButton>
 
-class HomeView : public QWidget {
+class HomeView : public QWidget
+{
     Q_OBJECT
 
 public:

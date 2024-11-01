@@ -4,11 +4,13 @@ target = ryser
 
 # Specify the compiler and flags
 rule moc_compile
-  command = moc -o $out $in
+  command = moc -b "C:\art\ryser\src\pch.hh" -o $out $in
   description = Generating MOC for $in
 
+# clang-cl -m64 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yc"src/pch.hh" /Fp"pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c src/pch.cpp
+
 rule clang_compile
-  command = ccache.exe clang-cl.exe -m64 /EHsc /MD /Zc:dllexportInlines- /std:c++17 -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c $in -Fo$out
+  command = ccache.exe clang-cl.exe -m64 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yu"C:\art\ryser\src\pch.hh" /Fp"C:\art\ryser\pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c $in -Fo$out
   description = Compiling $in
 
 rule clang_link

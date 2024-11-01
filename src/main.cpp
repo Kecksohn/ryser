@@ -1,4 +1,6 @@
-﻿#include <QApplication>
+﻿#include "pch.hh" 
+
+#include <QApplication>
 
 #include "videoplayer.hh"
 #include "manageconfig.hh"

@@ -1,3 +1,4 @@
+#include "../pch.hh"
 #include "HomeView.hh"
 
 #include <iostream>

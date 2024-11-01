@@ -1,3 +1,4 @@
+#include "pch.hh"
 #include "videoplayer.hh"
 
 #include <iostream>
@@ -64,7 +65,7 @@ void launch_videoplayer(std::string const& video_filepath, bool wait_for_close)
         &pi) // Pointer to PROCESS_INFORMATION structure
         )
     {
-        printf("CreateProcess failed (%d).\n", GetLastError());
+        printf("CreateProcess failed (%d).\n", (int)GetLastError());
         return;
     }
 

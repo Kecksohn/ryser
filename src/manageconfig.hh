@@ -1,4 +1,6 @@
 #pragma once
+#include "pch.hh"
+
 #include <string>
 #include <boost/property_tree/json_parser.hpp>
 
