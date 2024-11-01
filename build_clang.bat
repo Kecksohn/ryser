@@ -1,11 +1,12 @@
 @echo off
 
-IF NOT EXIST out mkdir out_clang
+IF NOT EXIST out_clang mkdir out_clang
+IF NOT EXIST tmp mkdir tmp
 
 REM Clang /nologo -j /EHsc /c /MD 
 set start_time=%time%
 
-.\ccache.exe clang-cl -m64 -O2 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yc"src/pch.hh" /Fp"pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c src/pch.cpp
+.\ccache.exe clang-cl -m64 -O2 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yc"src/pch.hh" /Fp"tmp/pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c src/pch.cpp -Fotmp\pch.obj
 ninja -j 12
 
 set end_time=%time%

@@ -1,4 +1,5 @@
 # Define output directory
+project_root = .
 output_dir = out_clang
 target = ryser
 
@@ -8,11 +9,11 @@ target = ryser
   # description = Precomping headers
 
 rule moc_compile
-  command = moc -b "C:\art\ryser\src\pch.hh" -o $out $in
+  command = moc -b "..\src\pch.hh" -o $out $in
   description = Generating MOC for $in
 
 rule clang_compile
-  command = ccache.exe clang-cl.exe -m64 -O2 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yu"C:\art\ryser\src\pch.hh" /Fp"C:\art\ryser\pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c $in -Fo$out
+  command = ccache.exe clang-cl.exe -m64 -O2 /EHsc /MD /Zc:dllexportInlines- /std:c++17 /Yu"$project_root\src\pch.hh" /Fp"$project_root\tmp\pch.pch" -I "C:\dev\vcpkg\installed\x64-windows\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtCore" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtGui" -I "C:\dev\Qt\6.6.3\msvc2019_64\include\QtWidgets" -c $in -Fo$out
   description = Compiling $in
 
 rule clang_link
@@ -21,8 +22,8 @@ rule clang_link
 
 
 # MOC files
-build src/moc_HomeView.cpp: moc_compile src/QtUI/HomeView.hh
-build src/moc_LibraryView.cpp: moc_compile src/QtUI/LibraryView.hh
+build tmp/moc_HomeView.cpp: moc_compile src/QtUI/HomeView.hh
+build tmp/moc_LibraryView.cpp: moc_compile src/QtUI/LibraryView.hh
 
 # Object files
 build $output_dir/main.obj: clang_compile src/main.cpp
@@ -31,8 +32,8 @@ build $output_dir/manageconfig.obj: clang_compile src/manageconfig.cpp
 build $output_dir/MainWindow.obj: clang_compile src/QtUI/MainWindow.cpp
 build $output_dir/HomeView.obj: clang_compile src/QtUI/HomeView.cpp
 build $output_dir/LibraryView.obj: clang_compile src/QtUI/LibraryView.cpp
-build $output_dir/moc_HomeView.obj: clang_compile src/moc_HomeView.cpp
-build $output_dir/moc_LibraryView.obj: clang_compile src/moc_LibraryView.cpp
+build $output_dir/moc_HomeView.obj: clang_compile tmp/moc_HomeView.cpp
+build $output_dir/moc_LibraryView.obj: clang_compile tmp/moc_LibraryView.cpp
 
 # Final executable linking
 build $output_dir/$target: clang_link $output_dir/main.obj $output_dir/videoplayer.obj $output_dir/manageconfig.obj $output_dir/MainWindow.obj $output_dir/HomeView.obj $output_dir/LibraryView.obj $output_dir/moc_HomeView.obj $output_dir/moc_LibraryView.obj
