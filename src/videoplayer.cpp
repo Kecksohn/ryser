@@ -45,13 +45,13 @@ void launch_videoplayer(std::string const& video_filepath, bool wait_for_close)
     std::wstring args_wstr = utf8_to_utf16(args_str);
     LPWSTR args = const_cast<LPWSTR>(args_wstr.c_str());
 
-    STARTUPINFO si;
+    STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
     // Start the child process.
-    if (!CreateProcess(
+    if (!CreateProcessW(
         executable_path, // Application path
         args, // Command line arguments
         NULL, // Process handle not inheritable

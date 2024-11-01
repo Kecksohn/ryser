@@ -5,8 +5,8 @@
 #include <QPushButton>
 #include <QStackedWidget>
 
-#include "QtUI/HomeView.hh"
-#include "QtUI/LibraryView.hh"
+#include "HomeView.hh"
+#include "LibraryView.hh"
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 	setWindowTitle("ryser");

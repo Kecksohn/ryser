@@ -8,7 +8,7 @@
 #include <QDebug>
 
 #include <boost/property_tree/json_parser.hpp>
-#include "manageconfig.hh"
+#include "../manageconfig.hh"
 
 HomeView::HomeView(QWidget* parent) : QWidget(parent) {
 
