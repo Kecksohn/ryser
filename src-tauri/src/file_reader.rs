@@ -1,20 +1,19 @@
 use std::fs;
 
 #[tauri::command]
-pub fn get_video_files() -> String {
+pub fn get_video_files() -> Vec<String> {
     let mut video_files: Vec<String> = vec![];
 
-    let folder_path: &str = "F:/mov";
+    let folder_path: &str = "F:\\mov";
     //let dir: &Path = folder_path.as_ref();
 
-    let paths = fs::read_dir(folder_path).unwrap();
+    let files = fs::read_dir(folder_path).unwrap();
 
-    for path in paths {
-        if let Ok(path) = path {
-            let path_display = path.path();
-            match path_display.to_str() {
+    for file in files {
+        if let Ok(valid_file) = file {
+            match valid_file.path().to_str() {
                 Some(v) => video_files.push(v.to_owned()),
-                None => video_files.push(String::from(" a ")),
+                None => {},
             }
         }
     }
@@ -29,5 +28,5 @@ pub fn get_video_files() -> String {
     }
     */
 
-    video_files[0].clone()
+    video_files
 }

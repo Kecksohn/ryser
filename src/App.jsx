@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
@@ -15,52 +15,50 @@ import {
 
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    await invoke("get_video_files").then((res) => { 
-      // trace(res.data);
-      setGreetMsg(res);  
-    });
-    //setGreetMsg(await invoke("greet", { name }));
-  }
+  const [library_elements, set_library_elements] = useState([]);
+  const [library_elements_loaded, set_library_elements_loaded] = useState(false)
+
+  useEffect(() => {
+    if (!library_elements_loaded) {
+      set_library_elements_loaded(true);
+      invoke("get_video_files").then(res => { 
+        set_library_elements(res);
+        setGreetMsg(res[0]);
+      });
+    }
+  });
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      
+      {
+        library_elements.map(element => {
+          return(
+            <p>{element}</p>
+          )
+        })
+      }
+      
     </main>
   );
 }
+
+/*
+<form
+className="row"
+onSubmit={(e) => {
+  e.preventDefault();
+  greet();
+}}
+>
+<input
+  id="greet-input"
+  onChange={(e) => setName(e.currentTarget.value)}
+  placeholder="Enter a name..."
+/>
+<button type="submit">Greet</button>
+</form>
+*/
 
 export default App;
