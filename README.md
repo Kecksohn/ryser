@@ -18,9 +18,11 @@ Go wild on the .css files inside /styles/
 Get Nodejs >= 20, npm, rust and yarn.
 ```
 yarn
-yarn ryser dev
+yarn tauri dev
 ```
 
 # Dev Build
 
-yarn ryser build
+```
+yarn tauri build
+```
