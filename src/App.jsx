@@ -3,6 +3,8 @@ import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
+import { Command } from '@tauri-apps/plugin-shell';
+
 import {
   warn,
   debug,
@@ -24,10 +26,17 @@ function App() {
       set_library_elements_loaded(true);
       invoke("get_video_files").then(res => { 
         set_library_elements(res);
-        setGreetMsg(res[0]);
       });
     }
   });
+
+  async function launch_video() {
+    let result = await Command.create('exec-sh', ["C:Program Files (x86)/K-Lite Codec Pack/MPC-HC64/mpc-hc64.exe"]).execute();
+    console.log(result);
+    await invoke("start_video_in_mpc");
+  }
+
+
 
   return (
     <main className="container">
@@ -35,7 +44,8 @@ function App() {
       {
         library_elements.map(element => {
           return(
-            <p>{element}</p>
+            <div key={element} style={{cursor: "pointer"}} onClick={() => launch_video()}
+            >{element}</div>
           )
         })
       }

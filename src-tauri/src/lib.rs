@@ -9,6 +9,9 @@ fn greet(name: &str) -> String {
 mod file_reader;
 use crate::file_reader::*;
 
+mod video_player;
+use crate::video_player::*;
+
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
 #[tauri::command]
@@ -29,7 +32,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_window,
             greet,
-            get_video_files
+            get_video_files,
+            start_video_in_mpc
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
