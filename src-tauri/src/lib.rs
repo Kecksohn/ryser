@@ -1,14 +1,11 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 mod file_reader;
 use crate::file_reader::*;
 
 mod video_player;
 use crate::video_player::*;
+
+mod app_start;
+use crate::app_start::*;
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
@@ -22,12 +19,15 @@ async fn open_window(window: Window) {
         .unwrap();
 }
 
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+
+    read_config();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             open_window,
-            greet,
             get_video_files,
             start_video_in_mpc
         ])

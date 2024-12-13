@@ -11,7 +11,7 @@ function App() {
   useEffect(() => {
     if (!library_elements_loaded) {
       set_library_elements_loaded(true);
-      invoke("get_video_files").then(res => { 
+      invoke("get_video_files", {folder_path: "F:\\mov"}).then(res => { 
         set_library_elements(res);
       });
     }
