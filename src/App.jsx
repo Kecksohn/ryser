@@ -1,19 +1,6 @@
 import { useState, useEffect } from "react";
-import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
-
-import { Command } from '@tauri-apps/plugin-shell';
-
-import {
-  warn,
-  debug,
-  trace,
-  info,
-  error,
-  attachConsole,
-  attachLogger,
-} from '@tauri-apps/plugin-log';
 
 
 function App() {
@@ -30,10 +17,8 @@ function App() {
     }
   });
 
-  async function launch_video() {
-    let result = await Command.create('exec-sh', ["C:Program Files (x86)/K-Lite Codec Pack/MPC-HC64/mpc-hc64.exe"]).execute();
-    console.log(result);
-    await invoke("start_video_in_mpc");
+  async function launch_video(full_filepath) {
+    await invoke("start_video_in_mpc", {filepath: full_filepath});
   }
 
 
@@ -44,7 +29,7 @@ function App() {
       {
         library_elements.map(element => {
           return(
-            <div key={element} style={{cursor: "pointer"}} onClick={() => launch_video()}
+            <div key={element} style={{cursor: "pointer"}} onClick={() => launch_video(element)}
             >{element}</div>
           )
         })
@@ -53,22 +38,5 @@ function App() {
     </main>
   );
 }
-
-/*
-<form
-className="row"
-onSubmit={(e) => {
-  e.preventDefault();
-  greet();
-}}
->
-<input
-  id="greet-input"
-  onChange={(e) => setName(e.currentTarget.value)}
-  placeholder="Enter a name..."
-/>
-<button type="submit">Greet</button>
-</form>
-*/
 
 export default App;
