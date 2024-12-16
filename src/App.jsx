@@ -29,8 +29,8 @@ function App() {
       {
         library_elements.map(element => {
           return(
-            <div key={element} style={{cursor: "pointer"}} onClick={() => launch_video(element)}
-            >{element}</div>
+            <div key={element.filepath} style={{cursor: "pointer"}} onClick={() => launch_video(element)}
+            >{element.filepath}</div>
           )
         })
       }
