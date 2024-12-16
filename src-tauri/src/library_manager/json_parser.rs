@@ -5,34 +5,23 @@ use super::library;
 use crate::{get_video_files, video_file};
 
 
-pub(super) fn get_library(identifier: &str) -> Option<library> {
+pub(super) fn get_library(identifier: &str) -> Result<library, String> {
 
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         let library_json_filepath = proj_dir.data_local_dir().join(identifier).join("library.json");
-    
-        if! library_json_filepath.exists() {
-            print!("No good.");
-        }
 
         match fs::File::open(&library_json_filepath) {
             Ok(json_file) => {
                 match serde_json::from_reader(json_file) {
-                    Ok(library) => return library,
-                    Err(error) => {
-                        println!("Error extracting {} , error: {}", &library_json_filepath.to_str().unwrap(), error);
-                        return None;
-                    }
+                    Ok(library) => Result::Ok(library),
+                    Err(error) => Result::Err(format!("Error extracting {} , error: {}", &library_json_filepath.to_str().unwrap(), error)),
                 }
             },
-            Err(error) => {
-                println!("Problem opening {}: {}", &library_json_filepath.to_str().unwrap(), error);
-                return None;
-            }
+            Err(error) => Result::Err("Problem opening ".to_owned() + &library_json_filepath.to_str().unwrap() + &error.to_string())
         }
     }
     else {
-        println!("Could not get project config dir paths");
-        return None;
+        return Result::Err("Could not get project config dir paths".to_owned());
     }
 }
 
@@ -48,8 +37,8 @@ pub(super) fn get_all_libraries() -> Vec<library> {
                 Ok(f) => {
                     if f.path().is_dir() {
                         match get_library(f.file_name().to_str().unwrap()) {
-                            Some(lib) => libraries.push(lib),
-                            None => println!("Could not parse library at {}", f.path().to_str().unwrap())
+                            Ok(lib) => libraries.push(lib),
+                            Err(error) => println!("Could not parse library at {}: {}", f.path().to_str().unwrap(), error)
                         }
                     }
                 },
@@ -62,7 +51,7 @@ pub(super) fn get_all_libraries() -> Vec<library> {
 }
 
 
-pub(super) fn write_library(library: library) {
+pub(super) fn write_library(library: &library) {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         
         // Create library folder if it does not exist

@@ -34,7 +34,7 @@ pub(crate) fn call_public() {
     
     let libraries: Vec<library> = get_all_libraries();
     
-    if (libraries.len() > 0) {
+    if libraries.len() > 0 {
         println!("{}", libraries[0].identifier);
     }
 
@@ -44,6 +44,6 @@ pub(crate) fn call_public() {
         library_paths: vec!["bitches stay".to_owned()],
         video_files: vec![]
     };
-    write_library(lib);
+    write_library(&lib);
     */
 }
