@@ -1,7 +1,9 @@
 use std::fs;
 
+use serde::Deserialize;
+
 #[derive(Default)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct video_file {
     filepath:       String,
     title:          Option<String>,

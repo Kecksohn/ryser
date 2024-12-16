@@ -1,14 +1,16 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
-
-mod file_reader;
-use crate::file_reader::*;
+#![allow(unused_variables)]
 
 mod video_player;
 use crate::video_player::*;
 
 mod app_start;
 use crate::app_start::*;
+
+mod library_manager;
+use crate::library_manager::file_reader::*;
+use crate::library_manager::call_public;
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
@@ -32,7 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_window,
             get_video_files,
-            start_video_in_mpc
+            start_video_in_mpc,
+            call_public,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
