@@ -2,7 +2,7 @@ use std::fs;
 
 use serde::Deserialize;
 
-use super::tmdb_api::*;
+use crate::tmdb_api::*;
 
 #[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
 pub struct video_file {
