@@ -58,7 +58,7 @@ pub(super) async fn get_movie_information_tmdb(movietitle: &str) -> Result<(), E
         println!("{}", response.text().await?);
     }
     else {
-        panic!("API token not valid. Go to api.themoviedb.org and insert in src/library_manager/api_token.rs");
+        panic!("API token not valid. Go to api.themoviedb.org and insert in src/library_manager/tmdb_api_token.rs");
     }
     
     Ok(())
