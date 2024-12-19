@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 mod video_player;
 use crate::video_player::*;
@@ -9,8 +10,8 @@ mod app_start;
 use crate::app_start::*;
 
 mod library_manager;
-use crate::library_manager::file_reader::*;
 use crate::library_manager::call_public;
+use crate::library_manager::file_reader::*;
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
@@ -24,13 +25,12 @@ async fn open_window(window: Window) {
         .unwrap();
 }
 
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-
     read_config();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             open_window,
             get_video_files,
