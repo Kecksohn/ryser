@@ -1,16 +1,13 @@
 #![allow(dead_code)]
 
+mod api_token;
+
 use serde::Deserialize;
 use tauri_plugin_http::reqwest::{self, Client, Response, Error};
 use tauri_plugin_http::reqwest::header::USER_AGENT;
 
-use super::tmdb_api_token::get_api_token;
+use api_token::get_api_token;
 
-#[derive(Deserialize, Debug)]
-struct User {
-    login: String,
-    id: u32,
-}
 
 #[derive(Deserialize, Debug)]
 struct test_authentification {
@@ -58,7 +55,7 @@ pub(super) async fn get_movie_information_tmdb(movietitle: &str) -> Result<(), E
         println!("{}", response.text().await?);
     }
     else {
-        panic!("API token not valid. Go to api.themoviedb.org and insert in src/library_manager/tmdb_api_token.rs");
+        panic!("API token not valid. Go to api.themoviedb.org and insert in src/tmdb_api/api_token.rs");
     }
     
     Ok(())

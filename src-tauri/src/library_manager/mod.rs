@@ -1,11 +1,10 @@
 pub(crate) mod file_reader;
 mod json_parser;
 
-mod tmdb_api;
-mod tmdb_api_token;
+
 
 use tauri_plugin_http::reqwest::Error;
-use tmdb_api::*;
+use crate::tmdb_api::*;
 use json_parser::*;
 
 use file_reader::video_file;

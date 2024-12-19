@@ -13,6 +13,8 @@ mod library_manager;
 use crate::library_manager::call_public;
 use crate::library_manager::file_reader::*;
 
+mod tmdb_api;
+
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
 #[tauri::command]
