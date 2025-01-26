@@ -42,7 +42,7 @@ export const LibraryView = ({folder_path}) => {
         event.preventDefault();
         set_context_menu_state({
           visible: true,
-          position: { x: event.pageX, y: event.pageY },
+          position: { x: event.clientX, y: event.clientY },
           context
         });
     };
