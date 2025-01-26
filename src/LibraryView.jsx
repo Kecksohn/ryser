@@ -31,23 +31,11 @@ export const LibraryView = ({folder_path}) => {
     });
 
     const get_menu_items = (context) => {
-        switch (context?.type) {
-          case 'document':
-            return [
-              { label: 'Open', action: () => {} },
-              { label: 'Download', action: () => {} }
-            ];
-          case 'image':
-            return [
-              { label: 'Save Image', action: () => {} },
-              { label: 'Copy Image', action: () => {} }
-            ];
-          default:
-            return [
-              { label: 'Null Image', action: () => {} },
-              { label: 'Copy Image', action: () => {} }
-            ];
-        }
+        return [
+            { label: 'Edit Info', action: () => {close_context_menu();} },
+            { label: 'Change Cover', action: () => {close_context_menu();} },
+            { label: 'Show in Windows Explorer', action: () => {close_context_menu();} }
+        ];
     };
 
     const handle_context_menu = (event, context) => {
@@ -58,10 +46,14 @@ export const LibraryView = ({folder_path}) => {
           context
         });
     };
+
+    const close_context_menu = () => {
+      set_context_menu_state(prev => ({ ...prev, visible: false }));
+    }
     
     // Close menu when clicking outside
     useEffect(() => {
-      const handleClick = () => set_context_menu_state(prev => ({ ...prev, visible: false }));
+      const handleClick = () => close_context_menu();
       document.addEventListener('click', handleClick);
       return () => document.removeEventListener('click', handleClick);
     }, []);

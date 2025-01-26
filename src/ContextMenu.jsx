@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
+import "./ContextMenu.css"
+
 export const ContextMenu = ({ menu_items, position }) => {
   const menu_ref = useRef(null);
 
@@ -39,19 +41,17 @@ export const ContextMenu = ({ menu_items, position }) => {
   return ReactDOM.createPortal(
     <div
       ref={menu_ref}
+      className="context-menu"
       style={{
-        position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
-        zIndex: 9999
       }}
-      className="bg-white border rounded shadow-lg"
     >
       {menu_items.map((menu_item, index) => (
         <div
           key={index}
           onClick={(e) => {handle_menu_click(e, menu_item.action);}}
-          className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+          className="context-menu-item"
         >
           {menu_item.icon && <span className="w-4 h-4">{menu_item.icon}</span>}
           {menu_item.label}
