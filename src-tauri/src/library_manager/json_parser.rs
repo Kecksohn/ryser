@@ -31,37 +31,10 @@ pub(super) fn get_library(identifier: &str) -> Result<library, String> {
     }
 }
 
-pub(super) fn get_all_libraries() -> Vec<library> {
-    let mut libraries = Vec::new();
-
-    if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
-        let libraries_folder = proj_dir.data_local_dir();
-        for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
-            match file_or_folder {
-                Ok(f) => {
-                    if f.path().is_dir() {
-                        match get_library(f.file_name().to_str().unwrap()) {
-                            Ok(lib) => libraries.push(lib),
-                            Err(error) => println!(
-                                "Could not parse library at {}: {}",
-                                f.path().to_str().unwrap(),
-                                error
-                            ),
-                        }
-                    }
-                }
-                Err(error) => println!("Error while reading libraries folder: {}", error),
-            }
-        }
-    }
-
-    return libraries;
-}
-
 pub(super) fn write_library(library: &library) {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         // Create library folder if it does not exist
-        let library_folder = proj_dir.data_local_dir().join(&library.identifier);
+        let library_folder = proj_dir.data_local_dir().join(&library.id);
         if !library_folder.exists() {
             match fs::create_dir_all(&library_folder) {
                 Ok(()) => {}

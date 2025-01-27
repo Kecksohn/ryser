@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ContextMenu } from "./ContextMenu";
 import { EditVideoEntryView } from "./EditVideoEntryView";
 
-export const LibraryView = ({folder_path}) => {
+export const LibraryView = ({library_id}) => {
 
     const [library_elements, set_library_elements] = useState([]);
     const [library_elements_loaded, set_library_elements_loaded] = useState(false)
@@ -12,7 +12,7 @@ export const LibraryView = ({folder_path}) => {
     useEffect(() => {
       if (!library_elements_loaded) {
         set_library_elements_loaded(true);
-        invoke("get_video_files", {folder_path: folder_path}).then(res => { 
+        invoke("get_library_videos", {library_id: library_id}).then(res => { 
           set_library_elements(res);
         });
       }

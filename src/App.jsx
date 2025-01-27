@@ -7,7 +7,7 @@ import { LibraryView } from "./LibraryView";
 function App() {
 
   return(
-    <LibraryView folder_path="F:\\mov"/>
+    <LibraryView library_id="movies"/>
   )
   
 }

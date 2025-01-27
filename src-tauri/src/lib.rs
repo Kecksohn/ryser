@@ -10,6 +10,7 @@ mod app_start;
 use crate::app_start::*;
 
 mod library_manager;
+use crate::library_manager::load_all_libraries;
 use crate::library_manager::call_public;
 use crate::library_manager::file_reader::*;
 
@@ -30,12 +31,13 @@ async fn open_window(window: Window) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     read_config();
+    load_all_libraries();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             open_window,
-            get_video_files,
+            get_library_videos,
             start_video_in_mpc,
             call_public,
         ])
