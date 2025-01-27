@@ -11,6 +11,7 @@ export const EditVideoEntryView = ({disable_view, video_entry}) => {
             <div>Year: {video_entry.year}</div>
             <div>Director: {video_entry.director}</div>
             <div>Countries: {video_entry.countries}</div>
+            <div>Watched: {video_entry.watched}</div>
             <div>Poster Path: {video_entry.poster_path}</div>
         </div>
     )

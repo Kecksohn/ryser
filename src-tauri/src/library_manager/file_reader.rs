@@ -13,6 +13,7 @@ pub struct video_file {
     director: Option<String>,
     countries: Option<Vec<String>>,
     languages: Option<Vec<String>>,
+    watched: bool,
 }
 
 #[tauri::command(rename_all = "snake_case")]
