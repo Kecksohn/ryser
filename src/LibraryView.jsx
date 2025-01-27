@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { ContextMenu } from "./ContextMenu";
+import { EditVideoEntryView } from "./EditVideoEntryView";
 
 export const LibraryView = ({folder_path}) => {
 
@@ -19,8 +20,7 @@ export const LibraryView = ({folder_path}) => {
 
 
     async function launch_video(full_filepath) {
-        invoke("call_public");
-        //await invoke("start_video_in_mpc", {filepath: full_filepath});
+        await invoke("start_video_in_mpc", {filepath: full_filepath});
     }
     
 
@@ -32,9 +32,10 @@ export const LibraryView = ({folder_path}) => {
 
     const get_menu_items = (context) => {
         return [
-            { label: 'Edit Info', action: () => {close_context_menu();} },
-            { label: 'Change Cover', action: () => {close_context_menu();} },
-            { label: 'Show in Windows Explorer', action: () => {close_context_menu();} }
+            { label: 'no impl: Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
+            { label: 'no impl: Show in Windows Explorer', action: () => {close_context_menu();} },
+            { label: 'no impl: Remove from Library', action: () => {close_context_menu();} },
+            { label: 'no impl: Delete from Storage', action: () => {invoke("call_public"); close_context_menu();}}
         ];
     };
 
@@ -59,15 +60,20 @@ export const LibraryView = ({folder_path}) => {
     }, []);
     
   
-  
+    const [edit_entry_view_visible, set_edit_entry_view_visible] = useState(false);
+    const disable_edit_entry_view = () => {
+      set_edit_entry_view_visible(false);
+    }
+
+
     return (
       <div className="container">
         
         {
-          library_elements.map(element => {
+          !edit_entry_view_visible && library_elements.map(element => {
             return(
               <div key={element.filepath} 
-                style={{cursor: "pointer"}} onClick={() => launch_video(element)}
+                style={{cursor: "pointer"}} onClick={() => launch_video(element.filepath)}
                 onContextMenu={(e) => handle_context_menu(e, element)}
               >{element.filepath}</div>
             )
@@ -79,6 +85,13 @@ export const LibraryView = ({folder_path}) => {
               menu_items={get_menu_items(context_menu_state.context)}
               position={context_menu_state.position}
             />
+        )}
+
+        {edit_entry_view_visible && (
+          <EditVideoEntryView 
+            disable_view={disable_edit_entry_view}
+            video_entry={context_menu_state.context}
+          />
         )}
         
       </div>
