@@ -11,6 +11,7 @@ use crate::app_start::*;
 
 mod library_manager;
 use crate::library_manager::load_all_libraries;
+use crate::library_manager::check_for_library_changes;
 use crate::library_manager::call_public;
 use crate::library_manager::file_reader::*;
 
@@ -32,6 +33,7 @@ async fn open_window(window: Window) {
 pub fn run() {
     read_config();
     load_all_libraries();
+    check_for_library_changes();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())

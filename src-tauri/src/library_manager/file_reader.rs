@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs::{self, DirEntry}, path::PathBuf};
 
 use serde::Deserialize;
 
@@ -8,8 +8,8 @@ use super::LIBRARIES;
 
 
 #[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
-pub struct video_file {
-    filepath: String,
+pub struct video_element {
+    pub filepath: String,
     title: Option<String>,
     year: Option<i16>,
     poster_path: Option<String>,
@@ -20,24 +20,29 @@ pub struct video_file {
     watched: bool,
 }
 
+pub fn create_video_element_from_file(filepath: &str) -> video_element {
+    let ve = video_element {
+        filepath: filepath.to_owned(),
+        ..Default::default()
+    };
+    ve
+}
 
-pub fn get_video_files(folder_path: &str) -> Vec<video_file> {
-    let mut video_files: Vec<video_file> = vec![];
+
+pub fn get_video_files(folder_path: &str) -> Vec<video_element> {
+    let mut video_files: Vec<video_element> = vec![];
 
     let files = fs::read_dir(folder_path).unwrap();
     for file in files {
         if let Ok(valid_file) = file {
-            match valid_file.path().to_str() {
-                Some(v) => {
-                    let vf = video_file {
-                        filepath: v.to_owned(),
-                        //title: Some("AAA".to_owned()),
-                        //watched: true,
+            if valid_file.metadata().unwrap().is_file() && is_video_file(&valid_file.path()) {
+                if let Some(filepath_str) = valid_file.path().to_str() {
+                    let vf = video_element {
+                        filepath: filepath_str.to_owned(),
                         ..Default::default()
                     };
                     video_files.push(vf)
                 }
-                None => {}
             }
         }
     }
@@ -45,10 +50,23 @@ pub fn get_video_files(folder_path: &str) -> Vec<video_file> {
     video_files
 }
 
+pub fn is_video_file(filepath: &PathBuf) -> bool {
+    if let Some(ext) = filepath.extension() {
+        if let Some(ext_str) = ext.to_str() {
+            return matches!(ext_str.to_lowercase().as_str(),
+                    "mkv" | "mp4" | "avi" | "mov" | "m2ts"); // TODO: Read from config and allow user additions
+        }
+    }
+    else {
+        println!("Couldn't get extension type for {:?}", filepath);
+    }
+    return false;
+}
+
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos(library_id: &str) -> Vec<video_file> {
+pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
     
-    let mut library_videos: Vec<video_file> = vec![];
+    let mut library_videos: Vec<video_element> = vec![];
     
     for library in LIBRARIES.lock().unwrap().iter() {
         if library.id == library_id {

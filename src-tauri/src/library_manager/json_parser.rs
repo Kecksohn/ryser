@@ -2,7 +2,7 @@ use directories::ProjectDirs;
 use std::fs;
 
 use super::library;
-use crate::{get_video_files, video_file};
+use crate::{get_video_files, video_element};
 
 pub(super) fn get_library(identifier: &str) -> Result<library, String> {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
