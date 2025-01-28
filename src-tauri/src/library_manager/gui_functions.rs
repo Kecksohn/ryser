@@ -1,9 +1,13 @@
 use directories::ProjectDirs;
-use std::fs;
+use std::{default, fs};
+
 
 use super::{library, video_element, LIBRARIES, update_library_entry};
 use super::tmdb_api::get_movie_information_tmdb;
 use super::json_parser::write_library;
+
+use super::tmdb_api::json_structs::*;
+
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_libraries_gui() -> Vec<library> {
@@ -21,6 +25,7 @@ pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
     println!("Library {} not found!", library_id);
     vec![]
 }
+
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn update_library_entry_from_gui(library_id: &str, updated_element: video_element) {
@@ -41,28 +46,23 @@ pub fn update_library_entry_from_gui(library_id: &str, updated_element: video_el
     println!("Library {} not found!", library_id);
 }
 
-
-
 #[tauri::command(rename_all = "snake_case")]
-pub async fn call_public() {
-
-    match get_movie_information_tmdb("das weiße band").await {
-        Ok(()) => (),
-        Err(_) => return,
-    }
-
-    if LIBRARIES.lock().unwrap().len() > 0 {
-        println!("{}", LIBRARIES.lock().unwrap()[0].id);
-    }
-
-    /*
-    
-    let lib = library {
-        id: "tvshows".to_owned(),
-        library_paths: vec!["F:/tv/".to_owned()],
-        video_files: vec![]
+pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<video_element>, String> {
+    let Ok(query_result_text) = get_movie_information_tmdb(search_title).await else {
+        return Err("Error trying to call tmdb database!".to_owned());
     };
-    write_library(&lib);
-     */
     
+    println!("{}", query_result_text.results[0].title.clone().unwrap());
+
+    let mut query_result_elements: Vec<video_element> = vec![];
+
+    let result_element = video_element {
+        filepath: "".to_owned(),
+        ..Default::default()
+    };
+    query_result_elements.push(result_element);
+
+    println!("{} elements found for {}", query_result_elements.len(), search_title);
+
+    return Ok(query_result_elements);
 }

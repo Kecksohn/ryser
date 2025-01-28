@@ -15,7 +15,6 @@ export const LibraryView = ({library_id}) => {
         set_library_elements_loaded(true);
         invoke("get_library_videos", {library_id: library_id}).then(res => { 
           set_library_elements(res);
-          console.log(res);
         });
       }
     });
@@ -50,6 +49,17 @@ export const LibraryView = ({library_id}) => {
         */
         await invoke("update_library_entry_from_gui", {library_id: library_id, updated_element: updated_element});
     }
+
+    async function get_tmdb_entries(search_string) {
+      await invoke("search_tmdb_from_gui", {search_title: search_string})
+        .then(res => {
+          console.log(res);
+        })
+        .catch(e => {
+          console.log("Error: "+e);
+          return;
+        });
+    }
     
 
     // Context Menu
@@ -62,10 +72,11 @@ export const LibraryView = ({library_id}) => {
 
     const get_menu_items = (context) => {
         return [
+            {label: 'call tmdb', action: () => {get_tmdb_entries('blade runner'); close_context_menu();} },
             { label: 'no impl: Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
             { label: 'no impl: Show in Windows Explorer', action: () => {close_context_menu();} },
             { label: 'no impl: Remove from Library', action: () => {close_context_menu();} },
-            { label: 'no impl: Delete from Storage', action: () => {invoke("call_public"); close_context_menu();}}
+            { label: 'no impl: Delete from Storage', action: () => {close_context_menu();} }
         ];
     };
 

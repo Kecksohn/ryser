@@ -36,10 +36,13 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             open_window,
+
             get_library_videos,
             start_video_in_mpc,
-            call_public,
+
             update_library_entry_from_gui,
+            search_tmdb_from_gui,
+            
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

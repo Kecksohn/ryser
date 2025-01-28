@@ -1,18 +1,15 @@
 #![allow(dead_code)]
 
 mod api_token;
+pub(super) mod json_structs;
 
 use serde::Deserialize;
 use tauri_plugin_http::reqwest::{self, Client, Response, Error};
 use tauri_plugin_http::reqwest::header::USER_AGENT;
 
 use api_token::get_api_token;
+use json_structs::*;
 
-
-#[derive(Deserialize, Debug)]
-struct test_authentification {
-    success: bool
-}
 
 
 async fn call_tmdb_api(client: &Client, api_url: &str, api_token: &str) -> Result<Response, Error> {
@@ -36,27 +33,25 @@ pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_tok
     }
 }
 
-pub(crate) async fn get_movie_information_tmdb(movietitle: &str) -> Result<(), Error> {
+pub(crate) async fn get_movie_information_tmdb(movietitle: &str) -> Result<search_movie_res, Error> {
     
     let api_token = get_api_token();
     let client = reqwest::Client::new();
 
-    
     if is_tmdb_api_read_access_token_valid(&client, api_token).await? {
-        let search_movie_url = format!("https://api.themoviedb.org/3/search/movie?query={query}&include_adult={include_adult}&language={language}&page={page}",
-                              query = movietitle,
-                              include_adult = "false",
-                              language = "en-US",
-                              page = "1"
-                              //year = "1982",
-                              );
+        let search_movie_url = 
+            format!("https://api.themoviedb.org/3/search/movie?query={query}&include_adult={include_adult}&language={language}&page={page}",
+                    query = movietitle,
+                    include_adult = "false",
+                    language = "en-US",
+                    page = "1"
+                    //year = "1982",
+                );
 
         let response = call_tmdb_api(&client, &search_movie_url, api_token).await?;
-        println!("{}", response.text().await?);
+        return response.json().await;
     }
     else {
         panic!("API token not valid. Go to api.themoviedb.org and insert in src/tmdb_api/api_token.rs");
     }
-    
-    Ok(())
 }
