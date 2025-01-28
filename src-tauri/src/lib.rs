@@ -12,10 +12,7 @@ use crate::app_start::*;
 mod library_manager;
 use crate::library_manager::load_all_libraries;
 use crate::library_manager::check_for_library_changes;
-use crate::library_manager::call_public;
-use crate::library_manager::update_library_entry_from_gui;
-use crate::library_manager::get_library_videos;
-use crate::library_manager::file_reader::*;
+use crate::library_manager::gui_functions::*;
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.

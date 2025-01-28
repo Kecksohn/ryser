@@ -1,13 +1,15 @@
 use directories::ProjectDirs;
 use std::{fs, vec};
 
-pub(crate) mod file_reader;
+mod file_reader;
 mod json_parser;
 mod tmdb_api;
+pub(crate) mod gui_functions;
 
 use tauri_plugin_http::reqwest::Error;
 use json_parser::*;
 use file_reader::*;
+use tmdb_api::*;
 use serde::Deserialize;
 
 
@@ -17,6 +19,26 @@ pub struct library {
     library_paths: Vec<String>,
     video_files: Vec<video_element>,
     child_libraries: Vec<library>,
+}
+
+#[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
+pub struct video_element {
+    pub filepath: String,
+    watched: bool,
+    parsed: bool,
+    poster_path: Option<String>,
+    thumbnail_path: Option<String>,
+
+    title: Option<String>,
+    year: Option<i16>,
+    director: Option<String>,
+    countries: Option<Vec<String>>,
+    languages: Option<Vec<String>>,
+
+    season: Option<i32>,
+    episode: Option<i32>,
+
+    index_priority: i32,
 }
 
 use std::sync::Mutex;
@@ -46,22 +68,6 @@ pub(crate) fn load_all_libraries() {
     }
 }
 
-#[tauri::command(rename_all = "snake_case")]
-pub(crate) fn get_libraries_gui() -> Vec<library> {
-    print!("Please write a better function!");
-    return LIBRARIES.lock().unwrap().clone();
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub(crate) fn get_library_videos(library_id: &str) -> Vec<video_element> {
-    if let Some(library) = LIBRARIES.lock().unwrap()
-        .iter_mut()
-        .find(|library| library.id.to_string() == library_id) {
-            return library.video_files.clone();
-        }
-    println!("Library {} not found!", library_id);
-    vec![]
-}
 
 pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
@@ -188,49 +194,4 @@ pub(crate) fn update_library_entry_by_index(library: &mut library, updated_eleme
     }
     library.video_files[index] = updated_element;
     Ok(())
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub(crate) fn update_library_entry_from_gui(library_id: &str, updated_element: video_element) {
-    for library in LIBRARIES.lock().unwrap().iter_mut() {
-        if library.id.to_string() == library_id {
-            match update_library_entry(library, updated_element) {
-                Ok(()) => {
-                    write_library(library);
-                    return;
-                },
-                Err(str) => {
-                    println!("Error when updating Library: {}", str); 
-                    return;
-                }
-            }
-        }
-    }
-    println!("Library {} not found!", library_id);
-}
-
-
-
-#[tauri::command(rename_all = "snake_case")]
-pub(crate) async fn call_public() {
-
-    match get_movie_information_tmdb("das weiße band").await {
-        Ok(()) => (),
-        Err(_) => return,
-    }
-
-    if LIBRARIES.lock().unwrap().len() > 0 {
-        println!("{}", LIBRARIES.lock().unwrap()[0].id);
-    }
-
-    /*
-    
-    let lib = library {
-        id: "tvshows".to_owned(),
-        library_paths: vec!["F:/tv/".to_owned()],
-        video_files: vec![]
-    };
-    write_library(&lib);
-     */
-    
 }

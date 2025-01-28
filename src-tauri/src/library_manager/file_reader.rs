@@ -4,30 +4,10 @@ use serde::Deserialize;
 
 use crate::library_manager::tmdb_api::*;
 
-use super::LIBRARIES;
+use super::{LIBRARIES, video_element};
 
 
-#[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
-pub struct video_element {
-    pub filepath: String,
-    watched: bool,
-    parsed: bool,
-    poster_path: Option<String>,
-    thumbnail_path: Option<String>,
-
-    title: Option<String>,
-    year: Option<i16>,
-    director: Option<String>,
-    countries: Option<Vec<String>>,
-    languages: Option<Vec<String>>,
-
-    season: Option<i32>,
-    episode: Option<i32>,
-
-    index_priority: i32,
-}
-
-pub fn create_video_element_from_file(filepath: &str) -> video_element {
+pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
     let ve = video_element {
         filepath: filepath.to_owned(),
         ..Default::default()
@@ -36,7 +16,7 @@ pub fn create_video_element_from_file(filepath: &str) -> video_element {
 }
 
 
-pub fn get_video_files(folder_path: &str) -> Vec<video_element> {
+pub(super) fn get_video_files(folder_path: &str) -> Vec<video_element> {
     let mut video_files: Vec<video_element> = vec![];
 
     let files = fs::read_dir(folder_path).unwrap();
@@ -57,7 +37,7 @@ pub fn get_video_files(folder_path: &str) -> Vec<video_element> {
     video_files
 }
 
-pub fn is_video_file(filepath: &PathBuf) -> bool {
+pub(super) fn is_video_file(filepath: &PathBuf) -> bool {
     if let Some(ext) = filepath.extension() {
         if let Some(ext_str) = ext.to_str() {
             return matches!(ext_str.to_lowercase().as_str(),
@@ -70,8 +50,8 @@ pub fn is_video_file(filepath: &PathBuf) -> bool {
     return false;
 }
 
-#[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
+
+fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
     
     let mut library_videos: Vec<video_element> = vec![];
     
