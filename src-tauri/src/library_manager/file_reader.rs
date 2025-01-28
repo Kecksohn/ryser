@@ -64,7 +64,7 @@ pub fn is_video_file(filepath: &PathBuf) -> bool {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
+pub fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
     
     let mut library_videos: Vec<video_element> = vec![];
     

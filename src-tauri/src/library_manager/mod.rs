@@ -53,6 +53,17 @@ pub(crate) fn get_libraries_gui() -> Vec<library> {
     return LIBRARIES.lock().unwrap().clone();
 }
 
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn get_library_videos(library_id: &str) -> Vec<video_element> {
+    if let Some(library) = LIBRARIES.lock().unwrap()
+        .iter_mut()
+        .find(|library| library.id.to_string() == library_id) {
+            return library.video_files.clone();
+        }
+    println!("Library {} not found!", library_id);
+    vec![]
+}
+
 pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
 }
@@ -133,23 +144,70 @@ pub(crate) fn check_for_library_changes() {
             missing_video_files_indices.push(library_index);
         }
 
-        println!("Library: {}", library.id);
-        println!("Removed Files: ({}):", missing_video_files_indices.len());
-        for index in missing_video_files_indices.iter().rev() {
-            println!("{}", library.video_files[*index].filepath);
-            library.video_files.remove(*index);
-        }
-        println!("New Files ({}): ", new_filepath_indices.len());
-        for filepath_index in new_filepath_indices.iter() {
-            println!("{}", &video_files_in_library_paths[*filepath_index]);
-            let video_file = create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
-            library.video_files.push(video_file);
-        }
+        if missing_video_files_indices.len() > 0 || new_filepath_indices.len() > 0 {
+            println!("Library: {}", library.id);
+            println!("Removed Files: ({}):", missing_video_files_indices.len());
+            for index in missing_video_files_indices.iter().rev() {
+                println!("{}", library.video_files[*index].filepath);
+                library.video_files.remove(*index);
+            }
+            println!("New Files ({}): ", new_filepath_indices.len());
+            for filepath_index in new_filepath_indices.iter() {
+                println!("{}", &video_files_in_library_paths[*filepath_index]);
+                let video_file = create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
+                library.video_files.push(video_file);
+            }
 
-        library.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
-        println!("Before: {}, Now: {}", library.video_files.len() - new_filepath_indices.len() + missing_video_files_indices.len() , library.video_files.len());
-        write_library(&library);
+            library.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
+            println!("Before: {}, Now: {}", library.video_files.len() - new_filepath_indices.len() + missing_video_files_indices.len() , library.video_files.len());
+            write_library(&library);
+        }
     } 
+}
+
+
+pub(crate) fn update_library_entry(library: &mut library, updated_element: video_element) -> Result<(), String> {
+    let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
+        return Result::Err("Could not get project dirs".to_owned());
+    };
+    let library_folder = proj_dir.data_local_dir().join(&library.id);
+    if !library_folder.exists() {
+        return Result::Err("Could not find library".to_owned());
+    }
+    for old_element in library.video_files.iter_mut() {
+        if old_element.filepath == updated_element.filepath {
+            *old_element = updated_element;
+            return Ok(());
+        }
+    }
+    return Result::Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id));
+}
+
+pub(crate) fn update_library_entry_by_index(library: &mut library, updated_element: video_element, index: usize) -> Result<(), String> {
+    if index >= library.video_files.len() {
+        return Result::Err(format!("Index {} out of range of library elements ({})", index, library.video_files.len()));
+    }
+    library.video_files[index] = updated_element;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn update_library_entry_from_gui(library_id: &str, updated_element: video_element) {
+    for library in LIBRARIES.lock().unwrap().iter_mut() {
+        if library.id.to_string() == library_id {
+            match update_library_entry(library, updated_element) {
+                Ok(()) => {
+                    write_library(library);
+                    return;
+                },
+                Err(str) => {
+                    println!("Error when updating Library: {}", str); 
+                    return;
+                }
+            }
+        }
+    }
+    println!("Library {} not found!", library_id);
 }
 
 

@@ -6,6 +6,7 @@ import { EditVideoEntryView } from "./EditVideoEntryView";
 
 export const LibraryView = ({library_id}) => {
 
+  // Load Library
     const [library_elements, set_library_elements] = useState([]);
     const [library_elements_loaded, set_library_elements_loaded] = useState(false)
   
@@ -14,15 +15,44 @@ export const LibraryView = ({library_id}) => {
         set_library_elements_loaded(true);
         invoke("get_library_videos", {library_id: library_id}).then(res => { 
           set_library_elements(res);
+          console.log(res);
         });
       }
     });
 
 
+    // Functions
+
     async function launch_video(full_filepath) {
         await invoke("start_video_in_mpc", {filepath: full_filepath});
     }
+
+    async function update_element_in_library(updated_element, library_index = null) {
+        /*  
+        if (!library_index) {
+            for (const [i, element] of library_elements.entries) {
+                if (element.filepath === updated_element.filepath) {
+                    library_index = i;
+                    break;
+                }
+            }
+        }
+        if (!library_index) {
+            console.log(`Did not find library index for ${updated_element.filepath}`);
+            return;
+        }
+        
+        set_library_elements([
+          ...library_elements.slice(0, library_index),
+          { ...library_elements[targetIndex], updated_element },
+          ...library_elements.slice(library_index + 1)
+        ]);
+        */
+        await invoke("update_library_entry_from_gui", {library_id: library_id, updated_element: updated_element});
+    }
     
+
+    // Context Menu
 
     const [context_menu_state, set_context_menu_state] = useState({
         visible: false,
@@ -66,6 +96,9 @@ export const LibraryView = ({library_id}) => {
     }
 
 
+
+
+
     return (
       <div className="container">
         
@@ -75,7 +108,8 @@ export const LibraryView = ({library_id}) => {
               <div key={element.filepath} 
                 style={{cursor: "pointer"}} onClick={() => launch_video(element.filepath)}
                 onContextMenu={(e) => handle_context_menu(e, element)}
-              >{element.filepath}</div>
+              >{element.title && element.title}
+                {!element.title && element.filepath}</div>
             )
           })
         }
@@ -90,6 +124,7 @@ export const LibraryView = ({library_id}) => {
         {edit_entry_view_visible && (
           <EditVideoEntryView 
             disable_view={disable_edit_entry_view}
+            update_element_in_library={update_element_in_library}
             video_entry={context_menu_state.context}
           />
         )}

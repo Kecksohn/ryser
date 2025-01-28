@@ -13,6 +13,8 @@ mod library_manager;
 use crate::library_manager::load_all_libraries;
 use crate::library_manager::check_for_library_changes;
 use crate::library_manager::call_public;
+use crate::library_manager::update_library_entry_from_gui;
+use crate::library_manager::get_library_videos;
 use crate::library_manager::file_reader::*;
 
 mod tmdb_api;
@@ -42,6 +44,7 @@ pub fn run() {
             get_library_videos,
             start_video_in_mpc,
             call_public,
+            update_library_entry_from_gui,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
