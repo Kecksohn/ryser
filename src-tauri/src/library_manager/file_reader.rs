@@ -2,7 +2,7 @@ use std::{fs::{self, DirEntry}, path::PathBuf};
 
 use serde::Deserialize;
 
-use crate::tmdb_api::*;
+use crate::library_manager::tmdb_api::*;
 
 use super::LIBRARIES;
 
@@ -10,14 +10,21 @@ use super::LIBRARIES;
 #[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
 pub struct video_element {
     pub filepath: String,
-    title: Option<String>,
-    year: Option<i16>,
+    watched: bool,
+    parsed: bool,
     poster_path: Option<String>,
     thumbnail_path: Option<String>,
+
+    title: Option<String>,
+    year: Option<i16>,
     director: Option<String>,
     countries: Option<Vec<String>>,
     languages: Option<Vec<String>>,
-    watched: bool,
+
+    season: Option<i32>,
+    episode: Option<i32>,
+
+    index_priority: i32,
 }
 
 pub fn create_video_element_from_file(filepath: &str) -> video_element {

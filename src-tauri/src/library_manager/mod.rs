@@ -3,11 +3,9 @@ use std::{fs, vec};
 
 pub(crate) mod file_reader;
 mod json_parser;
-
-
+mod tmdb_api;
 
 use tauri_plugin_http::reqwest::Error;
-use crate::tmdb_api::*;
 use json_parser::*;
 use file_reader::*;
 use serde::Deserialize;
@@ -18,6 +16,7 @@ pub struct library {
     id: String,
     library_paths: Vec<String>,
     video_files: Vec<video_element>,
+    child_libraries: Vec<library>,
 }
 
 use std::sync::Mutex;

@@ -26,7 +26,7 @@ async fn call_tmdb_api(client: &Client, api_url: &str, api_token: &str) -> Resul
 }
 
 
-pub(super) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_token: &str) -> Result<bool, Error> {
+pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_token: &str) -> Result<bool, Error> {
     let test_authentification_url = "https://api.themoviedb.org/3/authentication";
     let response = call_tmdb_api(&client, test_authentification_url, api_token).await;
 
@@ -36,7 +36,7 @@ pub(super) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_tok
     }
 }
 
-pub(super) async fn get_movie_information_tmdb(movietitle: &str) -> Result<(), Error> {
+pub(crate) async fn get_movie_information_tmdb(movietitle: &str) -> Result<(), Error> {
     
     let api_token = get_api_token();
     let client = reqwest::Client::new();

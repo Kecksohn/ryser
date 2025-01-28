@@ -17,8 +17,6 @@ use crate::library_manager::update_library_entry_from_gui;
 use crate::library_manager::get_library_videos;
 use crate::library_manager::file_reader::*;
 
-mod tmdb_api;
-
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
 #[tauri::command]
