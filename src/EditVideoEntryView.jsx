@@ -25,6 +25,21 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
         update_element_in_library(video_entry);
     }
 
+    const [tmdb_searchfield, set_tmdb_searchfield] = useState("");
+    const [tmdb_results, set_tmdb_results] = useState([]);
+
+    async function get_tmdb_entries(search_string) {
+        await invoke("search_tmdb_from_gui", {search_title: search_string})
+          .then(res => {
+            console.log(res);
+            set_tmdb_results(res);
+          })
+          .catch(e => {
+            console.log("Error: "+e);
+            return;
+          });
+      }
+
     return(
         <div>
             Filepath: {video_entry.filepath}
@@ -37,6 +52,11 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
             <div>Watched: {video_entry.watched}</div>
             <div>Poster Path: {video_entry.poster_path}</div>
 
+            <br/>
+            Search Input: <input id="titleinput" type="text"
+                className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={tmdb_searchfield} onChange={(e) => set_tmdb_searchfield(e.target.value)}/>
+            <div style={{cursor: "pointer"}} onClick={() => {get_tmdb_entries(tmdb_searchfield);}}>Search TMDB</div>
             <br/>
             <div style={{cursor: "pointer"}} onClick={() => {update_element(); disable_view();}}>Update</div>
             <div style={{cursor: "pointer"}} onClick={() => {disable_view();}}>Back</div>
