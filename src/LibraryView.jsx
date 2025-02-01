@@ -63,7 +63,7 @@ export const LibraryView = ({library_id}) => {
 
     const get_menu_items = (context) => {
         return [
-            { label: 'no impl: Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
+            { label: 'Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
             { label: 'no impl: Show in Windows Explorer', action: () => {close_context_menu();} },
             { label: 'no impl: Remove from Library', action: () => {close_context_menu();} },
             { label: 'no impl: Delete from Storage', action: () => {close_context_menu();} }
