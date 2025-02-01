@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { ContextMenu } from "./ContextMenu";
 import { EditVideoEntryView } from "./EditVideoEntryView";
 
+import "./TMDBResults.css";
+
 export const LibraryView = ({library_id}) => {
 
   // Load Library
@@ -104,11 +106,20 @@ export const LibraryView = ({library_id}) => {
         {
           !edit_entry_view_visible && library_elements.map(element => {
             return(
-              <div key={element.filepath} 
-                style={{cursor: "pointer"}} onClick={() => launch_video(element.filepath)}
-                onContextMenu={(e) => handle_context_menu(e, element)}
-              >{element.title && element.title}
-                {!element.title && element.filepath}</div>
+              <div key={element.filepath}
+                   className={"tmdbresult"}
+                style={{cursor: "pointer"}}
+                onClick={() => launch_video(element.filepath)}
+                onContextMenu={(e) => handle_context_menu(e, element)}>
+                  <div className={"tmdbresult-splitter"}>
+                      <div className={"tmdbresult-img"}>
+                          <img src={element.poster_path} alt={element.title}/>
+                      </div>
+                  <div className={"tmdbresult-info"}>
+                    {element.title && element.title}
+                    {!element.title && element.filepath}</div>
+                  </div>
+              </div>
             )
           })
         }

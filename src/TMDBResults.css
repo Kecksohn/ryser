@@ -1,0 +1,32 @@
+.tmdbresult {
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.0);
+}
+
+.tmdbresult:hover {
+    background: rgb(255,255,255);
+    background: linear-gradient(115deg, rgba(255,255,255,1) 0%, rgba(124,124,124,1) 0%, rgba(22,22,22,0.7130251758906687) 100%);
+}
+
+.tmdbresult-splitter {
+    display: flex;
+    gap: 16px; /* Optional: adds space between image and info */
+}
+
+.tmdbresult-img {
+    flex: 0 0 25%; /* Takes up exactly 25% */
+    max-width: 200px;
+}
+
+.tmdbresult-img img {
+    width: 100%; /* Makes image fill its container */
+    height: auto; /* Maintains aspect ratio */
+}
+
+.tmdbresult-info {
+    flex: 0 0 75%; /* Takes up exactly 75% */
+    text-align: left;
+    display: flex;           /* Added for vertical centering */
+    flex-direction: column;  /* Stack children vertically */
+    justify-content: center; /* Center vertically */
+}
