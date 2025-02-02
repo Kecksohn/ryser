@@ -12,6 +12,9 @@ use file_reader::*;
 use tmdb_api::*;
 use serde::Deserialize;
 
+use chrono::DateTime;
+use chrono::Utc;
+use chrono::serde::ts_milliseconds;
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct library {
@@ -39,13 +42,16 @@ pub struct video_element {
     episode: Option<i32>,
 
     index_priority: i32,
+    length_in_seconds: i32,
+    #[serde(with = "ts_milliseconds")]
+    timestamp_modified: DateTime<Utc>,
 }
 
 use std::sync::Mutex;
 static LIBRARIES: Mutex<Vec<library>> = Mutex::new(Vec::new());
 
 pub(crate) fn load_all_libraries() {
-    
+
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         let libraries_folder = proj_dir.data_local_dir();
         for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
