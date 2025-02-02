@@ -100,8 +100,9 @@ export const LibraryView = ({library_id}) => {
         { label: 'Title', onClick: () => sort_video_elements("title") },
         { label: 'Duration', onClick: () => sort_video_elements("duration") },
         { label: 'Date Added', onClick: () => sort_video_elements("timestamp") },
+        { label: 'Filepath', onClick: () => sort_video_elements("filepath") },
     ];
-    const [last_sort_order, set_last_sort_order] = useState("nothing");
+    const [last_sort_order, set_last_sort_order] = useState("filepath");
 
     const sort_video_elements = (order) => {
 
@@ -111,8 +112,8 @@ export const LibraryView = ({library_id}) => {
             case "title":
                 library_elements_copy = library_elements_copy.sort((a, b) => {
                     // Use title if available, otherwise fallback to filepath
-                    const titleA = a.title || a.filepath;
-                    const titleB = b.title || b.filepath;
+                    const titleA = a.title || a.filepath.substring(a.filepath.lastIndexOf("/")+1);
+                    const titleB = b.title || b.filepath.substring(b.filepath.lastIndexOf("/")+1);
                     return titleA.localeCompare(titleB);
                 });
                 if (last_sort_order === "title") {
@@ -147,6 +148,18 @@ export const LibraryView = ({library_id}) => {
                 }
                 else {
                     set_last_sort_order("timestamp");
+                }
+                break;
+
+            case "filepath":
+                library_elements_copy = library_elements_copy.sort(
+                    (a,b) => (a.filepath.localeCompare(b.filepath)));
+                if (last_sort_order === "filepath") {
+                    library_elements_copy.reverse();
+                    set_last_sort_order("filepath_reverse");
+                }
+                else {
+                    set_last_sort_order("filepath");
                 }
                 break;
 
