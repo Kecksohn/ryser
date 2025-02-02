@@ -29,7 +29,7 @@ pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
         Ok(length_in_s) => {
             ve.length_in_seconds = length_in_s as i32;
         },
-        Err(error) => {println!("{}", error.to_string())}
+        Err(error) => {println!("Get duration of video file failed with Error: {}", error.to_string())}
     }
     let modified = get_modified_secs(filepath);
     ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
