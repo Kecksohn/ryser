@@ -173,6 +173,10 @@ pub(crate) fn check_for_library_changes() {
             println!("Before: {}, Now: {}", library.video_files.len() - new_filepath_indices.len() + missing_video_files_indices.len() , library.video_files.len());
             write_library(&library);
         }
+
+        if library.video_files.len() > 0 {
+            let ve = create_video_element_from_file(&library.video_files[0].filepath);
+        }
     } 
 }
 

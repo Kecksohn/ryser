@@ -10,7 +10,12 @@ NO RELEASE YET. Soon: Download the latest release and install anywhere other tha
 
 # Dev Set-Up
 
-Get Nodejs >= 20, npm, rust and yarn.
+Get [Nodejs >= 22](https://github.com/nvm-sh/nvm/releases/]), [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#windows-stable) and [Rust](https://www.rust-lang.org/tools/install).
+
+Follow [this set-up](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) to successfully build ffmpeg-next (rust-ffmpeg) on your platform. \
+Note: You don't need to run cargo, the yarn command below takes care of that.
+
+Run the following commands:
 ```
 yarn
 yarn tauri dev

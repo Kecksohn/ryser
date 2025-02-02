@@ -25,3 +25,4 @@ chrono = { version = "0.4.39", features = ["serde", "clock"] }
 
 directories = "5.0.1"
 tauri-plugin-http = "2"
+ffmpeg-next = "7.1.0"

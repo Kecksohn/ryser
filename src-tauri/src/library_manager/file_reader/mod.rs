@@ -1,6 +1,7 @@
-use std::{fs::{self, DirEntry}, path::PathBuf};
+mod read_metadata;
+use read_metadata::get_duration_in_s;
 
-use serde::Deserialize;
+use std::{fs::{self, DirEntry}, path::PathBuf};
 
 use crate::library_manager::tmdb_api::*;
 
@@ -8,10 +9,16 @@ use super::{LIBRARIES, video_element};
 
 
 pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
-    let ve = video_element {
+    let mut ve = video_element {
         filepath: filepath.to_owned(),
         ..Default::default()
     };
+    match get_duration_in_s(filepath) {
+        Ok(length_in_s) => {
+            ve.length_in_seconds = length_in_s as i32;
+        },
+        Err(error) => {println!("{}", error.to_string())}
+    }
     ve
 }
 
@@ -24,10 +31,7 @@ pub(super) fn get_video_files(folder_path: &str) -> Vec<video_element> {
         if let Ok(valid_file) = file {
             if valid_file.metadata().unwrap().is_file() && is_video_file(&valid_file.path()) {
                 if let Some(filepath_str) = valid_file.path().to_str() {
-                    let vf = video_element {
-                        filepath: filepath_str.to_owned(),
-                        ..Default::default()
-                    };
+                    let vf = create_video_element_from_file(filepath_str);
                     video_files.push(vf)
                 }
             }
@@ -47,7 +51,7 @@ pub(super) fn is_video_file(filepath: &PathBuf) -> bool {
     else {
         println!("Couldn't get extension type for {:?}", filepath);
     }
-    return false;
+    false
 }
 
 
