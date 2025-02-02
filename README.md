@@ -16,6 +16,13 @@ yarn
 yarn tauri dev
 ```
 
+## Debugging With RustRover
+Create 2 Configurations:
+- npm -> Scripts: dev
+- Cargo -> Command: run --no-default-features
+
+Start the server using the npm script, then launch the cargo run config using the debugger.
+
 # Dev Build
 
 ```

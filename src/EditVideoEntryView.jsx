@@ -22,9 +22,9 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
             return;
         }
         video_entry.title = title_input;
-        video_entry.year = year_input;
-        video_entry.director = director_input;
-        video_entry.countries = countries_input;
+        video_entry.year = year_input !== "" ? parseInt(year_input) : null;
+        video_entry.director = director_input !== "" ? director_input.split(/,\s*/) : null;
+        video_entry.countries = countries_input !== "" ? countries_input.split(/,\s*/) : null;
         video_entry.poster_path = new_image_url_or_path;
         update_element_in_library(video_entry);
     }

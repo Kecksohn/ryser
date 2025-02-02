@@ -61,8 +61,10 @@ pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<video_elemen
             filepath: "".to_owned(),
             watched: false,
             parsed: true,
-            poster_path: Some("https://image.tmdb.org/t/p/original/".to_owned() + &query_result.poster_path.as_ref().unwrap()),
-    
+            poster_path: match query_result.poster_path.as_ref() {
+                Some(identifier) => Some("https://image.tmdb.org/t/p/original/".to_owned() + &identifier),
+                None => None,
+            },
             title: query_result.title.clone(),
             ..Default::default()
         };
