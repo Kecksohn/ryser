@@ -1,11 +1,23 @@
 mod read_metadata;
-use read_metadata::get_duration_in_s;
 
 use std::{fs::{self, DirEntry}, path::PathBuf};
+use chrono::{TimeZone, Utc};
 
-use crate::library_manager::tmdb_api::*;
-
+use read_metadata::get_duration_in_s;
 use super::{LIBRARIES, video_element};
+use super::tmdb_api::*;
+
+pub fn get_modified_secs(file: &str) -> usize {
+    // Get modification timestamp from file.
+    let modified_date = fs::metadata(file).expect("Need metadata");
+    let secs = modified_date
+        .modified()
+        .expect("Need modified date")
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("Need duration")
+        .as_secs();
+    secs.try_into().unwrap()
+}
 
 
 pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
@@ -19,6 +31,8 @@ pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
         },
         Err(error) => {println!("{}", error.to_string())}
     }
+    let modified = get_modified_secs(filepath);
+    ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
     ve
 }
 
