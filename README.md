@@ -19,6 +19,7 @@ Follow [this set-up](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-buildi
 * [Download FFMPEG "full_build-shared"](https://ffmpeg.org/download.html), extract somewhere.
 * Add both LLVM's and FFMPEG's `bin` folders to your `PATH`.
 * Create `FFMPEG_DIR` environmental variable and set it to your extracted FFMPEG dir (where include and lib reside)
+* Restart your shell or PC, verify paths using `llmv -v` and `ffmpeg -v`. 
 </details>
 
 Run the following commands:
