@@ -53,6 +53,11 @@ export const LibraryView = ({library_id}) => {
         */
         await invoke("update_library_entry_from_gui", {library_id: library_id, updated_element: updated_element});
     }
+
+    function toggle_watched(element, library_index = null) {
+        element.watched = !element.watched;
+        update_element_in_library(element, library_index).then();
+    }
     
 
     // Context Menu
@@ -66,7 +71,7 @@ export const LibraryView = ({library_id}) => {
     const get_context_menu_options = (context) => {
         return [
             { label: 'Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
-            { label: 'no impl: Mark watched', action: () => {close_context_menu();} },
+            { label: context.watched ? 'Mark unwatched' : 'Mark watched', action: () => {toggle_watched(context); close_context_menu();} },
             { label: 'no impl: Show in Windows Explorer', action: () => {close_context_menu();} },
             { label: 'no impl: Remove from Library', action: () => {close_context_menu();} },
             { label: 'no impl: Delete from Storage', action: () => {close_context_menu();} }
@@ -208,10 +213,12 @@ export const LibraryView = ({library_id}) => {
                       <div className={"tmdbresult-img"}>
                           <img src={element.poster_path} alt={element.title}/>
                       </div>
-                  <div className={"tmdbresult-info"}>
-                    {element.title && element.title}
-                    {!element.title && element.filepath}
-                      <br/>{format_duration(element.length_in_seconds)}</div>
+                      <div className={"tmdbresult-info"}>
+                        {element.title && element.title}
+                        {!element.title && element.filepath}
+                        <br/>{format_duration(element.length_in_seconds)}
+                        <br/>{element.watched && <span style={{color: "green"}}>Watched</span>}
+                      </div>
                   </div>
               </div>
             )
