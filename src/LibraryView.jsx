@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import {useState, useEffect, useMemo} from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { Dropdown } from "./Dropdown.jsx";
@@ -22,6 +22,19 @@ export const LibraryView = ({library_id}) => {
         });
       }
     });
+
+    const [watched_filter, set_watched_filter] = useState("");
+
+    const filtered_library_elements = useMemo(() => {
+        return library_elements.filter(element => {
+            const matches_watched =
+                watched_filter === "filter_watched" ? !element.watched
+                : watched_filter === "filter_unwatched" ? element.watched :
+                true // no filter
+
+            return matches_watched;
+        })
+    }, [library_elements, watched_filter])
 
 
     // Functions
@@ -199,10 +212,14 @@ export const LibraryView = ({library_id}) => {
           <br/>
         <div style={{fontSize: "2em"}}>Movies</div>
           <br/>
+          {watched_filter !== "filter_watched" && watched_filter !== "filter_unwatched" &&
+              <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_watched")}>Filter Watched</span>}
+          {watched_filter === "filter_watched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_unwatched")}>Filter Unwatched</span>}
+          {watched_filter === "filter_unwatched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("")}>Remove Filter</span>}
           <Dropdown buttonText={"Sort"} options={sort_dropdown_options()}/>
           <br/>
         {
-          !edit_entry_view_visible && library_elements.map(element => {
+          !edit_entry_view_visible && filtered_library_elements.map(element => {
             return(
               <div key={element.filepath}
                    className={"tmdbresult"}
