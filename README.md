@@ -1,12 +1,12 @@
 # ryser
 
-A project born from the fact that mpc-hc lags a BIT when used with Kodi. Will hopefully do all of Kodi's functionalities I care about & be prettier too. Also my first project in Rust.
+Library Browser for Films & TV Shows using Rust, Tauri & React
 
-Using Tauri, Rust & React
+A project born from the fact that mpc-hc lags a BIT when used with Kodi. Will hopefully do all of Kodi's functionalities I care about & be prettier too. Also my first project in Rust.
 
 # Installation
 
-NO RELEASE YET. Soon: Download the latest release and install anywhere other than Program Files.
+yeah yeah soon chill u crazy shit
 
 # Dev Set-Up
 
