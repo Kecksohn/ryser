@@ -30,7 +30,7 @@ yarn
 yarn tauri dev
 ```
 
-## Debugging With RustRover
+### Debugging With RustRover
 Create 2 Configurations:
 - npm -> Scripts: dev
 - Cargo -> Command: run --no-default-features
