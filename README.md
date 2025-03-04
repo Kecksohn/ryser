@@ -29,6 +29,15 @@ Run the following commands:
 yarn
 yarn tauri dev
 ```
+<details><summary>If building fails due to ffmpeg looking for vcpkg even though you installed it as above</summary>
+
+```
+git clone https://github.com/microsoft/vcpkg
+cd vcpkg
+vcpkg integrate install
+```
+(Restart shell or PC and try again)
+</details>
 
 ### Debugging With RustRover
 Create 2 Configurations:
