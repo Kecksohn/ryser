@@ -19,6 +19,7 @@ use chrono::serde::ts_milliseconds;
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct library {
     id: String,
+    name: String,
     library_paths: Vec<String>,
     video_files: Vec<video_element>,
     child_libraries: Vec<library>,

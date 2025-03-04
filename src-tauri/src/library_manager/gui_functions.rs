@@ -10,9 +10,12 @@ use super::tmdb_api::json_structs::*;
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_libraries_gui() -> Vec<library> {
-    print!("Please write a better function!");
-    return LIBRARIES.lock().unwrap().clone();
+pub fn get_available_libraries() -> Vec<(String, String)> {
+    let mut available_libraries : Vec<(String, String)> = vec![];
+    for library in LIBRARIES.lock().unwrap().iter() {
+        available_libraries.push((library.id.clone(), library.name.clone()));
+    }
+    return available_libraries;
 }
 
 #[tauri::command(rename_all = "snake_case")]

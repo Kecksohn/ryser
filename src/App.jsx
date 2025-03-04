@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
-import { LibraryView } from "./LibraryView";
+import { MainMenu } from "./MainMenu";
 
 
 function App() {
 
   return(
-    <LibraryView library_id="movies"/>
+    <MainMenu />
   )
   
 }

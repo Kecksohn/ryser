@@ -37,13 +37,23 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_window,
 
+            // UI Home
+            get_available_libraries,
+
+            // Library View
             get_library_videos,
             start_video_in_mpc,
 
+            // Library Update
             update_library_entry_from_gui,
             search_tmdb_from_gui,
             
         ])
+        .setup(|app| {
+            let main_window = app.get_webview_window("main").unwrap();
+            main_window.open_devtools();
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
