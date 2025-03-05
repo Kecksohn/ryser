@@ -10,8 +10,7 @@ export const AddLibrary = ({reload_libraries_fn}) => {
 
     return(
         <div>
-        {!addLibraryClicked && <span onClick={() => setAddLibraryClicked(true)}>Add Library</span>}
-        {addLibraryClicked && <><span>Create New Library</span><span>Import Library</span></>}
+         Hello pls add library
         </div>
     )
 

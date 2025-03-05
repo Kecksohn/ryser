@@ -8,11 +8,12 @@ import "./TMDBResults.css";
 import { LibraryView } from "./LibraryView.jsx";
 import { AddLibrary } from "./AddLibrary.jsx";
 
-export const MainMenu = () => {
+import { useNavigate } from "react-router-dom";
+
+export const MainMenu = ({init, set_init, libraries_loaded, set_libraries_loaded}) => {
 
     const [libraries, set_libraries] = useState([]);
-    const [libraries_loaded, set_libraries_loaded] = useState([]);
-    const [init, set_init] = useState(false)
+    
   
     const [opened_library, set_opened_library] = useState("");
 
@@ -26,10 +27,9 @@ export const MainMenu = () => {
       }
     });
 
-    function reload_libraries() {
-        set_init(false);
-        set_libraries_loaded(false);
-    }
+    
+
+    const navigate = useNavigate();
 
     return(
         <div>
@@ -43,7 +43,7 @@ export const MainMenu = () => {
                     )
                 })
             }
-            {libraries_loaded && <AddLibrary reload_libraries_fn={reload_libraries}/>}
+            {libraries_loaded && <div onClick={() => navigate("/addlibrary")}>Add Library</div>}
             {opened_library !== "" && <LibraryView library_id={opened_library} />}
         </div>
     )
