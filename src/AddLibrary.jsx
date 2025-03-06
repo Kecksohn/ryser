@@ -1,35 +1,32 @@
-import {useState, useEffect, useMemo} from "react";
-import { HashRouter, Route, Routes, useNavigate, Outlet } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
-import { Dropdown } from "./Dropdown.jsx";
-import { ContextMenu } from "./ContextMenu.jsx";
-
+import { CreateLibrary } from "./CreateLibrary";
 
 export const AddLibrary = ({reload_libraries_fn}) => {
 
     const navigate = useNavigate();
 
-    const [addLibraryClicked, setAddLibraryClicked] = useState(false);
-
-
-
     return(
         <div>
-            <h2>Add Library</h2>
-
             <Routes>
                 <Route path="/" element={
                     <>
+                        <span onClick={() => navigate("../")}>Back</span>
+                        <h2>Add Library</h2>
                         <div onClick={() => navigate("/addlibrary/create")}>Create New Library</div>
                         <div onClick={() => navigate("/addlibrary/import")}>Import Library</div>
                     </>      
                 } />
                 <Route path="/create" element={
-                    <span onClick={() => navigate("/addlibrary")}>Back</span>      
+                    <CreateLibrary/>    
                 } />
                 <Route path="/import" element={
-                    <span onClick={() => navigate("/addlibrary")}>Back</span>      
+                    <>
+                        <span onClick={() => navigate("../")}>Back</span>
+                        <h2>Import Library</h2>
+                        <span>soooooon</span>
+                    </>     
                 } />
             </Routes>
         </div>

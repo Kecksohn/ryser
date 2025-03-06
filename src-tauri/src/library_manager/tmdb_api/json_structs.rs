@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct test_authentification {
-    pub(crate) success: bool
+    pub(crate) success: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -20,7 +20,7 @@ pub(crate) struct search_movie_result_element {
     pub(crate) title: Option<String>,
     pub(crate) video: Option<bool>,
     pub(crate) vote_average: Option<f32>,
-    pub(crate) vote_count: Option<f32>
+    pub(crate) vote_count: Option<f32>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -28,5 +28,5 @@ pub(crate) struct search_movie_res {
     pub(crate) page: usize,
     pub(crate) results: Vec<search_movie_result_element>,
     pub(crate) total_pages: usize,
-    pub(crate) total_results: usize
+    pub(crate) total_results: usize,
 }

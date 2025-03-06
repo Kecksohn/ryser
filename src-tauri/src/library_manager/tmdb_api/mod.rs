@@ -4,26 +4,26 @@ mod api_token;
 pub(super) mod json_structs;
 
 use serde::Deserialize;
-use tauri_plugin_http::reqwest::{self, Client, Response, Error};
 use tauri_plugin_http::reqwest::header::USER_AGENT;
+use tauri_plugin_http::reqwest::{self, Client, Error, Response};
 
 use api_token::get_api_token;
 use json_structs::*;
 
-
-
 async fn call_tmdb_api(client: &Client, api_url: &str, api_token: &str) -> Result<Response, Error> {
     client
-    .get(api_url)
-    .header(USER_AGENT, "rust-web-api-client") // gh api requires a user-agent header
-    .header("accept", "application/json")
-    .header("Authorization", "Bearer ".to_owned() + api_token)
-    .send()
-    .await
+        .get(api_url)
+        .header(USER_AGENT, "rust-web-api-client") // gh api requires a user-agent header
+        .header("accept", "application/json")
+        .header("Authorization", "Bearer ".to_owned() + api_token)
+        .send()
+        .await
 }
 
-
-pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_token: &str) -> Result<bool, Error> {
+pub(crate) async fn is_tmdb_api_read_access_token_valid(
+    client: &Client,
+    api_token: &str,
+) -> Result<bool, Error> {
     let test_authentification_url = "https://api.themoviedb.org/3/authentication";
     let response = call_tmdb_api(&client, test_authentification_url, api_token).await;
 
@@ -33,8 +33,9 @@ pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_tok
     }
 }
 
-pub(crate) async fn get_movie_information_tmdb(movietitle: &str) -> Result<search_movie_res, Error> {
-    
+pub(crate) async fn get_movie_information_tmdb(
+    movietitle: &str,
+) -> Result<search_movie_res, Error> {
     let api_token = get_api_token();
     let client = reqwest::Client::new();
 
@@ -50,8 +51,9 @@ pub(crate) async fn get_movie_information_tmdb(movietitle: &str) -> Result<searc
 
         let response = call_tmdb_api(&client, &search_movie_url, api_token).await?;
         return response.json().await;
-    }
-    else {
-        panic!("API token not valid. Go to api.themoviedb.org and insert in src/tmdb_api/api_token.rs");
+    } else {
+        panic!(
+            "API token not valid. Go to api.themoviedb.org and insert in src/tmdb_api/api_token.rs"
+        );
     }
 }

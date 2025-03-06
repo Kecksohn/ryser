@@ -1,11 +1,14 @@
 mod read_metadata;
 
-use std::{fs::{self, DirEntry}, path::PathBuf};
 use chrono::{TimeZone, Utc};
+use std::{
+    fs::{self, DirEntry},
+    path::PathBuf,
+};
 
-use read_metadata::get_duration_in_s;
-use super::{LIBRARIES, video_element};
 use super::tmdb_api::*;
+use super::{video_element, LIBRARIES};
+use read_metadata::get_duration_in_s;
 
 pub fn get_modified_secs(file: &str) -> usize {
     // Get modification timestamp from file.
@@ -19,7 +22,6 @@ pub fn get_modified_secs(file: &str) -> usize {
     secs.try_into().unwrap()
 }
 
-
 pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
     let mut ve = video_element {
         filepath: filepath.to_owned(),
@@ -28,14 +30,18 @@ pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
     match get_duration_in_s(filepath) {
         Ok(length_in_s) => {
             ve.length_in_seconds = length_in_s as i32;
-        },
-        Err(error) => {println!("Get duration of video file failed with Error: {}", error.to_string())}
+        }
+        Err(error) => {
+            println!(
+                "Get duration of video file failed with Error: {}",
+                error.to_string()
+            )
+        }
     }
     let modified = get_modified_secs(filepath);
     ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
     ve
 }
-
 
 pub(super) fn get_video_files(folder_path: &str) -> Vec<video_element> {
     let mut video_files: Vec<video_element> = vec![];
@@ -58,21 +64,20 @@ pub(super) fn get_video_files(folder_path: &str) -> Vec<video_element> {
 pub(super) fn is_video_file(filepath: &PathBuf) -> bool {
     if let Some(ext) = filepath.extension() {
         if let Some(ext_str) = ext.to_str() {
-            return matches!(ext_str.to_lowercase().as_str(),
-                    "mkv" | "mp4" | "avi" | "mov" | "m2ts"); // TODO: Read from config and allow user additions
+            return matches!(
+                ext_str.to_lowercase().as_str(),
+                "mkv" | "mp4" | "avi" | "mov" | "m2ts"
+            ); // TODO: Read from config and allow user additions
         }
-    }
-    else {
+    } else {
         println!("Couldn't get extension type for {:?}", filepath);
     }
     false
 }
 
-
 fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
-    
     let mut library_videos: Vec<video_element> = vec![];
-    
+
     for library in LIBRARIES.lock().unwrap().iter() {
         if library.id == library_id {
             for folder_path in library.library_paths.iter() {
@@ -80,6 +85,6 @@ fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
             }
         }
     }
-    
+
     library_videos
 }

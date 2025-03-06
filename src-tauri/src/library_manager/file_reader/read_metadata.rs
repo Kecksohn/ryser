@@ -4,13 +4,10 @@ pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
     ffmpeg::init()?;
 
     match ffmpeg::format::input(filepath) {
-        Ok(context) => {
-            Ok(context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE))
-        },
-        Err(error) => { Err(From::from(error)) },
+        Ok(context) => Ok(context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE)),
+        Err(error) => Err(From::from(error)),
     }
 }
-
 
 pub(super) fn print_all_metadata(filepath: &str) -> Result<(), ffmpeg::Error> {
     ffmpeg::init()?;

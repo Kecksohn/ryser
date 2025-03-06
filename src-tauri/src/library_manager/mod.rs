@@ -2,19 +2,19 @@ use directories::ProjectDirs;
 use std::{fs, vec};
 
 mod file_reader;
+pub(crate) mod gui_functions;
 mod json_parser;
 mod tmdb_api;
-pub(crate) mod gui_functions;
 
-use tauri_plugin_http::reqwest::Error;
-use json_parser::*;
 use file_reader::*;
-use tmdb_api::*;
+use json_parser::*;
 use serde::Deserialize;
+use tauri_plugin_http::reqwest::Error;
+use tmdb_api::*;
 
+use chrono::serde::ts_milliseconds;
 use chrono::DateTime;
 use chrono::Utc;
-use chrono::serde::ts_milliseconds;
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct library {
@@ -52,7 +52,6 @@ use std::sync::Mutex;
 static LIBRARIES: Mutex<Vec<library>> = Mutex::new(Vec::new());
 
 pub(crate) fn load_all_libraries() {
-
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         let libraries_folder = proj_dir.data_local_dir();
         for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
@@ -75,7 +74,6 @@ pub(crate) fn load_all_libraries() {
     }
 }
 
-
 pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
 }
@@ -83,9 +81,7 @@ pub(crate) fn set_libraries(libraries: Vec<library>) {
 //  Compares Files present in library paths with data in json
 //  Tries to match files whose filenames have simply changed (!TODO: MD5 sum or simply length?)
 pub(crate) fn check_for_library_changes() {
-
     for library in LIBRARIES.lock().unwrap().iter_mut() {
-
         // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
         let mut video_files_in_library_paths: Vec<String> = vec![];
 
@@ -104,7 +100,6 @@ pub(crate) fn check_for_library_changes() {
 
                 let filepath = valid_file.path();
                 if metadata.is_file() && is_video_file(&filepath) {
-
                     let Some(filepath_str) = filepath.to_str() else {
                         println!("Could not extract string value from path");
                         continue;
@@ -117,7 +112,6 @@ pub(crate) fn check_for_library_changes() {
 
         video_files_in_library_paths.sort_by(|d1, d2| d1.cmp(&d2));
 
-
         let mut new_filepath_indices: Vec<usize> = vec![];
         let mut missing_video_files_indices: Vec<usize> = vec![];
 
@@ -126,27 +120,24 @@ pub(crate) fn check_for_library_changes() {
         //  Walk through video_files stored in library.json currently
         for filepath_index in 0..video_files_in_library_paths.len() {
             let filepath_str: &String = &video_files_in_library_paths[filepath_index];
-            
+
             if current_library_match_start_index >= library.video_files.len() {
-                //  We are out of elements in the json, all remaining files are new 
+                //  We are out of elements in the json, all remaining files are new
                 new_filepath_indices.push(filepath_index);
-            }
-            else {
+            } else {
                 for index in current_library_match_start_index..library.video_files.len() {
                     if &library.video_files[index].filepath == filepath_str {
                         // Match, do nothing
-                        current_library_match_start_index = index+1;
+                        current_library_match_start_index = index + 1;
                         break;
-                    }
-                    else if &library.video_files[index].filepath > filepath_str {
+                    } else if &library.video_files[index].filepath > filepath_str {
                         // Compared File should come before json entry but isn't in it -> New Entry
                         new_filepath_indices.push(filepath_index);
                         break;
-                    }
-                    else {
+                    } else {
                         // Compared Entry in json is missing -> Removed Entry, but keep checking next json entry for file match
                         missing_video_files_indices.push(index);
-                        current_library_match_start_index = index+1;
+                        current_library_match_start_index = index + 1;
                     }
                 }
             }
@@ -166,19 +157,29 @@ pub(crate) fn check_for_library_changes() {
             println!("New Files ({}): ", new_filepath_indices.len());
             for filepath_index in new_filepath_indices.iter() {
                 println!("{}", &video_files_in_library_paths[*filepath_index]);
-                let video_file = create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
+                let video_file =
+                    create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
                 library.video_files.push(video_file);
             }
 
-            library.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
-            println!("Before: {}, Now: {}", library.video_files.len() - new_filepath_indices.len() + missing_video_files_indices.len() , library.video_files.len());
+            library
+                .video_files
+                .sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
+            println!(
+                "Before: {}, Now: {}",
+                library.video_files.len() - new_filepath_indices.len()
+                    + missing_video_files_indices.len(),
+                library.video_files.len()
+            );
             write_library(&library);
         }
-    } 
+    }
 }
 
-
-pub(crate) fn update_library_entry(library: &mut library, updated_element: video_element) -> Result<(), String> {
+pub(crate) fn update_library_entry(
+    library: &mut library,
+    updated_element: video_element,
+) -> Result<(), String> {
     let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
         return Result::Err("Could not get project dirs".to_owned());
     };
@@ -192,12 +193,23 @@ pub(crate) fn update_library_entry(library: &mut library, updated_element: video
             return Ok(());
         }
     }
-    return Result::Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id));
+    return Result::Err(format!(
+        "Could not find '{}' in '{}'",
+        updated_element.filepath, library.id
+    ));
 }
 
-pub(crate) fn update_library_entry_by_index(library: &mut library, updated_element: video_element, index: usize) -> Result<(), String> {
+pub(crate) fn update_library_entry_by_index(
+    library: &mut library,
+    updated_element: video_element,
+    index: usize,
+) -> Result<(), String> {
     if index >= library.video_files.len() {
-        return Result::Err(format!("Index {} out of range of library elements ({})", index, library.video_files.len()));
+        return Result::Err(format!(
+            "Index {} out of range of library elements ({})",
+            index,
+            library.video_files.len()
+        ));
     }
     library.video_files[index] = updated_element;
     Ok(())
