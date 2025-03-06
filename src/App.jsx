@@ -29,7 +29,7 @@ function App() {
         <Route path="/library" element={
           <LibraryView />
         } />
-        <Route path="/addlibrary" element={
+        <Route path="/addlibrary/*" element={
           <AddLibrary reload_libraries_fn={reload_libraries}/>
         } />
         <Route path="/settings" element={<MainMenu />} />

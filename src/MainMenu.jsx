@@ -43,7 +43,7 @@ export const MainMenu = ({init, set_init, libraries_loaded, set_libraries_loaded
                     )
                 })
             }
-            {libraries_loaded && <div onClick={() => navigate("/addlibrary")}>Add Library</div>}
+            {libraries_loaded && <div onClick={() => navigate("/addlibrary/")}>Add Library</div>}
             {opened_library !== "" && <LibraryView library_id={opened_library} />}
         </div>
     )
