@@ -7,20 +7,30 @@ mod json_parser;
 mod tmdb_api;
 
 use file_reader::*;
+use file_reader::directory_utils::*;
+use std::path::*;
+
 use json_parser::*;
-use serde::Deserialize;
-use tauri_plugin_http::reqwest::Error;
 use tmdb_api::*;
+use tauri_plugin_http::reqwest::Error;
+
+use serde::Deserialize;
 
 use chrono::serde::ts_milliseconds;
 use chrono::DateTime;
 use chrono::Utc;
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
+pub struct library_path {
+    path: String,
+    include_subdirectories: bool,
+} 
+
+#[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct library {
     id: String,
     name: String,
-    library_paths: Vec<String>,
+    library_paths: Vec<library_path>,
     video_files: Vec<video_element>,
     child_libraries: Vec<library>,
 }
@@ -86,20 +96,28 @@ pub(crate) fn check_for_library_changes() {
         let mut video_files_in_library_paths: Vec<String> = vec![];
 
         // Get all video files in all library_paths
-        for folder_path in library.library_paths.iter() {
-            let files = fs::read_dir(folder_path).unwrap();
-            for file in files {
-                let Ok(valid_file) = file else {
-                    println!("File is not valid");
-                    continue;
-                };
-                let Ok(metadata) = valid_file.metadata() else {
-                    println!("Could not read Metadata");
-                    continue;
-                };
+        for library_path in library.library_paths.iter() {
 
-                let filepath = valid_file.path();
-                if metadata.is_file() && is_video_file(&filepath) {
+            let mut filepaths: Vec<PathBuf> = vec![];
+            if library_path.include_subdirectories {
+                match get_files_in_folder_and_subdirectories(Path::new(&library_path.path), &mut filepaths)
+                {
+                    Ok(()) => (),
+                    Err(e) => {
+                        println!("Could not parse {}: {}", &library_path.path, e);
+                        return;
+                    },
+                }
+            }
+            else {
+                filepaths = fs::read_dir(&library_path.path)
+                            .unwrap()
+                            .filter_map(|entry| entry.ok().map(|e| e.path()))
+                            .collect();
+            }
+
+            for filepath in filepaths {
+                if is_video_file(&filepath) {
                     let Some(filepath_str) = filepath.to_str() else {
                         println!("Could not extract string value from path");
                         continue;

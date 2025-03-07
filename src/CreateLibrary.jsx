@@ -58,7 +58,7 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
             <div>Name: <input></input></div>
             {libraryPaths.map((path, i) => {
                 return (
-                    <div>
+                    <div key={i}>
                         Path: 
                         <input value={path} onChange={(e) => updateLibraryPath(i, e.target.value) }></input> 
                         <span onClick={() => addLibraryFromFolder(i)}>Folder Icon </span> 

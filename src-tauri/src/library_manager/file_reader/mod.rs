@@ -1,3 +1,5 @@
+
+pub(super) mod directory_utils;
 mod read_metadata;
 
 use chrono::{TimeZone, Utc};
@@ -80,8 +82,8 @@ fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
 
     for library in LIBRARIES.lock().unwrap().iter() {
         if library.id == library_id {
-            for folder_path in library.library_paths.iter() {
-                library_videos.append(&mut get_video_files(&folder_path));
+            for library_path in library.library_paths.iter() {
+                library_videos.append(&mut get_video_files(&library_path.path));
             }
         }
     }
