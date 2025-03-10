@@ -9,6 +9,7 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
 
     const navigate = useNavigate();
 
+    const [libraryName, setLibraryName] = useState("");
     const [libraryPaths, setLibraryPaths] = useState([{path: "", include_subdirectories: false }]);
     
     const updateLibraryPath = (index, new_path) => {
@@ -62,11 +63,27 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
         }
     }
 
+    async function createLibrary() {
+        if (libraryName === "") {
+            // TODO: Send Message to GUI
+            return;
+        }
+        if (libraryPaths.every(item => item.path === "")) {
+            // TODO: Send Message to GUI
+            return;
+        }
+
+        await invoke("create_library", {name: libraryName, paths: libraryPaths})
+            .then(res => {
+                reload_libraries_fn();
+            });
+    } 
+
     return(
         <div>
             <span onClick={() => navigate("../")}>Back</span>
             <h2>Create Library</h2>
-            <div>Name: <input></input></div>
+            <div>Name: <input value={libraryName} onChange={(e) => setLibraryName(e.target.value)}></input></div>
             {libraryPaths.map((path, i) => {
                 return (
                     <div key={i}>
@@ -83,6 +100,8 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
                 )
             })}
             {libraryPaths.at(libraryPaths.length-1) !== "" && <div onClick={() => addNewLibraryField()}>+</div>}
+        
+        <button onClick={() => createLibrary()}>Create Library</button>
         </div>
     )
 

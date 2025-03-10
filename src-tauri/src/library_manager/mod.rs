@@ -61,31 +61,41 @@ pub struct video_element {
 use std::sync::Mutex;
 static LIBRARIES: Mutex<Vec<library>> = Mutex::new(Vec::new());
 
-pub(crate) fn load_all_libraries() {
+pub(crate) fn get_libraries_path() -> PathBuf {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
-        let libraries_folder = proj_dir.data_local_dir();
-        for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
-            match file_or_folder {
-                Ok(f) => {
-                    if f.path().is_dir() {
-                        match get_library(f.file_name().to_str().unwrap()) {
-                            Ok(lib) => LIBRARIES.lock().unwrap().push(lib),
-                            Err(error) => println!(
-                                "Could not parse library at {}: {}",
-                                f.path().to_str().unwrap(),
-                                error
-                            ),
-                        }
+        return proj_dir.data_local_dir().to_path_buf();
+    }
+    else { panic!("Project Dirs failed!"); }
+}
+
+pub(crate) fn load_all_libraries() {
+    let libraries_folder = get_libraries_path();
+    for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
+        match file_or_folder {
+            Ok(f) => {
+                if f.path().is_dir() {
+                    match get_library(f.file_name().to_str().unwrap()) {
+                        Ok(lib) => LIBRARIES.lock().unwrap().push(lib),
+                        Err(error) => println!(
+                            "Could not parse library at {}: {}",
+                            f.path().to_str().unwrap(),
+                            error
+                        ),
                     }
                 }
-                Err(error) => println!("Error while reading libraries folder: {}", error),
             }
+            Err(error) => println!("Error while reading libraries folder: {}", error),
         }
     }
 }
 
 pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
+}
+
+pub(crate) fn add_library(lib: library) {
+    write_library(&lib);
+    LIBRARIES.lock().unwrap().push(lib);
 }
 
 //  Compares Files present in library paths with data in json

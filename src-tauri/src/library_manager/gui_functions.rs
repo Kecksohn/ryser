@@ -3,7 +3,9 @@ use std::{default, fs};
 
 use super::json_parser::write_library;
 use super::tmdb_api::get_movie_information_tmdb;
-use super::{library, update_library_entry, video_element, LIBRARIES};
+use super::{library, library_path, video_element, 
+            add_library, update_library_entry, 
+            LIBRARIES};
 
 use super::tmdb_api::json_structs::*;
 
@@ -14,6 +16,19 @@ pub fn get_available_libraries() -> Vec<(String, String)> {
         available_libraries.push((library.id.clone(), library.name.clone()));
     }
     return available_libraries;
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn create_library(name: &str, paths: Vec<library_path>) -> Result<(), String> {
+    let new_lib = library {
+        id: name.to_owned(),
+        name: name.to_owned(),
+        library_paths: paths,
+        video_files: vec![],
+        child_libraries: vec![],
+    };
+    add_library(new_lib);
+    Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]

@@ -26,7 +26,7 @@ function App() {
           <MainMenu init={init} set_init={set_init} 
                     libraries_loaded={libraries_loaded} set_libraries_loaded={set_libraries_loaded}/> 
         } />
-        <Route path="/library" element={
+        <Route path="/library/:library_id" element={
           <LibraryView />
         } />
         <Route path="/addlibrary/*" element={

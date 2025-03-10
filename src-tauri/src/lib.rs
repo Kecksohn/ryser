@@ -42,6 +42,8 @@ pub fn run() {
             open_window,
             // UI Home
             get_available_libraries,
+            // Library Creation
+            create_library,
             // Library View
             get_library_videos,
             start_video_in_mpc,

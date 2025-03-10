@@ -1,4 +1,5 @@
 import {useState, useEffect, useMemo} from "react";
+import { useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
 import { Dropdown } from "./Dropdown.jsx";
@@ -8,9 +9,11 @@ import { EditVideoEntryView } from "./EditVideoEntryView";
 
 import "./TMDBResults.css";
 
-export const LibraryView = ({library_id}) => {
+export const LibraryView = () => {
 
-  // Load Library
+    const { library_id } = useParams();
+
+    // Load Library
     const [library_elements, set_library_elements] = useState([]);
     const [library_elements_loaded, set_library_elements_loaded] = useState(false)
   
