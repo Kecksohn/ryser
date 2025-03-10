@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
 
 
-export const CreateLibrary = ({reload_libraries_fn}) => {
+export const CreateLibrary = () => {
 
     const navigate = useNavigate();
 
@@ -21,6 +21,7 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
     };
 
     const updateIncludeSubdirectories = (index, updated_include_subdirectories) => {
+        console.log(updated_include_subdirectories);
         setLibraryPaths((libraryPaths) =>
             libraryPaths.map((item, i) =>
                 i === index ? { ...item, include_subdirectories: updated_include_subdirectories } : item
@@ -75,7 +76,7 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
 
         await invoke("create_library", {name: libraryName, paths: libraryPaths})
             .then(res => {
-                reload_libraries_fn();
+                console.log(res);
             });
     } 
 
@@ -93,7 +94,7 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
                         {(i !== 0 || path.path !== "") && <span onClick={() => removeLibraryAtIndex(i)}>-</span>}
                         </div>
                         { path.path !== "" && <div>
-                        <input type="checkbox" value={path.include_subdirectories} onChange={(e) => updateIncludeSubdirectories(i, e.target.value)}/>
+                        <input type="checkbox" value={path.include_subdirectories} onChange={(e) => updateIncludeSubdirectories(i, e.target.checked)}/>
                         Include Subdirectories
                         </div>}
                     </div>

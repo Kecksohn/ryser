@@ -14,8 +14,7 @@ use crate::library_manager::check_for_library_changes;
 use crate::library_manager::gui_functions::*;
 use crate::library_manager::load_all_libraries;
 
-mod gui_utils;
-use crate::gui_utils::*;
+
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.

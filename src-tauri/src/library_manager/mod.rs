@@ -93,52 +93,83 @@ pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
 }
 
-pub(crate) fn add_library(lib: library) {
+pub(crate) fn add_library(mut lib: library) {
+    // TODO THINK: Maybe this should be async after the library is added?
+    let mut video_files_in_library_paths: Vec<String> = vec![];
+    match get_all_video_filepaths(&lib, &mut video_files_in_library_paths) {
+        Ok(()) => {},
+        Err(msg) => println!("{}", msg), // TODO: Show this on GUI
+    }
+
+    for video_filepath in video_files_in_library_paths.iter() {
+        println!("{}", &video_filepath);
+        let video_file = create_video_element_from_file(&video_filepath);
+        lib.video_files.push(video_file);
+    }
+
     write_library(&lib);
     LIBRARIES.lock().unwrap().push(lib);
+    LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
 }
+
+
+fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), String> {
+    
+    let mut error_message: String = "".to_owned();
+    for library_path in lib.library_paths.iter() {
+
+        let mut filepaths: Vec<PathBuf> = vec![];
+        if library_path.include_subdirectories {
+            match get_files_in_folder_and_subdirectories(Path::new(&library_path.path), &mut filepaths)
+            {
+                Ok(()) => (),
+                Err(e) => error_message = format!("{}Could not parse {}: {}\n", error_message, library_path.path, e),
+            }
+        }
+        else {
+            match fs::read_dir(&library_path.path) {
+                Ok(f) => filepaths = f.filter_map(|entry| entry.ok().map(|e| e.path()))
+                                    .collect(),
+                Err(e) => error_message = format!("{}Could not parse {}: {}\n", error_message, library_path.path, e),
+            }
+        }
+
+        for filepath in filepaths {
+            if is_video_file(&filepath) {
+                let Some(filepath_str) = filepath.to_str() 
+                else {
+                    error_message += "Could not extract string value from path\n";
+                    continue;
+                };
+
+                video_files_in_library_paths.push(filepath_str.to_string());
+            }
+        }
+    }
+
+    video_files_in_library_paths.sort_by(|d1, d2| d1.cmp(&d2));
+    
+    if error_message != "" {
+        return Err(error_message);
+    }
+    Ok(())
+}
+
 
 //  Compares Files present in library paths with data in json
 //  Tries to match files whose filenames have simply changed (!TODO: MD5 sum or simply length?)
 pub(crate) fn check_for_library_changes() {
-    for library in LIBRARIES.lock().unwrap().iter_mut() {
+
+    for lib in LIBRARIES.lock().unwrap().iter_mut() {
+        
         // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
         let mut video_files_in_library_paths: Vec<String> = vec![];
 
         // Get all video files in all library_paths
-        for library_path in library.library_paths.iter() {
-
-            let mut filepaths: Vec<PathBuf> = vec![];
-            if library_path.include_subdirectories {
-                match get_files_in_folder_and_subdirectories(Path::new(&library_path.path), &mut filepaths)
-                {
-                    Ok(()) => (),
-                    Err(e) => {
-                        println!("Could not parse {}: {}", &library_path.path, e);
-                        return;
-                    },
-                }
-            }
-            else {
-                filepaths = fs::read_dir(&library_path.path)
-                            .unwrap()
-                            .filter_map(|entry| entry.ok().map(|e| e.path()))
-                            .collect();
-            }
-
-            for filepath in filepaths {
-                if is_video_file(&filepath) {
-                    let Some(filepath_str) = filepath.to_str() else {
-                        println!("Could not extract string value from path");
-                        continue;
-                    };
-
-                    video_files_in_library_paths.push(filepath_str.to_string());
-                }
-            }
+        match get_all_video_filepaths(lib, &mut video_files_in_library_paths) {
+            Ok(()) => {},
+            Err(msg) => println!("{}", msg), // TODO: Show this on GUI
         }
-
-        video_files_in_library_paths.sort_by(|d1, d2| d1.cmp(&d2));
 
         let mut new_filepath_indices: Vec<usize> = vec![];
         let mut missing_video_files_indices: Vec<usize> = vec![];
@@ -149,16 +180,16 @@ pub(crate) fn check_for_library_changes() {
         for filepath_index in 0..video_files_in_library_paths.len() {
             let filepath_str: &String = &video_files_in_library_paths[filepath_index];
 
-            if current_library_match_start_index >= library.video_files.len() {
+            if current_library_match_start_index >= lib.video_files.len() {
                 //  We are out of elements in the json, all remaining files are new
                 new_filepath_indices.push(filepath_index);
             } else {
-                for index in current_library_match_start_index..library.video_files.len() {
-                    if &library.video_files[index].filepath == filepath_str {
+                for index in current_library_match_start_index..lib.video_files.len() {
+                    if &lib.video_files[index].filepath == filepath_str {
                         // Match, do nothing
                         current_library_match_start_index = index + 1;
                         break;
-                    } else if &library.video_files[index].filepath > filepath_str {
+                    } else if &lib.video_files[index].filepath > filepath_str {
                         // Compared File should come before json entry but isn't in it -> New Entry
                         new_filepath_indices.push(filepath_index);
                         break;
@@ -171,35 +202,33 @@ pub(crate) fn check_for_library_changes() {
             }
         }
         // We are out of files in the paths, all remaining json entries have been removed
-        for library_index in current_library_match_start_index..library.video_files.len() {
+        for library_index in current_library_match_start_index..lib.video_files.len() {
             missing_video_files_indices.push(library_index);
         }
 
         if missing_video_files_indices.len() > 0 || new_filepath_indices.len() > 0 {
-            println!("Library: {}", library.id);
+            println!("Library: {}", lib.id);
             println!("Removed Files: ({}):", missing_video_files_indices.len());
             for index in missing_video_files_indices.iter().rev() {
-                println!("{}", library.video_files[*index].filepath);
-                library.video_files.remove(*index);
+                println!("{}", lib.video_files[*index].filepath);
+                lib.video_files.remove(*index);
             }
             println!("New Files ({}): ", new_filepath_indices.len());
             for filepath_index in new_filepath_indices.iter() {
                 println!("{}", &video_files_in_library_paths[*filepath_index]);
                 let video_file =
                     create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
-                library.video_files.push(video_file);
+                    lib.video_files.push(video_file);
             }
 
-            library
-                .video_files
-                .sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
+            lib.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
             println!(
                 "Before: {}, Now: {}",
-                library.video_files.len() - new_filepath_indices.len()
+                lib.video_files.len() - new_filepath_indices.len()
                     + missing_video_files_indices.len(),
-                library.video_files.len()
+                lib.video_files.len()
             );
-            write_library(&library);
+            write_library(&lib);
         }
     }
 }

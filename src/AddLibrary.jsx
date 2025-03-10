@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { CreateLibrary } from "./CreateLibrary";
 
-export const AddLibrary = ({reload_libraries_fn}) => {
+export const AddLibrary = () => {
 
     const navigate = useNavigate();
 

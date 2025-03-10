@@ -10,13 +10,13 @@ import { AddLibrary } from "./AddLibrary.jsx";
 
 import { useNavigate } from "react-router-dom";
 
-export const MainMenu = ({init, set_init, libraries_loaded, set_libraries_loaded}) => {
+export const MainMenu = () => {
 
+    const [libraries_loaded, set_libraries_loaded] = useState(false);
     const [libraries, set_libraries] = useState([]);
 
     useEffect(() => {
-      if (!init) {
-        set_init(true);
+      if (!libraries_loaded) {
         invoke("get_available_libraries").then(res => { 
             set_libraries_loaded(true);
             const library_tuples = res.map(library => ({ id: library[0], name: library[1] }));
@@ -24,6 +24,7 @@ export const MainMenu = ({init, set_init, libraries_loaded, set_libraries_loaded
         });
       }
     });
+
 
     const navigate = useNavigate();
 
