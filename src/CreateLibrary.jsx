@@ -9,16 +9,26 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
 
     const navigate = useNavigate();
 
-    const [libraryPaths, setLibraryPaths] = useState([""]);
+    const [libraryPaths, setLibraryPaths] = useState([{path: "", include_subdirectories: false }]);
     
-    const updateLibraryPath = (index, newPath) => {
+    const updateLibraryPath = (index, new_path) => {
         setLibraryPaths((libraryPaths) =>
-            libraryPaths.map((item, i) => (i === index ? newPath : item))
+            libraryPaths.map((item, i) =>
+                i === index ? { ...item, path: new_path } : item
+            )
         );
     };
 
+    const updateIncludeSubdirectories = (index, updated_include_subdirectories) => {
+        setLibraryPaths((libraryPaths) =>
+            libraryPaths.map((item, i) =>
+                i === index ? { ...item, include_subdirectories: updated_include_subdirectories } : item
+            )
+        );
+    }
+
     const addNewLibraryField = () => {
-        setLibraryPaths((libraryPaths) => [...libraryPaths, ""]);
+        setLibraryPaths((libraryPaths) => [...libraryPaths, {path: "", include_subdirectories: false }]);
     }
 
     const addLibrariesAtIndex = (index, newElements, overwrite_index = false) => {
@@ -47,7 +57,8 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
             directory: true,
         });
         if(folders) {
-            addLibrariesAtIndex(index, folders, true);
+            const paths = folders.map(str => ({ path: str, include_subdirectories: false }));
+            addLibrariesAtIndex(index, paths, true);
         }
     }
 
@@ -59,10 +70,15 @@ export const CreateLibrary = ({reload_libraries_fn}) => {
             {libraryPaths.map((path, i) => {
                 return (
                     <div key={i}>
-                        Path: 
-                        <input value={path} onChange={(e) => updateLibraryPath(i, e.target.value) }></input> 
+                        <div>Path: 
+                        <input value={path.path} onChange={(e) => updateLibraryPath(i, e.target.value) }></input> 
                         <span onClick={() => addLibraryFromFolder(i)}>Folder Icon </span> 
-                        <span onClick={() => removeLibraryAtIndex(i)}>-</span> 
+                        {(i !== 0 || path.path !== "") && <span onClick={() => removeLibraryAtIndex(i)}>-</span>}
+                        </div>
+                        { path.path !== "" && <div>
+                        <input type="checkbox" value={path.include_subdirectories} onChange={(e) => updateIncludeSubdirectories(i, e.target.value)}/>
+                        Include Subdirectories
+                        </div>}
                     </div>
                 )
             })}
