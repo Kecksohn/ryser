@@ -10,6 +10,7 @@ use super::{library, library_path, video_element,
 use super::tmdb_api::json_structs::*;
 
 use super::file_manager::file_utils::create_valid_filename;
+use super::utils::*;
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_available_libraries() -> Vec<(String, String)> {
@@ -25,13 +26,42 @@ pub fn create_library(name: &str, paths: Vec<library_path>) -> Result<(), String
         
     let mut new_library_id = create_valid_filename(name, Some(true), Some(true));
 
-    // TODO: Check if already exists, maybe ask GUI for confirmation
-    let current_library_names = get_available_libraries();
-    for lib_id_and_name in current_library_names.iter()
+    /*/ TODO: Check if name already exists, 
+    let current_library_names = get_all_library_names();
+    for library_name in current_library_names
     {
-        
+        if library_name == name {
+            // ask GUI for confirmation
+        }
+    }*/
+
+    // If ID is already taken, add incremented numbers until a new unique id is found
+    let mut current_library_ids = get_all_library_ids();
+    current_library_ids.sort();
+    let mut i = 2;
+    for library_id in current_library_ids
+    {
+        if library_id == new_library_id {
+            
+            // Remove the last added i, if any
+            if i > 2 {
+                for j in 0..(i/10)+1 {
+                    new_library_id.pop();
+                }
+            }
+
+            let i_str = i.to_string();
+            
+            // Check if we would be over the max foldername chars 
+            if new_library_id.chars().count() + i_str.chars().count() > 255 {
+                for j in 0..(new_library_id.chars().count() + i_str.chars().count() - 255) { new_library_id.pop(); } // Yes this is dumb code i dont care this will never happen
+            }
+
+            new_library_id += &i_str;
+            i+=1;
+        }
     }
-    
+
     let new_lib = library {
         id: new_library_id,
         name: name.to_owned(),

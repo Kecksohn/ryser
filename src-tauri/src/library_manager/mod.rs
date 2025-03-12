@@ -5,6 +5,7 @@ mod file_manager;
 pub(crate) mod gui_functions;
 mod json_parser;
 mod tmdb_api;
+mod utils;
 
 use file_manager::*;
 use file_manager::directory_utils::*;
@@ -87,6 +88,7 @@ pub(crate) fn load_all_libraries() {
             Err(error) => println!("Error while reading libraries folder: {}", error),
         }
     }
+    LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
 }
 
 pub(crate) fn set_libraries(libraries: Vec<library>) {
