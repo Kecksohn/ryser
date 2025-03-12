@@ -1,13 +1,13 @@
 use directories::ProjectDirs;
 use std::{fs, vec};
 
-mod file_reader;
+mod file_manager;
 pub(crate) mod gui_functions;
 mod json_parser;
 mod tmdb_api;
 
-use file_reader::*;
-use file_reader::directory_utils::*;
+use file_manager::*;
+use file_manager::directory_utils::*;
 use std::path::*;
 
 use json_parser::*;

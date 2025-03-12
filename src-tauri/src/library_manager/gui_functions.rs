@@ -9,6 +9,8 @@ use super::{library, library_path, video_element,
 
 use super::tmdb_api::json_structs::*;
 
+use super::file_manager::file_utils::create_valid_filename;
+
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_available_libraries() -> Vec<(String, String)> {
     let mut available_libraries: Vec<(String, String)> = vec![];
@@ -20,8 +22,18 @@ pub fn get_available_libraries() -> Vec<(String, String)> {
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn create_library(name: &str, paths: Vec<library_path>) -> Result<(), String> {
+        
+    let mut new_library_id = create_valid_filename(name, Some(true), Some(true));
+
+    // TODO: Check if already exists, maybe ask GUI for confirmation
+    let current_library_names = get_available_libraries();
+    for lib_id_and_name in current_library_names.iter()
+    {
+        
+    }
+    
     let new_lib = library {
-        id: name.to_owned(),
+        id: new_library_id,
         name: name.to_owned(),
         library_paths: paths,
         video_files: vec![],

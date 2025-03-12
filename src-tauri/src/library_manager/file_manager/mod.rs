@@ -1,5 +1,6 @@
 
 pub(super) mod directory_utils;
+pub(super) mod file_utils;
 mod read_metadata;
 
 use chrono::{TimeZone, Utc};
@@ -75,18 +76,4 @@ pub(super) fn is_video_file(filepath: &PathBuf) -> bool {
         println!("Couldn't get extension type for {:?}", filepath);
     }
     false
-}
-
-fn get_library_videos_old(library_id: &str) -> Vec<video_element> {
-    let mut library_videos: Vec<video_element> = vec![];
-
-    for library in LIBRARIES.lock().unwrap().iter() {
-        if library.id == library_id {
-            for library_path in library.library_paths.iter() {
-                library_videos.append(&mut get_video_files(&library_path.path));
-            }
-        }
-    }
-
-    library_videos
 }
