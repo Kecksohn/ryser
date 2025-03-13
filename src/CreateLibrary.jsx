@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { invoke } from "@tauri-apps/api/core";
 import { open } from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 
 
 export const CreateLibrary = () => {
@@ -64,7 +65,7 @@ export const CreateLibrary = () => {
         }
     }
 
-    async function createLibrary() {
+    async function createLibrary(allow_duplicate_name = false) {
         if (libraryName === "") {
             // TODO: Send Message to GUI
             return;
@@ -74,11 +75,25 @@ export const CreateLibrary = () => {
             return;
         }
 
-        await invoke("create_library", {name: libraryName, paths: libraryPaths})
-            .then(res => {
-                console.log(res);
-            });
-    } 
+        await invoke("create_library", {
+            name: libraryName, 
+            paths: libraryPaths, 
+            allow_duplicate_name: allow_duplicate_name
+        })
+        .then(res => {
+            setLibraryCreationSuccess(true);
+        })
+        .catch(error => {
+            if (error === "duplicate_name") {
+                setShowDuplicateNameConfirmation(true);
+            }
+            else console.error("Library creation failed:", error);
+        })
+    }
+
+    const [libraryCreationSuccess, setLibraryCreationSuccess] = useState(false);
+    const [showDuplicateNameConfirmation, setShowDuplicateNameConfirmation] = useState(false);
+
 
     return(
         <div>
@@ -103,6 +118,29 @@ export const CreateLibrary = () => {
             {libraryPaths.at(libraryPaths.length-1) !== "" && <div onClick={() => addNewLibraryField()}>+</div>}
         
         <button onClick={() => createLibrary()}>Create Library</button>
+
+
+        {libraryCreationSuccess && 
+            <div><br/>
+                {libraryName} created successfully!
+                <br/><button onClick={() => navigate("/")}>Return to Home</button>
+                <button onClick={() => {
+                    setLibraryName("");
+                    setLibraryPaths([{path: "", include_subdirectories: false }]);
+                    setLibraryCreationSuccess(false);
+                }}>Create another</button>
+            </div>
+        }
+        
+
+        {showDuplicateNameConfirmation && 
+            <div><br/>
+                Library Name "{libraryName}" already exists! Do you want to create another using the same name?
+                <br/><button onClick={() => {createLibrary(true); setShowDuplicateNameConfirmation(false)}}>Yes</button>
+                {/*<button>Yes, and don't ask me again</button>*/}
+                <button onClick={() => setShowDuplicateNameConfirmation(false)}>No</button>        
+            </div>
+        }
         </div>
     )
 

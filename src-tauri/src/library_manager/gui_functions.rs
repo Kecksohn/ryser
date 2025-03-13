@@ -12,6 +12,7 @@ use super::tmdb_api::json_structs::*;
 use super::file_manager::file_utils::create_valid_filename;
 use super::utils::*;
 
+
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_available_libraries() -> Vec<(String, String)> {
     let mut available_libraries: Vec<(String, String)> = vec![];
@@ -22,18 +23,20 @@ pub fn get_available_libraries() -> Vec<(String, String)> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn create_library(name: &str, paths: Vec<library_path>) -> Result<(), String> {
+pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name: bool) -> Result<(), String> {
         
     let mut new_library_id = create_valid_filename(name, Some(true), Some(true));
 
-    /*/ TODO: Check if name already exists, 
-    let current_library_names = get_all_library_names();
-    for library_name in current_library_names
-    {
-        if library_name == name {
-            // ask GUI for confirmation
+    // Check if name already exists and if, ask user for confirmation
+    if !allow_duplicate_name {
+        let current_library_names = get_all_library_names();
+        for library_name in current_library_names
+        {
+            if library_name == name {
+                return Err("duplicate_name".to_owned());
+            }
         }
-    }*/
+    }
 
     // If ID is already taken, add incremented numbers until a new unique id is found
     let current_library_ids = get_all_library_ids();

@@ -137,7 +137,7 @@ fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec
         }
 
         for filepath in filepaths {
-            if is_video_file(&filepath) {
+            if filepath.metadata().unwrap().is_file() && is_video_file(&filepath) {
                 let Some(filepath_str) = filepath.to_str() 
                 else {
                     error_message += "Could not extract string value from path\n";
