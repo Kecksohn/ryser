@@ -36,30 +36,31 @@ pub fn create_library(name: &str, paths: Vec<library_path>) -> Result<(), String
     }*/
 
     // If ID is already taken, add incremented numbers until a new unique id is found
-    let mut current_library_ids = get_all_library_ids();
-    current_library_ids.sort();
+    let current_library_ids = get_all_library_ids();
     let mut i = 2;
-    for library_id in current_library_ids
+
+    loop
     {
-        if library_id == new_library_id {
-            
-            // Remove the last added i, if any
-            if i > 2 {
-                for j in 0..(i/10)+1 {
-                    new_library_id.pop();
-                }
-            }
-
-            let i_str = i.to_string();
-            
-            // Check if we would be over the max foldername chars 
-            if new_library_id.chars().count() + i_str.chars().count() > 255 {
-                for j in 0..(new_library_id.chars().count() + i_str.chars().count() - 255) { new_library_id.pop(); } // Yes this is dumb code i dont care this will never happen
-            }
-
-            new_library_id += &i_str;
-            i+=1;
+        if !current_library_ids.contains(&new_library_id) {
+            break;
         }
+
+        // Remove the last added i, if any
+        if i > 2 {
+            for j in 0..(i/10)+1 {
+                new_library_id.pop();
+            }
+        }
+
+        let i_str = i.to_string();
+        
+        // Check if we would be over the max foldername chars 
+        if new_library_id.chars().count() + i_str.chars().count() > 255 {
+            for j in 0..(new_library_id.chars().count() + i_str.chars().count() - 255) { new_library_id.pop(); } // Yes this is dumb code i dont care this will never happen
+        }
+
+        new_library_id += &i_str;
+        i+=1;
     }
 
     let new_lib = library {
