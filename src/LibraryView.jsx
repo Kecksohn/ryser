@@ -42,38 +42,43 @@ export const LibraryView = () => {
 
     // Functions
 
-    async function launch_video(full_filepath) {
-        await invoke("start_video_in_mpc", {filepath: full_filepath});
-    }
+    async function launch_video(video) {
+        const process_id_option = await invoke("start_video_in_vlc", { filepath: video.filepath });
+        if (!process_id_option) {
+            console.log("Failed to start videoplayer!");
+            return;
+        } 
 
-    async function update_element_in_library(updated_element, library_index = null) {
-        /*  
-        if (!library_index) {
-            for (const [i, element] of library_elements.entries) {
-                if (element.filepath === updated_element.filepath) {
-                    library_index = i;
-                    break;
-                }
+        if (!video.watched) {
+            // After the film's duration, check if the videoplayer wasn't closed, and if so, set the film as watched
+            const percentage_needed_to_set_watched = 80; // |TODO: Get from library settings
+            
+            await new Promise(resolve => 
+                setTimeout(resolve, (video.length_in_seconds * (percentage_needed_to_set_watched) / 100) * 1000)
+            );
+
+            const is_running = await invoke("is_process_running", { process_id: process_id_option });
+
+            if (is_running) {
+                set_watched(video);
             }
         }
-        if (!library_index) {
-            console.log(`Did not find library index for ${updated_element.filepath}`);
-            return;
-        }
-        
-        set_library_elements([
-          ...library_elements.slice(0, library_index),
-          { ...library_elements[targetIndex], updated_element },
-          ...library_elements.slice(library_index + 1)
-        ]);
-        */
+    }
+
+    async function update_element_in_library(updated_element) {
         await invoke("update_library_entry_from_gui", {library_id: library_id, updated_element: updated_element});
     }
 
-    function toggle_watched(element, library_index = null) {
-        element.watched = !element.watched;
-        update_element_in_library(element, library_index).then();
+    function toggle_watched(element) {
+        set_library_elements((library_elements) =>
+            library_elements.map((list_element) =>
+                list_element === element ? { ...list_element, watched: !list_element.watched } : list_element
+            )
+        );
+        update_element_in_library(element).then();
     }
+    function set_watched(element) { if (!element.watched) toggle_watched(element); }
+    function set_not_watched(element) { if (element.watched) toggle_watched(element); }
     
 
     // Context Menu
@@ -227,7 +232,7 @@ export const LibraryView = () => {
               <div key={element.filepath}
                    className={"tmdbresult"}
                 style={{cursor: "pointer"}}
-                onClick={() => launch_video(element.filepath)}
+                onClick={() => launch_video(element)}
                 onContextMenu={(e) => handle_context_menu(e, element)}>
                   <div className={"tmdbresult-splitter"}>
                       <div className={"tmdbresult-img"}>

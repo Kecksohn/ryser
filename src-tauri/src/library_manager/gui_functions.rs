@@ -77,6 +77,7 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
     Ok(())
 }
 
+
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
     if let Some(library) = LIBRARIES

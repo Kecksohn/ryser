@@ -5,6 +5,7 @@
 
 mod video_player;
 use crate::video_player::*;
+use std::{collections::HashMap, sync::{Mutex, Arc}};
 
 mod app_start;
 use crate::app_start::*;
@@ -37,18 +38,26 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
+        .manage(Arc::new(ProcessManager {
+            processes: Mutex::new(HashMap::new()),
+        }))
         .invoke_handler(tauri::generate_handler![
             open_window,
+
             // UI Home
             get_available_libraries,
             // Library Creation
             create_library,
+
             // Library View
             get_library_videos,
-            start_video_in_mpc,
             // Library Update
             update_library_entry_from_gui,
             search_tmdb_from_gui,
+            // Video Start
+            start_video_in_mpc,
+            start_video_in_vlc,
+            is_process_running,
         ])
         .setup(|app| {
             let main_window = app.get_webview_window("main").unwrap();
