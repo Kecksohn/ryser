@@ -1,19 +1,13 @@
-import {useState, useEffect, useMemo} from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
-import { Dropdown } from "./Dropdown.jsx";
 import { ContextMenu } from "./ContextMenu";
 
-import "./TMDBResults.css";
-import { LibraryView } from "./LibraryView.jsx";
-import { AddLibrary } from "./AddLibrary.jsx";
-
-import { useNavigate } from "react-router-dom";
 
 export const MainMenu = () => {
 
     const navigate = useNavigate();
-
 
     const [libraries_loaded, set_libraries_loaded] = useState(false);
     const [libraries, set_libraries] = useState([]);

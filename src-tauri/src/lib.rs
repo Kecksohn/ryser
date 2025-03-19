@@ -28,13 +28,14 @@ async fn open_window(window: Window) {
         .expect("no window labeled 'ryser' found")
         .show()
         .unwrap();
+
+    on_gui_available(window);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     read_config();
     load_all_libraries();
-    rescan_all_libraries();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

@@ -1,6 +1,8 @@
 import React from "react";
 import { useState, useEffect } from "react";
 
+import { NotificationManager } from "./NotificationManager";
+
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { MainMenu } from "./MainMenu";
 import { LibraryView } from "./LibraryView";
@@ -11,7 +13,10 @@ import "./App.css";
 
 function App() {
 
-  return(
+  return(<>
+
+    <NotificationManager/>
+
     <HashRouter>
       <Routes>
         <Route path="/" element={ 
@@ -26,7 +31,8 @@ function App() {
         <Route path="/settings" element={<MainMenu />} />
       </Routes>
     </HashRouter>
-  )
+    
+  </>)
   
 }
 
