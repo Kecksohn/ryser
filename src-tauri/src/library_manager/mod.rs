@@ -95,6 +95,12 @@ pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
 }
 
+pub(crate) fn get_library_index_by_id(lib_id: &str) -> Result<usize, String> {
+    LIBRARIES.lock().unwrap().iter()
+        .position(|lib| lib.id == lib_id)
+        .ok_or_else(|| format!("Could not find library with id {}", lib_id))
+}
+
 pub(crate) fn add_library(mut lib: library) {
     // TODO THINK: Maybe this should be async after the library is added?
     let mut video_files_in_library_paths: Vec<String> = vec![];
@@ -158,11 +164,23 @@ fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec
 }
 
 
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn rescan_all_libraries() {
+    for lib in LIBRARIES.lock().unwrap().iter_mut() {
+        rescan_library(lib);
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn rescan_library_by_id(lib_id: &str) -> Result<(), String> {
+    let index = get_library_index_by_id(lib_id)?;
+    rescan_library(&mut LIBRARIES.lock().unwrap()[index]);
+    Ok(())
+}
+
 //  Compares Files present in library paths with data in json
 //  Tries to match files whose filenames have simply changed (!TODO: MD5 sum or simply length?)
-pub(crate) fn check_for_library_changes() {
-
-    for lib in LIBRARIES.lock().unwrap().iter_mut() {
+pub(crate) fn rescan_library(lib: &mut library) {
         
         // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
         let mut video_files_in_library_paths: Vec<String> = vec![];
@@ -231,7 +249,6 @@ pub(crate) fn check_for_library_changes() {
                 lib.video_files.len()
             );
             write_library(&lib);
-        }
     }
 }
 

@@ -11,9 +11,10 @@ mod app_start;
 use crate::app_start::*;
 
 mod library_manager;
-use crate::library_manager::check_for_library_changes;
 use crate::library_manager::gui_functions::*;
 use crate::library_manager::load_all_libraries;
+use crate::library_manager::rescan_all_libraries;
+use crate::library_manager::rescan_library_by_id;
 
 
 
@@ -33,7 +34,7 @@ async fn open_window(window: Window) {
 pub fn run() {
     read_config();
     load_all_libraries();
-    check_for_library_changes();
+    rescan_all_libraries();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -51,6 +52,9 @@ pub fn run() {
 
             // Library View
             get_library_videos,
+            // Library Rescan
+            rescan_all_libraries,
+            rescan_library_by_id,
             // Library Update
             update_library_entry_from_gui,
             search_tmdb_from_gui,

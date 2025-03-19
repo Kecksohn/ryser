@@ -12,6 +12,9 @@ import { useNavigate } from "react-router-dom";
 
 export const MainMenu = () => {
 
+    const navigate = useNavigate();
+
+
     const [libraries_loaded, set_libraries_loaded] = useState(false);
     const [libraries, set_libraries] = useState([]);
 
@@ -26,8 +29,12 @@ export const MainMenu = () => {
     });
 
 
-    const navigate = useNavigate();
-
+    function updateLibraries() {
+        invoke("rescan_all_libraries").then(res => {
+            set_libraries_loaded(false);
+        })
+    }
+    
     return(
         <div>
             {!libraries_loaded && 
@@ -42,8 +49,13 @@ export const MainMenu = () => {
                 })
             }
             <br/>
-            {libraries_loaded && 
-                <div onClick={() => navigate("/addlibrary/")}>Add Library</div>}
+            {libraries_loaded &&
+            <> 
+                <div onClick={() => navigate("/addlibrary/")}>Add Library</div>
+            <br/>
+            
+            {/* <div onClick={() => updateLibraries()}>Update Libraries</div>*/} 
+            </>}
         </div>
     )
 
