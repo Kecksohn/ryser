@@ -16,8 +16,9 @@ Follow [this set-up](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-buildi
 <details><summary>or follow these ffmpeg-next Windows Build Instructions</summary>
 
 * [Install LLVM](https://releases.llvm.org/download.html) (LLVM-xx.x.x-win64.exe on linked GitHub release)
-* [Download FFMPEG](https://ffmpeg.org/download.html), extract somewhere \
-    (click on one of the windows build links, then look for an archive that's tagged with 'release', full', 'shared' and/or 'w64'; use your head)
+* [Download FFMPEG >=7.1.1](https://github.com/GyanD/codexffmpeg/releases) (choose full-build-shared! or similar, if unsure [check here](https://ffmpeg.org/download.html) or [just download this](https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-full_build-shared.7z)) \
+    (click on one of the windows build links, then look for an archive that's tagged with 'shared', 'full' or 'w64' also don't hurt; use your head) \
+    (the archive should contain at least a /bin/ an /include/ and a /lib/ folder)
 * Add both LLVM's and FFMPEG's `bin` folders to your `PATH`
 * Create `FFMPEG_DIR` environmental variable and set it to your extracted FFMPEG dir (where include and lib reside)
 * Restart your shell or PC (verify installs & paths using `clang -v` and `ffmpeg -version`) 
@@ -31,7 +32,6 @@ yarn
 yarn tauri dev
 ```
 <details><summary>If building fails due to ffmpeg looking for vcpkg even though you installed it as above</summary>
-
 ```
 git clone https://github.com/microsoft/vcpkg
 cd vcpkg
@@ -40,7 +40,19 @@ vcpkg integrate install
 (Restart shell or PC and try again)
 </details>
 
+<details><summary>If building fails due to ffmpeg failing to compile with missing sys::AVCodecID or similar</summary>
+Try
+
+```
+yarn tauri build
+```
+
+If that works you can just run the dev build as seperate components by opening one shell with ```yarn run``` and one with ```cargo run``` (see also the RustRover Debug set-up below)
+</details>
+
 ### Debugging With RustRover
+Open the folder, if it asks for attaching cargo and you don't know what that is click Attach.
+
 Create 2 Configurations:
 - npm -> Scripts: dev
 - Cargo -> Command: run --no-default-features
