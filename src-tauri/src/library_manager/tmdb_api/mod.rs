@@ -13,7 +13,7 @@ use json_structs::*;
 async fn call_tmdb_api(client: &Client, api_url: &str, api_token: &str) -> Result<Response, Error> {
     client
         .get(api_url)
-        .header(USER_AGENT, "rust-web-api-client") // gh api requires a user-agent header
+        .header(USER_AGENT, "rust-web-api-client") // ? api requires a user-agent header
         .header("accept", "application/json")
         .header("Authorization", "Bearer ".to_owned() + api_token)
         .send()
@@ -33,13 +33,21 @@ pub(crate) async fn is_tmdb_api_read_access_token_valid(
     }
 }
 
-pub(crate) async fn get_movie_information_tmdb(
+pub(crate) async fn search_tmdb(
     movietitle: &str,
 ) -> Result<search_movie_res, Error> {
+    
     let api_token = get_api_token();
+    if api_token.len() == 0 {
+        panic!(
+            "There is no API Read Access Token! Go to https://www.themoviedb.org/settings/api and insert in src/tmdb_api/api_token.rs"
+        );
+    }
+    
     let client = reqwest::Client::new();
 
-    if is_tmdb_api_read_access_token_valid(&client, api_token).await? {
+    if is_tmdb_api_read_access_token_valid(&client, api_token).await? 
+    {
         let search_movie_url = 
             format!("https://api.themoviedb.org/3/search/movie?query={query}&include_adult={include_adult}&language={language}&page={page}",
                     query = movietitle,
@@ -51,9 +59,13 @@ pub(crate) async fn get_movie_information_tmdb(
 
         let response = call_tmdb_api(&client, &search_movie_url, api_token).await?;
         return response.json().await;
-    } else {
+    } 
+    else {
+        // TODO: Send to GUI
         panic!(
-            "API token not valid. Go to api.themoviedb.org and insert in src/tmdb_api/api_token.rs"
+            "API Read Access Token not valid. Go to https://www.themoviedb.org/settings/api and insert in src/tmdb_api/api_token.rs"
         );
     }
 }
+
+

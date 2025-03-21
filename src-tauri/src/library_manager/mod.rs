@@ -40,7 +40,7 @@ pub struct library {
 pub struct video_element {
     pub filepath: String,
     watched: bool,
-    parsed: bool,
+    tmdb_id: Option<usize>,
     poster_path: Option<String>,
     thumbnail_path: Option<String>,
 
