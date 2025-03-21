@@ -3317,6 +3317,7 @@ dependencies = [
  "chrono",
  "directories",
  "ffmpeg-next",
+ "regex",
  "serde",
  "serde_json",
  "tauri",

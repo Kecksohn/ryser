@@ -38,3 +38,34 @@ pub fn create_valid_filename(input: &str, remove_whitespace: Option<bool>, ascii
     
     sanitized
 }
+
+
+use regex::Regex;
+pub fn get_search_strings_from_filename(filename: &str) -> Vec<String>
+{
+    
+    let mut search_strings: Vec<String> = vec![];
+
+
+    /* WIP 
+    let regex_year_brackets = Regex::new(r"(\d{4})").unwrap();
+    
+    // Find the first match
+    if let Some(mat) = re.find(input) {
+        // Return the matched 4-digit number
+        Some(&input[mat.start()..mat.end()])
+    } 
+
+    if let Some(mat) = re.find(input) {
+        // Return everything before the match
+        Some(&input[..mat.start()])
+    }
+
+    let alphanumeric_filename: String = filename.chars()
+                                        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+                                        .collect();
+
+
+    */
+    search_strings
+}
