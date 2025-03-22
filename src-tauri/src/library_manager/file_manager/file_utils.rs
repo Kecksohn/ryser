@@ -1,3 +1,5 @@
+use std::path::Path;
+
 pub fn create_valid_filename(input: &str, remove_whitespace: Option<bool>, ascii_only: Option<bool>) -> String {
     
     let remove_whitespace: bool = remove_whitespace.unwrap_or(false);
@@ -39,33 +41,12 @@ pub fn create_valid_filename(input: &str, remove_whitespace: Option<bool>, ascii
     sanitized
 }
 
-
-use regex::Regex;
-pub fn get_search_strings_from_filename(filename: &str) -> Vec<String>
-{
-    
-    let mut search_strings: Vec<String> = vec![];
-
-
-    /* WIP 
-    let regex_year_brackets = Regex::new(r"(\d{4})").unwrap();
-    
-    // Find the first match
-    if let Some(mat) = re.find(input) {
-        // Return the matched 4-digit number
-        Some(&input[mat.start()..mat.end()])
-    } 
-
-    if let Some(mat) = re.find(input) {
-        // Return everything before the match
-        Some(&input[..mat.start()])
-    }
-
-    let alphanumeric_filename: String = filename.chars()
-                                        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-                                        .collect();
-
-
-    */
-    search_strings
+pub fn remove_extension_and_path(filename: &str) -> String {
+    Path::new(filename)
+        .file_name()                         // First get just the filename without the path
+        .and_then(|name| Path::new(name)     // Create a new Path from just the filename
+            .file_stem()                     // Then get the stem (filename without extension)
+            .and_then(|stem| stem.to_str()))
+        .unwrap_or(filename)
+        .to_string()
 }

@@ -2,6 +2,7 @@
 
 mod api_token;
 pub(super) mod json_structs;
+mod search_name_creator;
 
 use serde::Deserialize;
 use tauri_plugin_http::reqwest::header::USER_AGENT;
@@ -36,7 +37,7 @@ pub(crate) async fn is_tmdb_api_read_access_token_valid(
 pub(crate) async fn search_tmdb(
     movietitle: &str,
 ) -> Result<search_movie_res, Error> {
-    
+
     let api_token = get_api_token();
     if api_token.len() == 0 {
         panic!(

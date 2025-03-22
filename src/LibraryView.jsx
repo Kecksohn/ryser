@@ -43,7 +43,7 @@ export const LibraryView = () => {
     // Functions
 
     async function launch_video(video) {
-        const process_id_option = await invoke("start_video_in_vlc", { filepath: video.filepath });
+        const process_id_option = await invoke("start_video_in_mpc", { filepath: video.filepath });
         if (!process_id_option) {
             console.log("Failed to start videoplayer!");
             return;
