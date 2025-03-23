@@ -10,7 +10,7 @@ use std::{
 };
 
 use super::tmdb_api::*;
-use super::{video_element, LIBRARIES};
+use super::{VideoElement, LIBRARIES};
 use read_metadata::get_duration_in_s;
 
 pub fn get_modified_secs(file: &str) -> usize {
@@ -25,8 +25,8 @@ pub fn get_modified_secs(file: &str) -> usize {
     secs.try_into().unwrap()
 }
 
-pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
-    let mut ve = video_element {
+pub(super) fn create_video_element_from_file(filepath: &str) -> VideoElement {
+    let mut ve = VideoElement {
         filepath: filepath.to_owned(),
         ..Default::default()
     };
@@ -46,8 +46,8 @@ pub(super) fn create_video_element_from_file(filepath: &str) -> video_element {
     ve
 }
 
-pub(super) fn get_video_files(folder_path: &str) -> Vec<video_element> {
-    let mut video_files: Vec<video_element> = vec![];
+pub(super) fn get_video_files(folder_path: &str) -> Vec<VideoElement> {
+    let mut video_files: Vec<VideoElement> = vec![];
 
     let files = fs::read_dir(folder_path).unwrap();
     for file in files {

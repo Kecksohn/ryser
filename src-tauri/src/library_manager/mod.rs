@@ -3,16 +3,15 @@ pub(crate) mod gui_functions;
 mod json_parser;
 mod tmdb_api;
 mod utils;
+mod video_element;
 
-
-use std::{fs, vec, path::*};
+use std::{fs, path::*, vec};
 use directories::ProjectDirs;
 
 use tauri::async_runtime;
-use tauri_plugin_http::reqwest::Error;
 use serde::Deserialize;
-use chrono::{Utc, DateTime, serde::ts_milliseconds};
 
+use video_element::VideoElement;
 
 use file_manager::*;
 use file_manager::directory_utils::*;
@@ -32,31 +31,8 @@ pub struct library {
     id: String,
     name: String,
     library_paths: Vec<library_path>,
-    video_files: Vec<video_element>,
+    video_files: Vec<VideoElement>,
     child_libraries: Vec<library>,
-}
-
-#[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
-pub struct video_element {
-    pub filepath: String,
-    watched: bool,
-    tmdb_id: Option<usize>,
-    poster_path: Option<String>,
-    thumbnail_path: Option<String>,
-
-    title: Option<String>,
-    year: Option<i16>,
-    director: Option<String>,
-    countries: Option<Vec<String>>,
-    languages: Option<Vec<String>>,
-
-    season: Option<i32>,
-    episode: Option<i32>,
-
-    index_priority: i32,
-    length_in_seconds: i32,
-    #[serde(with = "ts_milliseconds")]
-    timestamp_modified: DateTime<Utc>,
 }
 
 use std::sync::Mutex;
@@ -254,7 +230,7 @@ pub(crate) fn rescan_library(lib: &mut library) {
 
 pub(crate) fn update_library_entry(
     library: &mut library,
-    updated_element: video_element,
+    updated_element: VideoElement,
 ) -> Result<(), String> {
     let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
         return Result::Err("Could not get project dirs".to_owned());
@@ -277,7 +253,7 @@ pub(crate) fn update_library_entry(
 
 pub(crate) fn update_library_entry_by_index(
     library: &mut library,
-    updated_element: video_element,
+    updated_element: VideoElement,
     index: usize,
 ) -> Result<(), String> {
     if index >= library.video_files.len() {

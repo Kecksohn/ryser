@@ -2,9 +2,9 @@ use directories::ProjectDirs;
 use std::{default, fs};
 
 use super::json_parser::write_library;
-use super::tmdb_api::search_tmdb;
-use super::{library, library_path, video_element, 
-            add_library, update_library_entry, 
+use super::tmdb_api::{create_client_and_search_tmdb, fill_video_element_with_tmdb_result};
+use super::{library, library_path, VideoElement,
+            add_library, update_library_entry,
             LIBRARIES};
 
 use super::tmdb_api::json_structs::*;
@@ -79,7 +79,7 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
+pub fn get_library_videos(library_id: &str) -> Vec<VideoElement> {
     if let Some(library) = LIBRARIES
         .lock()
         .unwrap()
@@ -93,7 +93,7 @@ pub fn get_library_videos(library_id: &str) -> Vec<video_element> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn update_library_entry_from_gui(library_id: &str, updated_element: video_element) {
+pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoElement) {
     for library in LIBRARIES.lock().unwrap().iter_mut() {
         if library.id.to_string() == library_id {
             match update_library_entry(library, updated_element) {
@@ -112,29 +112,22 @@ pub fn update_library_entry_from_gui(library_id: &str, updated_element: video_el
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<video_element>, String> {
+pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement>, String> {
     
-    let query_result_object = match search_tmdb(search_title).await {
+    let query_result_object = match create_client_and_search_tmdb(search_title, None, None, None, None).await {
         Ok(res) => res,
         Err(e) => return Err(format!("Error trying to call tmdb database: {}", e))
     };
 
-    let mut query_result_elements: Vec<video_element> = vec![];
+    let mut query_result_elements: Vec<VideoElement> = vec![];
 
     for query_result in query_result_object.results.iter() {
-        let result_element = video_element {
+        let mut result_element = VideoElement {
             filepath: "".to_owned(),
             watched: false,
-            tmdb_id: query_result.id,
-            poster_path: match query_result.poster_path.as_ref() {
-                Some(identifier) => {
-                    Some("https://image.tmdb.org/t/p/original/".to_owned() + &identifier)
-                }
-                None => None,
-            },
-            title: query_result.title.clone(),
             ..Default::default()
         };
+        fill_video_element_with_tmdb_result(&mut result_element, query_result, None);
         query_result_elements.push(result_element);
     }
 
