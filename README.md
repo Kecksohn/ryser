@@ -4,9 +4,13 @@ Library Browser for Films & TV Shows using Rust, Tauri & React
 
 A project born from the fact that mpc-hc lags a BIT when used with Kodi. Will hopefully do all of Kodi's functionalities I care about & be prettier too. Also my first project in Rust.
 
+<br>
+
 # Download Latest
 
 yeah yeah soon chill u crazy shit
+
+<br>
 
 # Dev Set-Up
 
@@ -50,6 +54,8 @@ yarn tauri build
 If that works you can just run the dev build as seperate components by opening one shell with ```yarn run``` and one with ```cargo run``` (see also the RustRover Debug set-up below)
 </details>
 
+<br>
+
 ### TheMovieDatabase Integration
 
 If you want to use TMDB you will need to get your own [API Access Token](https://www.themoviedb.org/settings/api) \
@@ -61,6 +67,8 @@ git update-index --skip-worktree src-tauri/src/library_manager/tmdb_api/api_toke
 ```
 so you don't accidentally include it in a future pull request
 
+<br>
+
 ### Debugging With RustRover
 Open the folder, if it asks for attaching cargo and you don't know what that is click Attach.
 
@@ -70,10 +78,11 @@ Create 2 Configurations:
 
 Start the server using the npm script, then launch the cargo run config using the debugger.
 
+<br>
+
 ### Faster Compilation
 
-This is Rust so you pretty much take what you can get.
-Additionally, if you don't need the GUI and just wanna test some functions in the back-end you can run:
+This is Rust so you pretty much take what you can get. However, if you don't need the GUI and just wanna test some functions in the back-end you can run:
 
 ```cargo run --features debug-backend```
 
@@ -82,6 +91,8 @@ Which skips building the front-end (approximately x3 the compile time on iterati
 Note: I haven't gotten this to work when editing and saving files using VSCode w rust-analyzer plug-in. Feel free to pull request if you have.
 
 Combining this with RustRover Debugging is left as an exercise to the reader.
+
+<br>
 
 # Dev Build
 
