@@ -7,9 +7,9 @@ use chrono::Datelike;
 use crate::library_manager::file_utils::remove_extension_and_path;
 
 // REGEXs to look for to find end of Movie name
-static YEAR_IN_BRACKETS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"[\(\[\{]\d{4}[\)\]\}]").unwrap());
-static YEAR_IN_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"($|\s)\d{4}($|\s)").unwrap()); // Also captures start/end of string
-static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(^|\D)\d{4}($|[^pPxX\d])").unwrap()); // Exactly 4 digits, no trailing p/x (resolution)
+static YEAR_IN_BRACKETS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:[\(\[\{])(\d{4})(?:[\)\]\}])").unwrap());
+static YEAR_IN_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\s)(\d{4})(?:$|\s)").unwrap());
+static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\D)(\d{4})(?:$|[^pPxX\d])").unwrap()); // Exactly 4 digits, no trailing p/x (resolution)
 // Or TV Show name
 static SEASON_EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)s\d{1,2}(?i)e\d+").unwrap());
 static EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"($|\s)(?i)e\d+($|\s)").unwrap());
@@ -83,31 +83,31 @@ static CURRENT_YEAR: Lazy<i32> = Lazy::new(|| chrono::Utc::now().year());
 // *1888 - CURRENT_YEAR
 pub fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String, Option<i32>)
 {
-    let filename = &remove_extension_and_path(filename_or_path);
+    let mut filename = remove_extension_and_path(filename_or_path);
     let mut title_start_index = 0;
     let mut title_end_index = filename.len();
     let mut year: Option<i32> = Option::None;
 
 
     // First we try to find a single year in brackets e.g. "Persona (1966).mkv"
-    let year_matches: Vec<_> = regex_find_year(&*YEAR_IN_BRACKETS_REGEX, filename);
+    let mut year_matches: Vec<(i32, usize, usize)> = regex_find_year(&*YEAR_IN_BRACKETS_REGEX, &filename);
 
     if year_matches.is_empty()
     {
         // If that fails, we first remove anything in [] because if it's not the year it's probably crap (e.g. anime subbers)
-        let filename = &remove_square_bracket_text(filename);
-
+        filename = remove_square_bracket_text(&filename);
         // Then we exchange special characters for spaces altogether
-        let filename = &make_alphanumeric_with_spaces(filename);
+        filename = make_alphanumeric_with_spaces(&filename);
+        title_end_index = filename.len();
 
         // Now we want to find a year seperated by spaces or at start/end of file e.g. "Caché 2005.mkv"
-        let year_matches: Vec<_> = regex_find_year(&*YEAR_IN_SPACES_REGEX, filename);
+        year_matches = regex_find_year(&*YEAR_IN_SPACES_REGEX, &filename);
     }
 
     // Last chance, maybe it's just after the title like "Nostalghia1983.mkv"
     if year_matches.is_empty()
     {
-        let year_matches: Vec<_> = regex_find_year(&*YEAR_REGEX, filename);
+        year_matches = regex_find_year(&*YEAR_REGEX, &filename);
     }
 
     // If we found something in the above, we hope the year is not at the start of the filename
@@ -117,7 +117,7 @@ pub fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String
         year = Some(year_matches[year_matches.len()-1].0);
 
         let start_index = year_matches[year_matches.len()-1].1;
-        if start_index > 1 {
+        if start_index > 0 {
             title_end_index = start_index;
             return (filename[title_start_index..title_end_index].to_owned(), year);
         }
@@ -131,7 +131,7 @@ pub fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String
     // If we can't find a year after the title, the filename's pretty shit.
     // But we can still try to catch typical filename noise, and extract the substring before the left-most
     for regex in FILENAME_NOISE_PATTERNS.iter() {
-        if let Some(noise_match) = regex.find(filename) {
+        if let Some(noise_match) = regex.find(&filename) {
             if noise_match.start() < title_end_index {
                 title_end_index = noise_match.start();
             }
@@ -156,12 +156,19 @@ pub fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String
 
 fn regex_find_year(regex: &Regex, filename: &str) -> Vec<(i32, usize, usize)>
 {
-    regex.find_iter(filename)
-        .filter_map(|mat| {
-            let year_str = mat.as_str();
-            if let Ok(year) = year_str.parse::<i32>() {
-                if 1888 <= year && year <= *CURRENT_YEAR {
-                    return Some((year, mat.start(), mat.end()));
+    regex.captures_iter(filename)
+        .filter_map(|cap| {
+            if let Some(year_match) = cap.get(1) {
+                let year_str = year_match.as_str();
+                if let Ok(year) = year_str.parse::<i32>() {
+                    if 1888 <= year && year <= *CURRENT_YEAR {
+                        // Get the full match's start and end positions (index 0)
+                        let full_match = cap.get(0).unwrap();
+                        return Some((year, full_match.start(), full_match.end()));
+                    }
+                }
+                else {
+                    println!("Could not parse year from '{}'", year_str);
                 }
             }
             None

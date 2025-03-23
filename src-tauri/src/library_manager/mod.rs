@@ -298,8 +298,8 @@ pub(crate) fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Resul
         let result = async_runtime::block_on(async {
             // Your async code here
             parse_library_tmdb(lib, reparse_all).await
-                .map_err(|e| format!("Could not parse json: {}", e))
-        });
+                .map_err(|e| format!("Could not parse Library with TMDB: {}", e))
+        })?;
         break; // TODO: REMOVE
     }
 

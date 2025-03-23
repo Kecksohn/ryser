@@ -78,7 +78,7 @@ pub(crate) async fn search_tmdb(movietitle: &str, ) -> Result<search_movie_res, 
 
 
 
-pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Option<bool>) -> Result<Response, String>
+pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Option<bool>) -> Result<(), String>
 {
     let reparse_all: bool = reparse_all.unwrap_or(false);
 
@@ -86,17 +86,15 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
     let client = create_client(get_api_token()).await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
 
-    // for each blabla
-    for i in 0..5 {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let random_number = rng.gen_range(0..library.video_files.len());
+    for video_element in library.video_files.iter_mut() {
+        let filename = &video_element.filepath;
 
-        let filename = &library.video_files[random_number].filepath;
+        // TODO: Check if filename hints at this being a TV episode
+
         let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
 
-        println!("Filename: {}\n Extracted Title: {}\nYear: {}\n", filename, possible_title, year.unwrap_or(-1));
+        // TODO: Call TMDB
     }
 
-    Err("Cool!".to_string())
+    Ok(())
 }
