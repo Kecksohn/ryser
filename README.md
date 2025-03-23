@@ -72,15 +72,16 @@ Start the server using the npm script, then launch the cargo run config using th
 
 ### Faster Compilation
 
-This is Rust so you pretty much take what you can get. However, if you don't need the GUI and just wanna test some functions in the back-end you can run:
+This is Rust so you pretty much take what you can get.
+Additionally, if you don't need the GUI and just wanna test some functions in the back-end you can run:
 
 ```cargo run --features debug-backend```
 
 Which skips building the front-end (approximately x3 the compile time on iterative builds) and executes whatever you put in ```debug_main()``` inside ```/src-tauri/src/_debug_run/``` after back-end initialization.
 
-Note: You might need to run ```yarn tauri dev``` when cargo changes if the above command keeps building the same tauri crates.
+Note: I haven't gotten this to work when editing and saving files using VSCode w rust-analyzer plug-in. Feel free to pull request if you have.
 
-Combining this with the RustRover Set-Up is left as an exercise to the reader.
+Combining this with RustRover Debugging is left as an exercise to the reader.
 
 # Dev Build
 
