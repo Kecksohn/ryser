@@ -78,6 +78,8 @@ This is Rust so you pretty much take what you can get. However, if you don't nee
 
 Which skips building the front-end (approximately x3 the compile time on iterative builds) and executes whatever you put in ```debug_main()``` inside ```/src-tauri/src/_debug_run/``` after back-end initialization.
 
+Note: You might need to run ```yarn tauri dev``` when cargo changes if the above command keeps building the same tauri crates.
+
 Combining this with the RustRover Set-Up is left as an exercise to the reader.
 
 # Dev Build
