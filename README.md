@@ -50,6 +50,17 @@ yarn tauri build
 If that works you can just run the dev build as seperate components by opening one shell with ```yarn run``` and one with ```cargo run``` (see also the RustRover Debug set-up below)
 </details>
 
+### TheMovieDatabase Integration
+
+If you want to use TMDB you will need to get your own [API Access Token](https://www.themoviedb.org/settings/api) \
+Insert it into ```/src-tauri/src/library_manager/tmdb_api/api_token.rs```
+
+After doing that you should run:
+```
+git update-index --skip-worktree src-tauri/src/library_manager/tmdb_api/api_token.rs
+```
+so you don't accidentally include it in a future pull request
+
 ### Debugging With RustRover
 Open the folder, if it asks for attaching cargo and you don't know what that is click Attach.
 
@@ -65,7 +76,9 @@ This is Rust so you pretty much take what you can get. However, if you don't nee
 
 ```cargo run --features debug-backend```
 
-Which skips building the front-end (approximately x3 the compile time) and executes whatever you put in ```debug_main()``` inside ```/src-tauri/src/_debug_run/```, after the usual initialization.
+Which skips building the front-end (approximately x3 the compile time on iterative builds) and executes whatever you put in ```debug_main()``` inside ```/src-tauri/src/_debug_run/``` after back-end initialization.
+
+Combining this with the RustRover Set-Up is left as an exercise to the reader.
 
 # Dev Build
 
