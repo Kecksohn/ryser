@@ -17,6 +17,8 @@ use crate::library_manager::rescan_all_libraries;
 use crate::library_manager::rescan_library_by_id;
 
 
+mod _debug_run;
+
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.
@@ -37,38 +39,50 @@ pub fn run() {
     read_config();
     load_all_libraries();
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_http::init())
-        .manage(Arc::new(ProcessManager {
-            processes: Mutex::new(HashMap::new()),
-        }))
-        .invoke_handler(tauri::generate_handler![
-            open_window,
+    #[cfg(not(feature = "backend-only"))]
+    {
+        tauri::Builder::default()
+            .plugin(tauri_plugin_dialog::init())
+            .plugin(tauri_plugin_http::init())
+            .manage(Arc::new(ProcessManager {
+                processes: Mutex::new(HashMap::new()),
+            }))
+            .invoke_handler(tauri::generate_handler![
+                open_window,
 
-            // UI Home
-            get_available_libraries,
-            // Library Creation
-            create_library,
+                // UI Home
+                get_available_libraries,
+                // Library Creation
+                create_library,
 
-            // Library View
-            get_library_videos,
-            // Library Rescan
-            rescan_all_libraries,
-            rescan_library_by_id,
-            // Library Update
-            update_library_entry_from_gui,
-            search_tmdb_from_gui,
-            // Video Start
-            start_video_in_mpc,
-            start_video_in_vlc,
-            is_process_running,
-        ])
-        .setup(|app| {
-            let main_window = app.get_webview_window("main").unwrap();
-            main_window.open_devtools();
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+                // Library View
+                get_library_videos,
+                // Library Rescan
+                rescan_all_libraries,
+                rescan_library_by_id,
+                // Library Update
+                update_library_entry_from_gui,
+                search_tmdb_from_gui,
+                // Video Start
+                start_video_in_mpc,
+                start_video_in_vlc,
+                is_process_running,
+            ])
+            .setup(|app| {
+                #[cfg(debug_assertions)]
+                {
+                    let main_window = app.get_webview_window("main").unwrap();
+                    main_window.open_devtools();
+                }
+                Ok(())
+            })
+            .run(tauri::generate_context!())
+            .expect("error while running tauri application");
+    }
+
+    #[cfg(feature = "debug-backend")]
+    {
+        use _debug_run::*;
+        debug_main();
+    }
 }

@@ -10,7 +10,7 @@ yeah yeah soon chill u crazy shit
 
 # Dev Set-Up
 
-Get [Nodejs >= 22](https://github.com/nvm-sh/nvm/) ([Windows](https://github.com/coreybutler/nvm-windows/), [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#windows-stable) and [Rust](https://www.rust-lang.org/tools/install).
+Get [Nodejs >= 22](https://github.com/nvm-sh/nvm/) ([Windows](https://github.com/coreybutler/nvm-windows/)), [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#windows-stable) and [Rust](https://www.rust-lang.org/tools/install).
 
 Follow [this set-up](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building) to successfully build ffmpeg-next (rust-ffmpeg) on your platform.
 <details><summary>or follow these ffmpeg-next Windows Build Instructions</summary>
@@ -58,6 +58,14 @@ Create 2 Configurations:
 - Cargo -> Command: run --no-default-features
 
 Start the server using the npm script, then launch the cargo run config using the debugger.
+
+### Faster Compilation
+
+This is Rust so you pretty much take what you can get. However, if you don't need the GUI and just wanna test some functions in the back-end you can run:
+
+```cargo run --features debug-backend```
+
+Which skips building the front-end (approximately x3 the compile time) and executes whatever you put in ```debug_main()``` inside ```/src-tauri/src/_debug_run/```, after the usual initialization.
 
 # Dev Build
 
