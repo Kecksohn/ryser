@@ -1,25 +1,25 @@
-use directories::ProjectDirs;
-use std::{fs, vec};
-
 mod file_manager;
 pub(crate) mod gui_functions;
 mod json_parser;
 mod tmdb_api;
 mod utils;
 
+
+use std::{fs, vec, path::*};
+use directories::ProjectDirs;
+
+use tauri::async_runtime;
+use tauri_plugin_http::reqwest::Error;
+use serde::Deserialize;
+use chrono::{Utc, DateTime, serde::ts_milliseconds};
+
+
 use file_manager::*;
 use file_manager::directory_utils::*;
-use std::path::*;
 
 use json_parser::*;
 use tmdb_api::*;
-use tauri_plugin_http::reqwest::Error;
 
-use serde::Deserialize;
-
-use chrono::serde::ts_milliseconds;
-use chrono::DateTime;
-use chrono::Utc;
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct library_path {
@@ -288,5 +288,20 @@ pub(crate) fn update_library_entry_by_index(
         ));
     }
     library.video_files[index] = updated_element;
+    Ok(())
+}
+
+
+#[tauri::command]
+pub(crate) fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Result<(), String> {
+    for lib in LIBRARIES.lock().unwrap().iter_mut() {
+        let result = async_runtime::block_on(async {
+            // Your async code here
+            parse_library_tmdb(lib, reparse_all).await
+                .map_err(|e| format!("Could not parse json: {}", e))
+        });
+        break; // TODO: REMOVE
+    }
+
     Ok(())
 }
