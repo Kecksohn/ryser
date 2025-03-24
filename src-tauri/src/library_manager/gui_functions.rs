@@ -122,11 +122,13 @@ pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement
     let mut query_result_elements: Vec<VideoElement> = vec![];
 
     for query_result in query_result_object.results.iter() {
+        
         let mut result_element = VideoElement {
             filepath: "".to_owned(),
             watched: false,
             ..Default::default()
         };
+
         fill_video_element_with_tmdb_result(&mut result_element, query_result, None);
         query_result_elements.push(result_element);
     }

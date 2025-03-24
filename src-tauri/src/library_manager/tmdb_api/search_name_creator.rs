@@ -81,7 +81,7 @@ static CURRENT_YEAR: Lazy<i32> = Lazy::new(|| chrono::Utc::now().year());
 //  5) If that fails, do both, or random, or idk - good luck!
 //
 // *1888 - CURRENT_YEAR
-pub fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String, Option<i32>)
+pub(super) fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String, Option<i32>)
 {
     let mut filename = remove_extension_and_path(filename_or_path);
     let mut title_start_index = 0;
