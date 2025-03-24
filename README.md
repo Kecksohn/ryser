@@ -20,9 +20,7 @@ Follow [this set-up](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-buildi
 <details><summary>or follow these ffmpeg-next Windows Build Instructions</summary>
 
 * [Install LLVM](https://releases.llvm.org/download.html) (LLVM-xx.x.x-win64.exe on linked GitHub release)
-* [Download FFMPEG >=7.1.1](https://github.com/GyanD/codexffmpeg/releases) (choose full-build-shared! or similar, if unsure [check here](https://ffmpeg.org/download.html) or [just download this](https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-full_build-shared.7z)) \
-    (click on one of the windows build links, then look for an archive that's tagged with 'shared', 'full' or 'w64' also don't hurt; use your head) \
-    (the archive should contain at least a /bin/ an /include/ and a /lib/ folder)
+* [Download FFMPEG >=7.1.1](https://github.com/GyanD/codexffmpeg/releases) (choose full-build-shared! or similar, if unsure [check here](https://ffmpeg.org/download.html) or [just download this](https://github.com/GyanD/codexffmpeg/releases/download/7.1.1/ffmpeg-7.1.1-full_build-shared.7z))
 * Add both LLVM's and FFMPEG's `bin` folders to your `PATH`
 * Create `FFMPEG_DIR` environmental variable and set it to your extracted FFMPEG dir (where include and lib reside)
 * Restart your shell or PC (verify installs & paths using `clang -v` and `ffmpeg -version`) 
