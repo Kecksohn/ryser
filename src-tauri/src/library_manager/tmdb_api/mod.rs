@@ -21,11 +21,7 @@ async fn create_client() -> Result<(Client, String), String>
         return Err(String::from("There is no API Read Access Token! Go to https://www.themoviedb.org/settings/api and insert in src/tmdb_api/api_token.rs"));
     }
 
-    let client = reqwest::Client::builder()
-                .proxy(reqwest::Proxy::https("http://proxy.fcp-intranet.at:8080")
-                    .map_err(|e| format!("Failed to build proxy"))?)
-                .build()
-                .map_err(|e| format!("Failed to build reqwest client: {}", e))?;
+    let client = reqwest::Client::::new();
     match is_tmdb_api_read_access_token_valid(&client, api_token).await {
         Ok(valid) => {
             if valid
@@ -53,13 +49,13 @@ pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_tok
     let response = call_tmdb_api(&client, test_authentification_url, api_token).await;
 
     match response {
-        Ok(res) => Ok(res.json::<test_authentification>().await?.success),
+        Ok(res) => Ok(res.json::<TMDBTestAuthentification>().await?.success),
         Err(err) => Err(err),
     }
 }
 
 
-pub(crate) async fn search_tmdb
+async fn search_tmdb
 (
     client: &Client,
     api_token: &str,
@@ -69,7 +65,7 @@ pub(crate) async fn search_tmdb
     include_adult: Option<bool>,
     page: Option<i32>
 )
-    -> Result<search_movie_res, String>
+    -> Result<TMDBSearchMovieResult, String>
 {
     let include_adult = include_adult.unwrap_or(false);
     let page = page.unwrap_or(1);
@@ -102,7 +98,7 @@ pub(crate) async fn search_tmdb
         .map_err(|e| format!("Could not parse Movie Search JSON: {}", e))
 }
 
-pub(crate) async fn create_client_and_search_tmdb
+async fn create_client_and_search_tmdb
 (
     movietitle: &str,
     year: Option<i32>,
@@ -110,14 +106,37 @@ pub(crate) async fn create_client_and_search_tmdb
     include_adult: Option<bool>,
     page: Option<i32>
 )
-    -> Result<search_movie_res, String>
+    -> Result<TMDBSearchMovieResult, String>
 {
     let (client, api_token) = create_client().await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
     search_tmdb(&client, &api_token, movietitle, year, language, include_adult, page).await
 }
 
-pub(crate) async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<MovieDetails, String> {
+pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Result<Vec<VideoElement>, String> {
+    let query_result_object = match create_client_and_search_tmdb(search_title, None, None, None, None).await {
+        Ok(res) => res,
+        Err(e) => return Err(format!("Error trying to call tmdb database: {}", e))
+    };
+
+    let mut query_result_elements: Vec<VideoElement> = vec![];
+
+    for query_result in query_result_object.results.iter() {
+        
+        let mut result_element = VideoElement {
+            filepath: "".to_owned(),
+            watched: false,
+            ..Default::default()
+        };
+
+        fill_video_element_with_tmdb_result(&mut result_element, query_result, None);
+        query_result_elements.push(result_element);
+    }
+
+    Ok(query_result_elements)
+}
+
+async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, String> {
     let get_movie_details_url = "https://api.themoviedb.org/3/movie/".to_owned() + movie_id.to_string().as_str() + "?language=en-US";
 
     let response = call_tmdb_api(&client, &get_movie_details_url, api_token).await
@@ -172,10 +191,10 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
 }
 
 
-pub(crate) fn fill_video_element_with_tmdb_result
+fn fill_video_element_with_tmdb_result
 (
     video_element: &mut VideoElement,
-    tmdb_result: &search_movie_result_element,
+    tmdb_result: &TMDBMovie,
     overwrite: Option<bool>,
 )
 {

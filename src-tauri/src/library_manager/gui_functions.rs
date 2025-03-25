@@ -2,7 +2,7 @@ use directories::ProjectDirs;
 use std::{default, fs};
 
 use super::json_parser::write_library;
-use super::tmdb_api::{create_client_and_search_tmdb, fill_video_element_with_tmdb_result};
+use super::tmdb_api::get_tmdb_search_as_video_elements;
 use super::{library, library_path, VideoElement,
             add_library, update_library_entry,
             LIBRARIES};
@@ -114,24 +114,7 @@ pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoEle
 #[tauri::command(rename_all = "snake_case")]
 pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement>, String> {
     
-    let query_result_object = match create_client_and_search_tmdb(search_title, None, None, None, None).await {
-        Ok(res) => res,
-        Err(e) => return Err(format!("Error trying to call tmdb database: {}", e))
-    };
-
-    let mut query_result_elements: Vec<VideoElement> = vec![];
-
-    for query_result in query_result_object.results.iter() {
-        
-        let mut result_element = VideoElement {
-            filepath: "".to_owned(),
-            watched: false,
-            ..Default::default()
-        };
-
-        fill_video_element_with_tmdb_result(&mut result_element, query_result, None);
-        query_result_elements.push(result_element);
-    }
+    let query_result_elements: Vec<VideoElement> = get_tmdb_search_as_video_elements(search_title).await?;
 
     println!(
         "{} elements found for {}",
