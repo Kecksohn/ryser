@@ -129,7 +129,7 @@ pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Res
             ..Default::default()
         };
 
-        fill_video_element_with_tmdb_result(&mut result_element, query_result, None);
+        fill_video_element_with_search_result(&mut result_element, query_result, None);
         query_result_elements.push(result_element);
     }
 
@@ -137,7 +137,7 @@ pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Res
 }
 
 async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, String> {
-    let get_movie_details_url = "https://api.themoviedb.org/3/movie/".to_owned() + movie_id.to_string().as_str() + "?language=en-US";
+    let get_movie_details_url = "https://api.themoviedb.org/3/movie/".to_owned() + movie_id.to_string().as_str() + "?append_to_response=credits";
 
     let response = call_tmdb_api(&client, &get_movie_details_url, api_token).await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
@@ -179,7 +179,7 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
 
                 print!("{:#?}", movie_details);
 
-                fill_video_element_with_tmdb_result(video_element, best_match, None);
+                fill_video_element_with_search_result(video_element, best_match, None);
                 println!("{}", video_element);
                 return Ok(()); // TODO: Remove
             }
@@ -191,32 +191,53 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
 }
 
 
-fn fill_video_element_with_tmdb_result
-(
-    video_element: &mut VideoElement,
-    tmdb_result: &TMDBMovie,
-    overwrite: Option<bool>,
-)
+fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie_search_result: &TMDBMovie, overwrite: Option<bool>)
 {
     let overwrite = overwrite.unwrap_or(false);
 
-    video_element.tmdb_id = tmdb_result.id;
-    if video_element.title.is_none() || overwrite { video_element.title = tmdb_result.title.clone(); }
+    video_element.tmdb_id = movie_search_result.id;
+    if video_element.title.is_none() || overwrite { video_element.title = movie_search_result.title.clone(); }
     if video_element.poster_path.is_none() || overwrite {
-        video_element.poster_path = match &tmdb_result.poster_path {
+        video_element.poster_path = match &movie_search_result.poster_path {
             Some(path) => Some("https://image.tmdb.org/t/p/original/".to_owned() + path),
             None => None,
         }
     }
 
-    /*
-    pub(crate) adult: Option<bool>,
-    pub(crate) backdrop_path: Option<String>,
-    pub(crate) genre_ids: Option<Vec<usize>>,
-    pub(crate) id: Option<usize>,
-    pub(crate) original_language: Option<String>,
-    pub(crate) original_title: Option<String>,
-
-
+    /* Not used:
+    pub adult: Option<bool>,
+    pub backdrop_path: Option<String>,
+    pub genre_ids: Option<Vec<usize>>,
+    pub original_language: Option<String>,
+    pub original_title: Option<String>,
+    pub overview: Option<String>,
+    pub popularity: Option<f32>,
+    pub release_date: Option<String>,
+    pub video: Option<bool>,
+    pub vote_average: Option<f32>,
+    pub vote_count: Option<usize>,
      */
+}
+
+fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie_details: &TMDBMovieDetails, overwrite: Option<bool>)
+{
+    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, overwrite);
+    let overwrite = overwrite.unwrap_or(false);
+
+    /* Not used:
+    pub belongs_to_collection: Option<TMDBCollection>,
+    pub budget: Option<usize>,
+    pub genres: Option<Vec<TMDBGenre>>,
+    pub homepage: Option<String>,
+    pub imdb_id: Option<String>,
+    pub origin_country: Option<Vec<String>>,
+    pub production_companies: Option<Vec<TMDBProductionCompanies>>,
+    pub production_countries: Option<Vec<TMDBProductionCountries>>,
+    pub revenue: Option<usize>,
+    pub runtime: Option<usize>,
+    pub spoken_languages: Option<Vec<TMDBSpokenLanguage>>,
+    pub status: Option<String>,
+    pub tagline: Option<String>,
+    */
+
 }
