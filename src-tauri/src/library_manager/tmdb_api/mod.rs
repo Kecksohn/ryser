@@ -21,7 +21,7 @@ async fn create_client() -> Result<(Client, String), String>
         return Err(String::from("There is no API Read Access Token! Go to https://www.themoviedb.org/settings/api and insert in src/tmdb_api/api_token.rs"));
     }
 
-    let client = reqwest::Client::::new();
+    let client = reqwest::Client::new();
     match is_tmdb_api_read_access_token_valid(&client, api_token).await {
         Ok(valid) => {
             if valid
@@ -177,11 +177,11 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
                 let movie_details = get_movie_details(&client, best_match.id.unwrap(), &api_token).await
                     .map_err(|e| format!("Error when getting Movie Details: {}", e))?;
 
-                print!("{:#?}", movie_details);
-
-                fill_video_element_with_search_result(video_element, best_match, None);
-                println!("{}", video_element);
-                return Ok(()); // TODO: Remove
+                fill_video_element_with_movie_details(video_element, &movie_details, None);
+                
+                // TODO: Remove
+                println!("{:#?}", video_element);
+                return Ok(());
             }
             Err(str) => {return Err(format!("Error when calling TMDB: {}", str))}
         }
@@ -196,9 +196,27 @@ fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie
     let overwrite = overwrite.unwrap_or(false);
 
     video_element.tmdb_id = movie_search_result.id;
-    if video_element.title.is_none() || overwrite { video_element.title = movie_search_result.title.clone(); }
-    if video_element.poster_path.is_none() || overwrite {
+    if overwrite || video_element.title.is_none() 
+        { video_element.title = movie_search_result.title.clone(); }
+    if overwrite || video_element.original_title.is_none()
+        { video_element.original_title = movie_search_result.original_title.clone(); }
+    if overwrite || video_element.tmdb_language.is_none() 
+        { video_element.tmdb_language = movie_search_result.original_language.clone(); }
+    if overwrite || video_element.genre_ids.is_none()
+        { video_element.genre_ids = movie_search_result.genre_ids.clone(); }
+    if overwrite || video_element.overview.is_none()
+        { video_element.overview = movie_search_result.overview.clone(); }
+    if overwrite || video_element.release_date.is_none()
+        { video_element.release_date = movie_search_result.release_date.clone(); }
+
+    if overwrite || video_element.poster_path.is_none() {
         video_element.poster_path = match &movie_search_result.poster_path {
+            Some(path) => Some("https://image.tmdb.org/t/p/original/".to_owned() + path),
+            None => None,
+        }
+    }
+    if overwrite || video_element.backdrop_path.is_none() {
+        video_element.backdrop_path = match &movie_search_result.backdrop_path {
             Some(path) => Some("https://image.tmdb.org/t/p/original/".to_owned() + path),
             None => None,
         }
@@ -206,13 +224,7 @@ fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie
 
     /* Not used:
     pub adult: Option<bool>,
-    pub backdrop_path: Option<String>,
-    pub genre_ids: Option<Vec<usize>>,
-    pub original_language: Option<String>,
-    pub original_title: Option<String>,
-    pub overview: Option<String>,
     pub popularity: Option<f32>,
-    pub release_date: Option<String>,
     pub video: Option<bool>,
     pub vote_average: Option<f32>,
     pub vote_count: Option<usize>,
@@ -224,6 +236,21 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
     fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, overwrite);
     let overwrite = overwrite.unwrap_or(false);
 
+    if overwrite || video_element.tagline.is_none() 
+        { video_element.tagline = movie_details.tagline.clone(); }
+        
+    if let Some(credits) = &movie_details.credits {
+        if let Some(crew) = &credits.crew {
+            for crew_member in crew {
+                if let Some(job) = &crew_member.job {
+                    if job == "Director" {
+                        video_element.director = crew_member.tmdb_person.name.clone();
+                    }
+                }
+            }
+        }
+    }
+    
     /* Not used:
     pub belongs_to_collection: Option<TMDBCollection>,
     pub budget: Option<usize>,
@@ -237,7 +264,8 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
     pub runtime: Option<usize>,
     pub spoken_languages: Option<Vec<TMDBSpokenLanguage>>,
     pub status: Option<String>,
-    pub tagline: Option<String>,
+    
+    Rest of crew/cast
     */
 
 }
