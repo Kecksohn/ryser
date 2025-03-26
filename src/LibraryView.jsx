@@ -1,17 +1,21 @@
-import {useState, useEffect, useMemo} from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
+import { HeaderBar } from "./HeaderBar.jsx";
 import { Dropdown } from "./Dropdown.jsx";
-import { ContextMenu } from "./ContextMenu";
+import { ContextMenu } from "./ContextMenu.jsx";
 
-import { EditVideoEntryView } from "./EditVideoEntryView";
+import { EditVideoEntryView } from "./EditVideoEntryView.jsx";
 
 import "./TMDBResults.css";
+import react_icon from "./assets/react.svg";
 
 export const LibraryView = () => {
 
     const { library_id } = useParams();
+
+    const [library_name, set_library_name] = useState("Loading...");
 
     // Load Library
     const [library_elements, set_library_elements] = useState([]);
@@ -20,9 +24,16 @@ export const LibraryView = () => {
     useEffect(() => {
       if (!library_elements_loaded) {
         set_library_elements_loaded(true);
-        invoke("get_library_videos", {library_id: library_id}).then(res => { 
-          set_library_elements(res);
-        });
+        
+        invoke("get_library_name", {library_id: library_id})
+        .then(res => {
+            set_library_name(res);
+            
+            invoke("get_library_videos", {library_id: library_id})
+            .then(res => { 
+                set_library_elements(res);
+            });
+        })
       }
     });
 
@@ -217,9 +228,18 @@ export const LibraryView = () => {
 
     return (
       <div className="container">
-          <br/>
-        <div style={{fontSize: "2em"}}>Movies</div>
-          <br/>
+        <HeaderBar 
+            leftside_text={
+                <span>
+                <span style={{fontSize: "1.8em"}}>{library_name}</span>
+                <img src={react_icon} onClick={() => navigate(settings_link)} alt="Change Sort" />
+                <img src={react_icon} onClick={() => navigate(settings_link)} alt="Chage Filters" />
+                </span>
+            } 
+            back_link={"/"}
+            settings_link={"/library/"+library_id}
+        />
+            <br/>
           {watched_filter !== "filter_watched" && watched_filter !== "filter_unwatched" &&
               <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_watched")}>Filter Watched</span>}
           {watched_filter === "filter_watched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_unwatched")}>Filter Unwatched</span>}

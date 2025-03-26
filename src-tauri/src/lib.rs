@@ -54,8 +54,8 @@ pub fn run() {
                 get_available_libraries,
                 // Library Creation
                 create_library,
-
                 // Library View
+                get_library_name,
                 get_library_videos,
                 // Library Rescan
                 rescan_all_libraries,

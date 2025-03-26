@@ -23,11 +23,12 @@ export const MainMenu = () => {
     });
 
 
-    function updateLibraries() {
+    function update_libraries() {
         invoke("rescan_all_libraries").then(res => {
             set_libraries_loaded(false);
         })
     }
+
     
     return(
         <div>

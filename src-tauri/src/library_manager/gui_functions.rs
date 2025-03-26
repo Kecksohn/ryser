@@ -80,17 +80,33 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos(library_id: &str) -> Vec<VideoElement> {
+pub fn get_library_name(library_id: &str) -> Result<String, String> {
     if let Some(library) = LIBRARIES
         .lock()
         .unwrap()
         .iter_mut()
         .find(|library| library.id == library_id)
     {
-        return library.video_files.clone();
+        Ok(library.name.clone())
     }
-    println!("Library {} not found!", library_id);
-    vec![]
+    else {
+        Err(format!("Library {} not found!", library_id))
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn get_library_videos(library_id: &str) -> Result<Vec<VideoElement>, String> {
+    if let Some(library) = LIBRARIES
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|library| library.id == library_id)
+    {
+        Ok(library.video_files.clone())
+    }
+    else {
+        Err(format!("Library {} not found!", library_id))
+    }
 }
 
 #[tauri::command(rename_all = "snake_case")]
