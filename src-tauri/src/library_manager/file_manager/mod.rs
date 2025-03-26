@@ -35,10 +35,7 @@ pub(super) fn create_video_element_from_file(filepath: &str) -> VideoElement {
             ve.length_in_seconds = length_in_s as i32;
         }
         Err(error) => {
-            println!(
-                "Get duration of video file failed with Error: {}",
-                error.to_string()
-            )
+            println!("Get duration of video file failed with Error: {}", error);
         }
     }
     let modified = get_modified_secs(filepath);
@@ -50,13 +47,11 @@ pub(super) fn get_video_files(folder_path: &str) -> Vec<VideoElement> {
     let mut video_files: Vec<VideoElement> = vec![];
 
     let files = fs::read_dir(folder_path).unwrap();
-    for file in files {
-        if let Ok(valid_file) = file {
-            if valid_file.metadata().unwrap().is_file() && is_video_file(&valid_file.path()) {
-                if let Some(filepath_str) = valid_file.path().to_str() {
-                    let vf = create_video_element_from_file(filepath_str);
-                    video_files.push(vf)
-                }
+    for file in files.flatten() {
+        if file.metadata().unwrap().is_file() && is_video_file(&file.path()) {
+            if let Some(filepath_str) = file.path().to_str() {
+                let vf = create_video_element_from_file(filepath_str);
+                video_files.push(vf)
             }
         }
     }

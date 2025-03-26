@@ -15,18 +15,18 @@ pub(super) fn get_library(identifier: &str) -> Result<library, String> {
                 Ok(library) => Result::Ok(library),
                 Err(error) => Result::Err(format!(
                     "Error extracting {} , error: {}",
-                    &library_json_filepath.to_str().unwrap(),
+                    library_json_filepath.to_str().unwrap(),
                     error
                 )),
             },
             Err(error) => Result::Err(
                 "Problem opening ".to_owned()
-                    + &library_json_filepath.to_str().unwrap()
+                    + library_json_filepath.to_str().unwrap()
                     + &error.to_string(),
             ),
         }
     } else {
-        return Result::Err("Could not get project config dir paths".to_owned());
+        Result::Err("Could not get project config dir paths".to_owned())
     }
 }
 

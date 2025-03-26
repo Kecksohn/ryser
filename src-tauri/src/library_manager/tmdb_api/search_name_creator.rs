@@ -90,7 +90,7 @@ pub(super) fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> 
 
 
     // First we try to find a single year in brackets e.g. "Persona (1966).mkv"
-    let mut year_matches: Vec<(i32, usize, usize)> = regex_find_year(&*YEAR_IN_BRACKETS_REGEX, &filename);
+    let mut year_matches: Vec<(i32, usize, usize)> = regex_find_year(&YEAR_IN_BRACKETS_REGEX, &filename);
 
     if year_matches.is_empty()
     {
@@ -101,13 +101,13 @@ pub(super) fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> 
         title_end_index = filename.len();
 
         // Now we want to find a year seperated by spaces or at start/end of file e.g. "Caché 2005.mkv"
-        year_matches = regex_find_year(&*YEAR_IN_SPACES_REGEX, &filename);
+        year_matches = regex_find_year(&YEAR_IN_SPACES_REGEX, &filename);
     }
 
     // Last chance, maybe it's just after the title like "Nostalghia1983.mkv"
     if year_matches.is_empty()
     {
-        year_matches = regex_find_year(&*YEAR_REGEX, &filename);
+        year_matches = regex_find_year(&YEAR_REGEX, &filename);
     }
 
     // If we found something in the above, we hope the year is not at the start of the filename

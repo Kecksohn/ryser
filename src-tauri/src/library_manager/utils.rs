@@ -6,7 +6,8 @@ pub(super) fn get_all_library_ids() -> Vec<String> {
     for library in LIBRARIES.lock().unwrap().iter() {
         library_ids.push(library.id.clone());
     }
-    return library_ids;
+    
+    library_ids
 }
 
 pub(super) fn get_all_library_names() -> Vec<String> {
@@ -14,5 +15,6 @@ pub(super) fn get_all_library_names() -> Vec<String> {
     for library in LIBRARIES.lock().unwrap().iter() {
         library_names.push(library.id.clone());
     }
-    return library_names;
+    
+    library_names
 }

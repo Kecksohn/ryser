@@ -5,7 +5,7 @@ pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
 
     match ffmpeg::format::input(filepath) {
         Ok(context) => Ok(context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE)),
-        Err(error) => Err(From::from(error)),
+        Err(error) => Err(error),
     }
 }
 

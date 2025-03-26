@@ -5,6 +5,7 @@ mod tmdb_api;
 mod utils;
 mod video_element;
 
+use std::cmp::Ordering;
 use std::{fs, path::*, vec};
 use directories::ProjectDirs;
 
@@ -40,7 +41,7 @@ static LIBRARIES: Mutex<Vec<library>> = Mutex::new(Vec::new());
 
 pub(crate) fn get_libraries_path() -> PathBuf {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
-        return proj_dir.data_local_dir().to_path_buf();
+        proj_dir.data_local_dir().to_path_buf()
     }
     else { panic!("Project Dirs failed!"); }
 }
@@ -86,8 +87,8 @@ pub(crate) fn add_library(mut lib: library) {
     }
 
     for video_filepath in video_files_in_library_paths.iter() {
-        println!("{}", &video_filepath);
-        let video_file = create_video_element_from_file(&video_filepath);
+        println!("{}", video_filepath);
+        let video_file = create_video_element_from_file(video_filepath);
         lib.video_files.push(video_file);
     }
 
@@ -131,12 +132,14 @@ fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec
         }
     }
 
-    video_files_in_library_paths.sort_by(|d1, d2| d1.cmp(&d2));
+    video_files_in_library_paths.sort();
     
-    if error_message != "" {
-        return Err(error_message);
+    if error_message.is_empty() {
+        Ok(())
     }
-    Ok(())
+    else {
+        Err(error_message)
+    }
 }
 
 
@@ -158,73 +161,80 @@ pub(crate) fn rescan_library_by_id(lib_id: &str) -> Result<(), String> {
 //  Tries to match files whose filenames have simply changed (!TODO: MD5 sum or simply length?)
 pub(crate) fn rescan_library(lib: &mut library) {
         
-        // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
-        let mut video_files_in_library_paths: Vec<String> = vec![];
+    // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
+    let mut video_files_in_library_paths: Vec<String> = vec![];
 
-        // Get all video files in all library_paths
-        match get_all_video_filepaths(lib, &mut video_files_in_library_paths) {
-            Ok(()) => {},
-            Err(msg) => println!("{}", msg), // TODO: Show this on GUI
-        }
+    // Get all video files in all library_paths
+    match get_all_video_filepaths(lib, &mut video_files_in_library_paths) {
+        Ok(()) => {},
+        Err(msg) => println!("{}", msg), // TODO: Show this on GUI
+    }
 
-        let mut new_filepath_indices: Vec<usize> = vec![];
-        let mut missing_video_files_indices: Vec<usize> = vec![];
+    let mut new_filepath_indices: Vec<usize> = vec![];
+    let mut missing_video_files_indices: Vec<usize> = vec![];
 
-        let mut current_library_match_start_index: usize = 0;
+    let mut current_library_match_start_index: usize = 0;
 
-        //  Walk through video_files stored in library.json currently
-        for filepath_index in 0..video_files_in_library_paths.len() {
-            let filepath_str: &String = &video_files_in_library_paths[filepath_index];
-
-            if current_library_match_start_index >= lib.video_files.len() {
-                //  We are out of elements in the json, all remaining files are new
-                new_filepath_indices.push(filepath_index);
-            } else {
-                for index in current_library_match_start_index..lib.video_files.len() {
-                    if &lib.video_files[index].filepath == filepath_str {
+    //  Walk through video_files stored in library.json currently
+    for (filepath_index, filepath_str) in video_files_in_library_paths.iter().enumerate() 
+    {
+        if current_library_match_start_index < lib.video_files.len() 
+        {
+            for index in current_library_match_start_index..lib.video_files.len() 
+            {
+                match &lib.video_files[index].filepath.cmp(filepath_str) {
+                    Ordering::Equal => {
                         // Match, do nothing
                         current_library_match_start_index = index + 1;
                         break;
-                    } else if &lib.video_files[index].filepath > filepath_str {
+                    },
+                    Ordering::Greater => {
                         // Compared File should come before json entry but isn't in it -> New Entry
                         new_filepath_indices.push(filepath_index);
+                        current_library_match_start_index = index;
                         break;
-                    } else {
-                        // Compared Entry in json is missing -> Removed Entry, but keep checking next json entry for file match
+                    },
+                    Ordering::Less => {
+                        // JSON Entry is not in directory anymore -> Removed Entry, but keep checking next json entry for file match (no break)
                         missing_video_files_indices.push(index);
-                        current_library_match_start_index = index + 1;
-                    }
+                    },
                 }
             }
         }
-        // We are out of files in the paths, all remaining json entries have been removed
-        for library_index in current_library_match_start_index..lib.video_files.len() {
-            missing_video_files_indices.push(library_index);
+        else {
+            //  We are out of elements in the json, all remaining files are new
+            new_filepath_indices.push(filepath_index);
+        }
+    }
+    // We are out of files in the paths, all remaining json entries have been removed
+    for library_index in current_library_match_start_index..lib.video_files.len() {
+        missing_video_files_indices.push(library_index);
+    }
+
+    if !missing_video_files_indices.is_empty() || !new_filepath_indices.is_empty() 
+    {
+        println!("Library: {}", lib.id);
+        println!("Removed Files: ({}):", missing_video_files_indices.len());
+        for index in missing_video_files_indices.iter().rev() {
+            println!("{}", lib.video_files[*index].filepath);
+            lib.video_files.remove(*index);
+        }
+        println!("New Files ({}): ", new_filepath_indices.len());
+        for filepath_index in new_filepath_indices.iter() {
+            println!("{}", &video_files_in_library_paths[*filepath_index]);
+            let video_file =
+                create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
+                lib.video_files.push(video_file);
         }
 
-        if missing_video_files_indices.len() > 0 || new_filepath_indices.len() > 0 {
-            println!("Library: {}", lib.id);
-            println!("Removed Files: ({}):", missing_video_files_indices.len());
-            for index in missing_video_files_indices.iter().rev() {
-                println!("{}", lib.video_files[*index].filepath);
-                lib.video_files.remove(*index);
-            }
-            println!("New Files ({}): ", new_filepath_indices.len());
-            for filepath_index in new_filepath_indices.iter() {
-                println!("{}", &video_files_in_library_paths[*filepath_index]);
-                let video_file =
-                    create_video_element_from_file(&video_files_in_library_paths[*filepath_index]);
-                    lib.video_files.push(video_file);
-            }
-
-            lib.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
-            println!(
-                "Before: {}, Now: {}",
-                lib.video_files.len() - new_filepath_indices.len()
-                    + missing_video_files_indices.len(),
-                lib.video_files.len()
-            );
-            write_library(&lib);
+        lib.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
+        println!(
+            "Before: {}, Now: {}",
+            lib.video_files.len() - new_filepath_indices.len()
+                + missing_video_files_indices.len(),
+            lib.video_files.len()
+        );
+        write_library(lib);
     }
 }
 
@@ -245,10 +255,8 @@ pub(crate) fn update_library_entry(
             return Ok(());
         }
     }
-    return Result::Err(format!(
-        "Could not find '{}' in '{}'",
-        updated_element.filepath, library.id
-    ));
+
+    Result::Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id))
 }
 
 pub(crate) fn update_library_entry_by_index(
@@ -270,12 +278,12 @@ pub(crate) fn update_library_entry_by_index(
 
 #[tauri::command]
 pub(crate) fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Result<(), String> {
-    for lib in LIBRARIES.lock().unwrap().iter_mut() {
-        let result = async_runtime::block_on(async {
+    if let Some(lib) = LIBRARIES.lock().unwrap().iter_mut().next() {
+    //for lib in LIBRARIES.lock().unwrap().iter_mut() { // TODO
+        async_runtime::block_on(async {
             parse_library_tmdb(lib, reparse_all).await
                 .map_err(|e| format!("Could not parse Library with TMDB: {}", e))
         })?;
-        break; // TODO: REMOVE
     }
 
     Ok(())

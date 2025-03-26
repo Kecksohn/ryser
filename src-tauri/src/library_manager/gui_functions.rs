@@ -19,7 +19,8 @@ pub fn get_available_libraries() -> Vec<(String, String)> {
     for library in LIBRARIES.lock().unwrap().iter() {
         available_libraries.push((library.id.clone(), library.name.clone()));
     }
-    return available_libraries;
+
+    available_libraries
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -84,7 +85,7 @@ pub fn get_library_videos(library_id: &str) -> Vec<VideoElement> {
         .lock()
         .unwrap()
         .iter_mut()
-        .find(|library| library.id.to_string() == library_id)
+        .find(|library| library.id == library_id)
     {
         return library.video_files.clone();
     }
@@ -95,7 +96,7 @@ pub fn get_library_videos(library_id: &str) -> Vec<VideoElement> {
 #[tauri::command(rename_all = "snake_case")]
 pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoElement) {
     for library in LIBRARIES.lock().unwrap().iter_mut() {
-        if library.id.to_string() == library_id {
+        if library.id == library_id {
             match update_library_entry(library, updated_element) {
                 Ok(()) => {
                     write_library(library);
@@ -122,5 +123,5 @@ pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement
         search_title
     );
 
-    return Ok(query_result_elements);
+    Ok(query_result_elements)
 }

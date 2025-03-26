@@ -1,7 +1,7 @@
 use serde_json::json;
 
 pub(crate) fn get_default_config_as_json() -> serde_json::Value {
-    return json!({
+    json!({
         "FirstName": "John",
         "LastName": "Doe",
         "Age": 43,
@@ -14,5 +14,5 @@ pub(crate) fn get_default_config_as_json() -> serde_json::Value {
             "+44 1234567",
             "+44 2345678"
         ]
-    });
+    })
 }
