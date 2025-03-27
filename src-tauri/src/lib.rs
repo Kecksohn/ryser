@@ -41,12 +41,13 @@ pub fn run() {
     rescan_all_libraries();
     match update_all_libraries_with_tmdb(None) {
         Ok(_) => (),
-        Err(e) => {println!("TMDB update failed: {}", e)},
+        Err(e) => println!("TMDB update failed: {}", e),
     }
 
     #[cfg(not(feature = "backend-only"))]
     {
         tauri::Builder::default()
+            .plugin(tauri_plugin_window_state::Builder::new().build())
             .plugin(tauri_plugin_dialog::init())
             .plugin(tauri_plugin_http::init())
             .manage(Arc::new(ProcessManager {
