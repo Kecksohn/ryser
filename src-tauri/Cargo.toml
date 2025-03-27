@@ -37,3 +37,6 @@ rand = "0.8.5"
 [features]
 backend-only = []
 debug-backend = ["backend-only"]
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
