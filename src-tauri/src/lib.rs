@@ -12,7 +12,7 @@ use crate::app_start::*;
 
 mod library_manager;
 use crate::library_manager::gui_functions::*;
-use crate::library_manager::load_all_libraries;
+use crate::library_manager::{load_all_libraries, update_all_libraries_with_tmdb};
 use crate::library_manager::rescan_all_libraries;
 use crate::library_manager::rescan_library_by_id;
 
@@ -38,6 +38,11 @@ async fn open_window(window: Window) {
 pub fn run() {
     read_config();
     load_all_libraries();
+    rescan_all_libraries();
+    match update_all_libraries_with_tmdb(None) {
+        Ok(_) => (),
+        Err(e) => {println!("TMDB update failed: {}", e)},
+    }
 
     #[cfg(not(feature = "backend-only"))]
     {

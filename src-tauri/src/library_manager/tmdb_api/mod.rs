@@ -156,34 +156,39 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
 
     for video_element in library.video_files.iter_mut() {
-        let filename = &video_element.filepath;
+        if video_element.tmdb_id.is_none() {
+            let filename = &video_element.filepath;
 
-        // TODO: Check if filename hints at this being a TV episode
+            // TODO: Check if filename hints at this being a TV episode
 
-        let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
+            let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
 
-        match search_tmdb( &client, &api_token, possible_title.as_str(), year, None, None, None).await {
-            Ok(search_tmdb_result) => {
-                if search_tmdb_result.results.is_empty() {
-                    // TODO: Adjust filename by cutting one word from the end
-                    continue;
+            match search_tmdb( &client, &api_token, possible_title.as_str(), year, None, None, None).await {
+                Ok(search_tmdb_result) => {
+                    if search_tmdb_result.results.is_empty() {
+                        // TODO: Adjust filename by cutting one word from the end
+                        continue;
+                    }
+
+                    let best_match = &search_tmdb_result.results[0];
+                    if best_match.id.is_none() {
+                        continue;
+                    }
+
+                    let movie_details = get_movie_details(&client, best_match.id.unwrap(), &api_token).await
+                        .map_err(|e| format!("Error when getting Movie Details: {}", e))?;
+
+                    fill_video_element_with_movie_details(video_element, &movie_details, None);
+                    if video_element.release_date.is_none() && year.is_some() {
+                        video_element.release_date = Some(year.unwrap().to_string());
+                    }
+                    println!("Updated: {} [{}] ({}) by {}", video_element.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            &video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            video_element.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            &video_element.director.as_ref().unwrap_or(&"!MISSING!".to_string()))
                 }
-
-                let best_match = &search_tmdb_result.results[0];
-                if best_match.id.is_none() {
-                    continue;
-                }
-
-                let movie_details = get_movie_details(&client, best_match.id.unwrap(), &api_token).await
-                    .map_err(|e| format!("Error when getting Movie Details: {}", e))?;
-
-                fill_video_element_with_movie_details(video_element, &movie_details, None);
-                
-                // TODO: Remove
-                println!("{:#?}", video_element);
-                return Ok(());
+                Err(str) => {return Err(format!("Error when calling TMDB: {}", str))}
             }
-            Err(str) => {return Err(format!("Error when calling TMDB: {}", str))}
         }
     }
 

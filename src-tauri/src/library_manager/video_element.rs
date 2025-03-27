@@ -15,13 +15,12 @@ pub struct VideoElement {
 
     pub title: Option<String>,
     pub original_title: Option<String>,
-    pub year: Option<i16>,
+    pub release_date: Option<String>,
     pub director: Option<String>,
     pub countries: Option<Vec<String>>,
     pub genre_ids: Option<Vec<usize>>,
     pub overview: Option<String>,
     pub tagline: Option<String>,
-    pub release_date: Option<String>,
     
     pub tmdb_language: Option<String>,
     pub audio_languages: Option<Vec<String>>,

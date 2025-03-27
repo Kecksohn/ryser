@@ -278,12 +278,12 @@ pub(crate) fn update_library_entry_by_index(
 
 #[tauri::command]
 pub(crate) fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Result<(), String> {
-    if let Some(lib) = LIBRARIES.lock().unwrap().iter_mut().next() {
-    //for lib in LIBRARIES.lock().unwrap().iter_mut() { // TODO
+    for lib in LIBRARIES.lock().unwrap().iter_mut() { // TODO
         async_runtime::block_on(async {
             parse_library_tmdb(lib, reparse_all).await
                 .map_err(|e| format!("Could not parse Library with TMDB: {}", e))
         })?;
+        write_library(lib);
     }
 
     Ok(())
