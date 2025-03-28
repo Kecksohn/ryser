@@ -39,7 +39,7 @@ pub fn run() {
     read_config();
     load_all_libraries();
     rescan_all_libraries();
-    match update_all_libraries_with_tmdb(None) {
+    match update_all_libraries_with_tmdb(Some(true)) {
         Ok(_) => (),
         Err(e) => println!("TMDB update failed: {}", e),
     }

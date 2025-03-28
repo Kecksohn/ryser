@@ -259,10 +259,16 @@ export const LibraryView = () => {
                           <img src={element.poster_path} alt={element.title}/>
                       </div>
                       <div className={"tmdbresult-info"}>
-                        {element.title && element.title}
+                        {element.original_title && element.original_title}
+                        {element.title && element.title != element.original_title && <><br/> [{element.title}]</>}
                         {!element.title && element.filepath}
-                        <br/>{format_duration(element.length_in_seconds)}
-                        <br/>{element.watched && <span style={{color: "green"}}>Watched</span>}
+                        <br/>
+                        {element.director && <><br/>{element.director}<br/></>}
+                        {element.countries && element.countries.length > 0 
+                            && <>{element.countries.map((country, i) => {return(<>{country}{i < element.countries.length-1 && <>,</>}</>)})}<br/></>}
+                        <br/>
+                        {format_duration(element.length_in_seconds)}<br/>
+                        {element.watched && <span style={{color: "green"}}>Watched</span>}
                       </div>
                   </div>
               </div>

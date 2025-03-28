@@ -156,7 +156,7 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
 
     for video_element in library.video_files.iter_mut() {
-        if video_element.tmdb_id.is_none() {
+        if reparse_all || video_element.tmdb_id.is_none() {
             let filename = &video_element.filepath;
 
             // TODO: Check if filename hints at this being a TV episode
@@ -232,11 +232,13 @@ fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie
 
 fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie_details: &TMDBMovieDetails, overwrite: Option<bool>)
 {
-    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, overwrite);
     let overwrite = overwrite.unwrap_or(false);
+    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, Some(overwrite));
 
     if overwrite || video_element.tagline.is_none() 
         { video_element.tagline = movie_details.tagline.clone(); }
+    if overwrite || video_element.countries.is_none()
+        { video_element.countries = movie_details.origin_country.clone()}
         
     if let Some(credits) = &movie_details.credits {
         if let Some(crew) = &credits.crew {
@@ -256,7 +258,6 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
     pub genres: Option<Vec<TMDBGenre>>,
     pub homepage: Option<String>,
     pub imdb_id: Option<String>,
-    pub origin_country: Option<Vec<String>>,
     pub production_companies: Option<Vec<TMDBProductionCompanies>>,
     pub production_countries: Option<Vec<TMDBProductionCountries>>,
     pub revenue: Option<usize>,
