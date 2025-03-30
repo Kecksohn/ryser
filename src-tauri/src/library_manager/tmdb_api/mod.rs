@@ -195,6 +195,25 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
     Ok(())
 }
 
+pub(super) async fn get_movie_details_for_video_element(
+    video_element: &mut VideoElement,
+    overwrite: Option<bool>,
+) -> Result<(), String> {
+    if video_element.tmdb_id.is_none() {
+        return Err(String::from("No TMDB ID specified, Implement getting it!"));
+    }
+
+    let (client, api_token) = create_client()
+        .await
+        .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
+    let movie_details = get_movie_details(&client, video_element.tmdb_id.unwrap(), &api_token)
+        .await
+        .map_err(|e| format!("Error when getting Movie Details: {}", e))?;
+    fill_video_element_with_movie_details(video_element, &movie_details, overwrite);
+
+    Ok(())
+}
+
 
 fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie_search_result: &TMDBMovie, overwrite: Option<bool>)
 {

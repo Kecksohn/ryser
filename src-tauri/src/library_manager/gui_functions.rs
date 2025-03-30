@@ -2,7 +2,7 @@ use directories::ProjectDirs;
 use std::{default, fs};
 
 use super::json_parser::write_library;
-use super::tmdb_api::get_tmdb_search_as_video_elements;
+use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element};
 use super::{library, library_path, VideoElement,
             add_library, update_library_entry,
             LIBRARIES};
@@ -130,14 +130,13 @@ pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoEle
 
 #[tauri::command(rename_all = "snake_case")]
 pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement>, String> {
-    
-    let query_result_elements: Vec<VideoElement> = get_tmdb_search_as_video_elements(search_title).await?;
+    let mut query_result_elements: Vec<VideoElement> =
+        get_tmdb_search_as_video_elements(search_title).await?;
 
-    println!(
-        "{} elements found for {}",
-        query_result_elements.len(),
-        search_title
-    );
+    // TODO: Return in-between results already and make this async
+    for element in query_result_elements.iter_mut() {
+        get_movie_details_for_video_element(element, None).await?;
+    }
 
     Ok(query_result_elements)
 }
