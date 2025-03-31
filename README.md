@@ -50,7 +50,7 @@ Try
 yarn tauri build
 ```
 
-If that works you can just run the dev build as seperate components by opening one shell with ```yarn run``` and one with ```cargo run``` (see also the RustRover Debug set-up below)
+If that works you can just run the dev build as seperate components by opening one shell with ```yarn dev``` and one with ```cargo run``` (see also the RustRover Debug set-up below)
 </details>
 
 <br>
