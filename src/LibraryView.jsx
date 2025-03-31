@@ -86,7 +86,8 @@ export const LibraryView = () => {
                 list_element === element ? { ...list_element, watched: !list_element.watched } : list_element
             )
         );
-        update_element_in_library(element).then();
+        element.watched = !element.watched;
+        update_element_in_library(element);
     }
     function set_watched(element) { if (!element.watched) toggle_watched(element); }
     function set_not_watched(element) { if (element.watched) toggle_watched(element); }
