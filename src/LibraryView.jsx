@@ -14,6 +14,7 @@ import react_icon from "./assets/react.svg";
 export const LibraryView = () => {
 
     const { library_id } = useParams();
+    const [, forceRerender] = useState(0);
 
     const [library_name, set_library_name] = useState("Loading...");
 
@@ -81,12 +82,8 @@ export const LibraryView = () => {
     }
 
     function toggle_watched(element) {
-        set_library_elements((library_elements) =>
-            library_elements.map((list_element) =>
-                list_element === element ? { ...list_element, watched: !list_element.watched } : list_element
-            )
-        );
         element.watched = !element.watched;
+        forceRerender((prev) => prev + 1);
         update_element_in_library(element);
     }
     function set_watched(element) { if (!element.watched) toggle_watched(element); }
