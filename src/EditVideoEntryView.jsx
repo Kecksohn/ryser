@@ -5,7 +5,8 @@ import "./TMDBResults.css";
 
 export const EditVideoEntryView = ({disable_view, update_element_in_library, video_entry}) => {
 
-    const [title_input, set_title_input] = useState(video_entry.title ? video_entry.title : "");
+    const [original_title_input, set_original_title_input] = useState(video_entry.original_title ? video_entry.original_title : "");
+    const [english_title_input, set_english_title_input] = useState(video_entry.title ? video_entry.title : "");
     const [year_input, set_year_input] = useState(video_entry.year ? video_entry.year : "");
     const [director_input, set_director_input] = useState(video_entry.director ? video_entry.director : "");
     const [countries_input, set_countries_input] = useState(video_entry.countries ? video_entry.countries : [""]);
@@ -21,7 +22,8 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
             console.log("No changes found.");
             return;
         }
-        video_entry.title = title_input;
+        video_entry.original_title = original_title_input;
+        video_entry.title = english_title_input;
         video_entry.year = year_input !== "" ? parseInt(year_input) : null;
         video_entry.director = director_input;
         video_entry.countries = countries_input;
@@ -30,7 +32,7 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
     }
 
     function update_element_with_tmdb(tmdb_result) {
-        set_title_input(tmdb_result.title);
+        set_english_title_input(tmdb_result.title);
         //video_entry.year = tmdb_result.year;
         //video_entry.director = tmdb_result.director;
         //video_entry.countries = tmdb_result.countries;
@@ -59,11 +61,18 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
                 <i className="fa fa-angle-left" style={{fontSize: "48px", color: "white"}}></i>
             </div>
             Filepath: {video_entry.filepath}
-            <div>Title: <input id="titleinput" type="text"
+            <div>Original Title: <input id="titleinput" type="text"
                                className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               value={title_input}
+                               value={original_title_input}
                                onChange={(e) => {
-                                    set_title_input(e.target.value);
+                                   set_original_title_input(e.target.value);
+                                   set_was_changed(true);
+                               }}/></div>
+            <div>English  Title: <input id="titleinput" type="text"
+                               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               value={english_title_input}
+                               onChange={(e) => {
+                                    set_english_title_input(e.target.value);
                                     set_was_changed(true);
                                }}/></div>
             <div>Year: {video_entry.year}</div>
