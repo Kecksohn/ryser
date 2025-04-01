@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
-import "./TMDBResults.css";
+import editVideoStyles from "./EditVideoEntry.module.css";
+import tmdbResultsStyles from "./TMDBResults.module.css";
 
 export const EditVideoEntryView = ({disable_view, update_element_in_library, video_entry}) => {
 
@@ -55,21 +56,28 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
 
     return(
         <div>
-            <div style={{cursor: "pointer"}} onClick={() => {
-                disable_view();
-            }}>
+            { /* Back Button */}
+            <div style={{cursor: "pointer"}} 
+                onClick={() => { disable_view(); }}>
                 <i className="fa fa-angle-left" style={{fontSize: "48px", color: "white"}}></i>
             </div>
+
+            <div className={editVideoStyles.container}>
+                { /* Cover */}
+                <div className={editVideoStyles.containerBox} style={{textAlign: "right"}}>
+                    <img style={{height: "500px", display: "block", marginLeft: "auto"}} src={new_image_url_or_path}/>
+                </div>
+                { /* Edit Info Box */}
+                <div className={editVideoStyles.containerBox}>
+                    
             Filepath: {video_entry.filepath}
-            <div>Original Title: <input id="titleinput" type="text"
-                               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <div>Original Title: <input id="og_title_input" type="text" className={editVideoStyles.inputField}
                                value={original_title_input}
                                onChange={(e) => {
                                    set_original_title_input(e.target.value);
                                    set_was_changed(true);
                                }}/></div>
-            <div>English  Title: <input id="titleinput" type="text"
-                               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <div>English  Title: <input id="en_title_input" type="text" className={editVideoStyles.inputField}
                                value={english_title_input}
                                onChange={(e) => {
                                     set_english_title_input(e.target.value);
@@ -77,15 +85,13 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
                                }}/></div>
             <div>Year: {video_entry.year}</div>
             <div>Director: {video_entry.director}</div>
-            <div>Countries: <input id="titleinput" type="text"
-                               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <div>Countries: <input id="country_input" type="text" className={editVideoStyles.inputField}
                                value={countries_input.join(', ')}
                                onChange={(e) => {
                                     set_countries_input(e.target.value.split(/, |,/));
                                     set_was_changed(true);
                                }}/></div>
             <div>Watched: {video_entry.watched}</div>
-            <div>Poster Path: {video_entry.poster_path}</div>
 
             <br/>
             {was_changed && <>
@@ -95,32 +101,35 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
                     Discard Changes</div>
             </>}
 
+                    
+                 </div>
+            </div>
+
             <br/>
-            Search Input: <input id="titleinput" type="text"
-                                 className="w-full px-3 py-2 border rounded-md border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            Search Input: <input id="searchinput" type="text"
+                                    className={editVideoStyles.inputField}
                                  value={tmdb_searchfield}
                                  onChange={(e) => {
                                      set_tmdb_searchfield(e.target.value)
                                  }}/>
-            <div style={{cursor: "pointer"}}
+            <span style={{cursor: "pointer"}}
                  onClick={() => {
                     get_tmdb_entries(tmdb_searchfield);
-                 }}>
-                Search TMDB</div>
+                 }}> Search TMDB</span>
             <br/>
             {tmdb_results.map((result, index) => {
                 return (
 
-                    <div className={"tmdbresult"} key={index}
+                    <div className={tmdbResultsStyles.tmdbresult} key={index}
                          onClick={() => {
                              update_element_with_tmdb(result);
                              set_was_changed(true);
                          }}>
-                        <div className={"tmdbresult-splitter"}>
-                            <div className={"tmdbresult-img"}>
+                        <div className={tmdbResultsStyles.tmdbresultSplitter}>
+                            <div className={tmdbResultsStyles.tmdbresultImg}>
                                 <img src={result.poster_path} alt={result.title}/>
                             </div>
-                            <div className={"tmdbresult-info"}>
+                            <div className={tmdbResultsStyles.tmdbresultInfo}>
                                 <div>{result.title}</div>
                                 <div>{result.year}</div>
                             </div>

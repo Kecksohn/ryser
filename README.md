@@ -98,3 +98,19 @@ Combining this with RustRover Debugging is left as an exercise to the reader.
 ```
 yarn tauri build
 ```
+
+# Roadmap / TODOs
+
+- Choose TMDB Cover from UI
+- Choose Local Cover from UI
+- Remember Scroll Position in Library View
+- Async them start-up calls
+- Refactor Context Menu
+- Refactor Rust Notifications
+- Parse TV Series / Episodes
+- Library Deletion, Renaming, etc
+- Library Settings, Default Filter/Sort, etc
+- Parse Audio Languages in File, match with TMDB, choose correct on launch
+- Parse Subtitle Languages, choose correct on Launch if user does not speak chosen audio
+- Real-Time Library Rescan (Folder Watching)
+- Start-Up Library Rescan should catch moving of whole library and other issues and ask for confirmation

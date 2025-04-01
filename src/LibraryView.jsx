@@ -8,7 +8,7 @@ import { ContextMenu } from "./ContextMenu.jsx";
 
 import { EditVideoEntryView } from "./EditVideoEntryView.jsx";
 
-import "./TMDBResults.css";
+import tmdbResultsStyles from "./TMDBResults.module.css";
 import react_icon from "./assets/react.svg";
 
 export const LibraryView = () => {
@@ -248,15 +248,15 @@ export const LibraryView = () => {
           !edit_entry_view_visible && filtered_library_elements.map(element => {
             return(
               <div key={element.filepath}
-                   className={"tmdbresult"}
+                   className={tmdbResultsStyles.tmdbresult}
                 style={{cursor: "pointer"}}
                 onClick={() => launch_video(element)}
                 onContextMenu={(e) => handle_context_menu(e, element)}>
-                  <div className={"tmdbresult-splitter"}>
-                      <div className={"tmdbresult-img"}>
+                  <div className={tmdbResultsStyles.tmdbresultSplitter}>
+                      <div className={tmdbResultsStyles.tmdbresultImg}>
                           <img src={element.poster_path} alt={element.title}/>
                       </div>
-                      <div className={"tmdbresult-info"}>
+                      <div className={tmdbResultsStyles.tmdbresultInfo}>
                         {element.original_title && element.original_title}
                         {element.title && element.title != element.original_title && <><br/> [{element.title}]</>}
                         {!element.title && element.filepath}
