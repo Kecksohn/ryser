@@ -101,6 +101,7 @@ yarn tauri build
 
 # Roadmap / TODOs
 
+- Parse "part1.mkv" Files
 - Choose TMDB Cover from UI
 - Choose Local Cover from UI
 - Remember Scroll Position in Library View
