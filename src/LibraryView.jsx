@@ -263,7 +263,7 @@ export const LibraryView = () => {
                         <br/>
                         {element.director && <><br/>{element.director}<br/></>}
                         {element.countries && element.countries.length > 0 
-                            && <>{element.countries.map((country, i) => {return(<>{country}{i < element.countries.length-1 && <>,</>}</>)})}<br/></>}
+                            && <>{element.countries.map((country, i) => {return(<span key={element+country}>{country}{i < element.countries.length-1 && <>,</>}</span>)})}<br/></>}
                         <br/>
                         {format_duration(element.length_in_seconds)}<br/>
                         {element.watched && <span style={{color: "green"}}>Watched</span>}
