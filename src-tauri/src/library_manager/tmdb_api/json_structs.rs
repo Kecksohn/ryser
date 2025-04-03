@@ -130,6 +130,25 @@ pub(super) struct TMDBCrew {
     pub job: Option<String>,
 }
 
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBImages {
+    pub id: Option<i32>,
+    pub backdrops: Option<Vec<TMDBImage>>,
+    pub logos: Option<Vec<TMDBImage>>,
+    pub posters: Option<Vec<TMDBImage>>,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBImage {
+    pub aspect_ratio: Option<f64>,
+    pub height: Option<i32>,
+    pub iso_639_1: Option<String>,
+    pub file_path: Option<String>,
+    pub vote_average: Option<f64>,
+    pub vote_count: Option<i32>,
+    pub width: Option<i32>,
+}
+
 
 
 // Helpers

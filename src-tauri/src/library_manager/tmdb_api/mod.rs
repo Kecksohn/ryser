@@ -13,6 +13,9 @@ use api_token::get_api_token;
 use json_structs::*;
 use search_name_creator::get_movie_title_and_year_from_filename;
 
+static TMDB_API_MOVIE_URL: &str = "https://api.themoviedb.org/3/movie/";
+static TMDB_IMAGE_URL: &str = "https://image.tmdb.org/t/p/original";
+
 
 async fn create_client() -> Result<(Client, String), String>
 {
@@ -137,7 +140,7 @@ pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Res
 }
 
 async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, String> {
-    let get_movie_details_url = "https://api.themoviedb.org/3/movie/".to_owned() + movie_id.to_string().as_str() + "?append_to_response=credits";
+    let get_movie_details_url = format!("{}{}{}", TMDB_API_MOVIE_URL, movie_id, "?append_to_response=credits");
 
     let response = call_tmdb_api(client, &get_movie_details_url, api_token).await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
@@ -234,10 +237,10 @@ fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie
         { video_element.release_date = movie_search_result.release_date.clone(); }
 
     if overwrite || video_element.poster_path.is_none() {
-        video_element.poster_path = movie_search_result.poster_path.as_ref().map(|path| "https://image.tmdb.org/t/p/original/".to_owned() + path);
+        video_element.poster_path = movie_search_result.poster_path.as_ref().map(|path| format!("{}{}", TMDB_IMAGE_URL, path));
     }
     if overwrite || video_element.backdrop_path.is_none() {
-        video_element.backdrop_path = movie_search_result.backdrop_path.as_ref().map(|path| "https://image.tmdb.org/t/p/original/".to_owned() + path);
+        video_element.backdrop_path = movie_search_result.backdrop_path.as_ref().map(|path| format!("{}{}", TMDB_IMAGE_URL, path));
     }
 
     /* Not used:
@@ -287,4 +290,79 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
     Rest of crew/cast
     */
 
+}
+
+
+use std::collections::HashMap;
+
+pub async fn get_additional_covers(
+    tmdb_id: usize, 
+    sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
+    filter_other_languages: Option<bool> 
+) -> Result<Vec<String>, String> {
+
+    let filter_other_languages = filter_other_languages.unwrap_or(false);
+
+    let (client, api_token) = create_client()
+        .await
+        .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
+
+    let mut get_covers_url = format!("{}{}{}", TMDB_API_MOVIE_URL, tmdb_id, "/images");
+
+    if filter_other_languages {
+        if let Some(languages) = &sort_by_languages_in_iso_639_1 {
+            if !languages.is_empty() {
+                get_covers_url.push_str("?include_image_language=");
+                get_covers_url.push_str(&languages.join(","));
+            }
+        }
+    }
+
+    let response = call_tmdb_api(&client, &get_covers_url, &api_token)
+        .await
+        .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
+
+    let mut posters: Vec<TMDBImage> = response.json::<TMDBImages>()
+        .await
+        .map_err(|e| format!("Could not parse TMDB Images JSON: {}", e))?
+        .posters
+        .ok_or_else(|| String::from("Movie has no posters!"))?;
+
+    if let Some(sort_languages) = sort_by_languages_in_iso_639_1 {
+        if !filter_other_languages || sort_languages.len() > 1 {
+            // Create HashMap of languages to sort by for O(1)
+            let position_map: HashMap<&String, usize> = sort_languages
+                .iter()
+                .enumerate()
+                .map(|(index, code)| (code, index))
+                .collect();
+
+            // Then sort posters based on their position in the reference vector
+            posters.sort_by(|a, b| {
+                // Get position of a's language code or MAX if not found
+                let a_pos = a.iso_639_1.as_ref()
+                    .and_then(|code| position_map.get(code).copied())
+                    .unwrap_or(usize::MAX);
+                    
+                // Get position of b's language code or MAX if not found
+                let b_pos = b.iso_639_1.as_ref()
+                    .and_then(|code| position_map.get(code).copied())
+                    .unwrap_or(usize::MAX);
+                    
+                // Compare positions for sorting
+                a_pos.cmp(&b_pos)
+            });
+        }
+    }
+
+    print!("{:#?}", &posters);
+
+    let poster_paths = posters
+        .into_iter()
+        .filter_map(|poster| poster.file_path
+            .map(|path| format!("{}{}", TMDB_IMAGE_URL, path)))
+        .collect();
+
+
+    Ok(poster_paths)
 }

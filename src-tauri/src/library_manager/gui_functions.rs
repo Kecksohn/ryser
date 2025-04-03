@@ -2,7 +2,7 @@ use directories::ProjectDirs;
 use std::{default, fs};
 
 use super::json_parser::write_library;
-use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element};
+use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element, get_additional_covers};
 use super::{library, library_path, VideoElement,
             add_library, update_library_entry,
             LIBRARIES};
@@ -128,6 +128,7 @@ pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoEle
     println!("Library {} not found!", library_id);
 }
 
+
 #[tauri::command(rename_all = "snake_case")]
 pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement>, String> {
     let mut query_result_elements: Vec<VideoElement> =
@@ -139,4 +140,13 @@ pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement
     }
 
     Ok(query_result_elements)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn get_covers_from_tmdb(
+    tmdb_id: usize, 
+    sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
+    filter_other_languages: Option<bool> 
+) -> Result<Vec<String>, String> {
+     get_additional_covers(tmdb_id, sort_by_languages_in_iso_639_1, filter_other_languages).await
 }
