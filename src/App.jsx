@@ -1,6 +1,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 
+import { ContextMenuProvider } from "./UITools/ContextMenu.jsx";
 import { NotificationManager } from "./UITools/NotificationManager.jsx";
 
 import { HashRouter, Route, Routes } from "react-router-dom";
@@ -15,23 +16,25 @@ function App() {
 
   return(<>
 
-    <NotificationManager/>
+    <ContextMenuProvider>
 
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={ 
-          <MainMenu /> 
-        } />
-        <Route path="/library/:library_id" element={
-          <LibraryView />
-        } />
-        <Route path="/addlibrary/*" element={
-          <AddLibrary/>
-        } />
-        <Route path="/settings" element={<MainMenu />} />
-      </Routes>
-    </HashRouter>
-    
+      <NotificationManager/>
+
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={
+            <MainMenu />
+          } />
+          <Route path="/library/:library_id" element={
+            <LibraryView />
+          } />
+          <Route path="/addlibrary/*" element={
+            <AddLibrary/>
+          } />
+          <Route path="/settings" element={<MainMenu />} />
+        </Routes>
+      </HashRouter>
+    </ContextMenuProvider>
   </>)
   
 }

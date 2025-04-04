@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { HeaderBar } from "../UIElements/HeaderBar.jsx";
 import { Dropdown } from "../UIElements/Dropdown.jsx";
-import { ContextMenu } from "../UITools/ContextMenu.jsx";
+import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
 import { EditVideoEntryView } from "../LibraryDataManagement/EditVideoEntryView.jsx";
 
@@ -12,6 +12,8 @@ import tmdbResultsStyles from "../LibraryDataManagement/TMDBResults.module.css";
 import react_icon from "../assets/react.svg";
 
 export const LibraryView = () => {
+
+    const { useContextMenuOn } = useContextMenu();
 
     const { library_id } = useParams();
     const [, forceRerender] = useState(0);
@@ -88,45 +90,34 @@ export const LibraryView = () => {
     }
     function set_watched(element) { if (!element.watched) toggle_watched(element); }
     function set_not_watched(element) { if (element.watched) toggle_watched(element); }
-    
+
+
+
+    const [selected_element, set_selected_element] = useState(null);
 
     // Context Menu
-
-    const [context_menu_state, set_context_menu_state] = useState({
-        visible: false,
-        position: { x: 0, y: 0 },
-        context: null // Store what was clicked
-    });
-
-    const get_context_menu_options = (context) => {
-        return [
-            { label: 'Edit', action: () => {set_edit_entry_view_visible(true); close_context_menu();} },
-            { label: context.watched ? 'Mark unwatched' : 'Mark watched', action: () => {toggle_watched(context); close_context_menu();} },
-            { label: 'no impl: Show in Windows Explorer', action: () => {close_context_menu();} },
-            { label: 'no impl: Remove from Library', action: () => {close_context_menu();} },
-            { label: 'no impl: Delete from Storage', action: () => {close_context_menu();} }
-        ];
-    };
-
-    const handle_context_menu = (event, context) => {
-        event.preventDefault();
-        set_context_menu_state({
-          visible: true,
-          position: { x: event.clientX, y: event.clientY },
-          context
-        });
-    };
-
-    const close_context_menu = () => {
-      set_context_menu_state(prev => ({ ...prev, visible: false }));
-    }
-    
-    // Close Context menu when clicking outside
-    useEffect(() => {
-      const handleClick = () => close_context_menu();
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }, []);
+    const get_context_menu_options = (context) => [
+        {   label: 'Edit',
+            action: () => {
+                set_selected_element(context);
+                set_edit_entry_view_visible(true);
+            },
+            close_after: true
+        },
+        { label: context.watched ? 'Mark unwatched' : 'Mark watched',
+            action: () => {toggle_watched(context) },
+            close_after: true,
+        },
+        { label: 'no impl: Show in Windows Explorer',
+            action: () => {},
+        },
+        { label: 'no impl: Remove from Library',
+            action: () => {}
+        },
+        { label: 'no impl: Delete from Storage',
+            action: () => {}
+        }
+    ];
 
 
     // Dropdown
@@ -251,7 +242,8 @@ export const LibraryView = () => {
                    className={tmdbResultsStyles.tmdbresult}
                 style={{cursor: "pointer"}}
                 onClick={() => launch_video(element)}
-                onContextMenu={(e) => handle_context_menu(e, element)}>
+               {...useContextMenuOn(element, get_context_menu_options)}
+              >
                   <div className={tmdbResultsStyles.tmdbresultSplitter}>
                       <div className={tmdbResultsStyles.tmdbresultImg}>
                           <img src={element.poster_path} alt={element.title}/>
@@ -274,20 +266,13 @@ export const LibraryView = () => {
           })
         }
 
-        {context_menu_state.visible && (
-            <ContextMenu 
-              menu_items={get_context_menu_options(context_menu_state.context)}
-              position={context_menu_state.position}
-            />
-        )}
-
-        {edit_entry_view_visible && (
+        {edit_entry_view_visible && selected_element &&
           <EditVideoEntryView 
             disable_view={disable_edit_entry_view}
             update_element_in_library={update_element_in_library}
-            video_entry={context_menu_state.context}
+            video_entry={selected_element}
           />
-        )}
+        }
         
       </div>
     );

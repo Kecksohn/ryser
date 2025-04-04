@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
-import { ContextMenu } from "../UITools/ContextMenu.jsx";
+import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
 
 export const MainMenu = () => {
