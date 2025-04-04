@@ -1,26 +1,32 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
 import { HeaderBar } from "../UIElements/HeaderBar.jsx";
 import { Dropdown } from "../UIElements/Dropdown.jsx";
 import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
-import { EditVideoEntryView } from "../LibraryDataManagement/EditVideoEntryView.jsx";
+import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
 
-import tmdbResultsStyles from "../LibraryDataManagement/TMDBResults.module.css";
+import { sort_video_elements, format_duration } from "./LibraryViewUtils.js"
+import { video_element_context_menu_options } from "./VideoElementContextMenu.js"
+
+import tmdbResultsStyles from "./LibraryDataManagement/TMDBResults.module.css";
 import react_icon from "../assets/react.svg";
+
 
 export const LibraryView = () => {
 
     const { useContextMenuOn } = useContextMenu();
-
-    const { library_id } = useParams();
+    const { navigate } = useNavigate();
     const [, forceRerender] = useState(0);
 
+    const { library_id } = useParams();
     const [library_name, set_library_name] = useState("Loading...");
 
+
     // Load Library
+
     const [library_elements, set_library_elements] = useState([]);
     const [library_elements_loaded, set_library_elements_loaded] = useState(false)
   
@@ -44,12 +50,9 @@ export const LibraryView = () => {
 
     const filtered_library_elements = useMemo(() => {
         return library_elements.filter(element => {
-            const matches_watched =
-                watched_filter === "filter_watched" ? !element.watched
-                : watched_filter === "filter_unwatched" ? element.watched :
-                true // no filter
-
-            return matches_watched;
+            return  watched_filter === "filter_watched" ? !element.watched
+                    : watched_filter === "filter_unwatched" ? element.watched :
+                    true // no filter
         })
     }, [library_elements, watched_filter])
 
@@ -92,126 +95,34 @@ export const LibraryView = () => {
     function set_not_watched(element) { if (element.watched) toggle_watched(element); }
 
 
+    // Edit Video Element Submenu
+    const [edit_entry_view_visible, set_edit_entry_view_visible] = useState(false);
+    const disable_edit_entry_view = () => {
+        set_edit_entry_view_visible(false);
+    }
 
-    const [selected_element, set_selected_element] = useState(null);
 
     // Context Menu
-    const get_context_menu_options = (context) => [
-        {   label: 'Edit',
-            action: () => {
-                set_selected_element(context);
-                set_edit_entry_view_visible(true);
-            },
-            close_after: true
-        },
-        { label: context.watched ? 'Mark unwatched' : 'Mark watched',
-            action: () => {toggle_watched(context) },
-            close_after: true,
-        },
-        { label: 'no impl: Show in Windows Explorer',
-            action: () => {},
-        },
-        { label: 'no impl: Remove from Library',
-            action: () => {}
-        },
-        { label: 'no impl: Delete from Storage',
-            action: () => {}
-        }
-    ];
+    const [selected_element, set_selected_element] = useState(null);
+
+    const get_context_menu_options = video_element_context_menu_options({
+        set_selected_element,
+        set_edit_entry_view_visible,
+        toggle_watched
+    });
 
 
     // Dropdown
-
     const sort_dropdown_options = () => [
-        { label: 'Title', onClick: () => sort_video_elements("title") },
-        { label: 'Duration', onClick: () => sort_video_elements("duration") },
-        { label: 'Date Added', onClick: () => sort_video_elements("timestamp") },
-        { label: 'Filepath', onClick: () => sort_video_elements("filepath") },
+        { label: 'Title', onClick: () => sort_library_elements("title") },
+        { label: 'Duration', onClick: () => sort_library_elements("duration") },
+        { label: 'Date Added', onClick: () => sort_library_elements("timestamp") },
+        { label: 'Filepath', onClick: () => sort_library_elements("filepath") },
     ];
     const [last_sort_order, set_last_sort_order] = useState("filepath");
 
-    const sort_video_elements = (order) => {
-
-        let library_elements_copy = library_elements.slice();
-        switch(order) {
-
-            case "title":
-                library_elements_copy = library_elements_copy.sort((a, b) => {
-                    // Use title if available, otherwise fallback to filepath
-                    const titleA = a.title || a.filepath.substring(a.filepath.lastIndexOf("/")+1);
-                    const titleB = b.title || b.filepath.substring(b.filepath.lastIndexOf("/")+1);
-                    return titleA.localeCompare(titleB);
-                });
-                if (last_sort_order === "title") {
-                    library_elements_copy.reverse();
-                    set_last_sort_order("title_reverse")
-                }
-                else {
-                    set_last_sort_order("title");
-                }
-                break;
-
-            case "duration":
-                library_elements_copy = library_elements_copy.sort(
-                    (a,b) => (a.length_in_seconds - b.length_in_seconds)
-                )
-                if (last_sort_order === "duration") {
-                    library_elements_copy.reverse();
-                    set_last_sort_order("duration_reverse")
-                }
-                else {
-                    set_last_sort_order("duration");
-                }
-                break;
-
-            case "timestamp":
-                library_elements_copy = library_elements_copy.sort(
-                    (a,b) => (b.timestamp_modified - a.timestamp_modified)
-                )
-                if (last_sort_order === "timestamp") {
-                    library_elements_copy.reverse();
-                    set_last_sort_order("timestamp_reverse")
-                }
-                else {
-                    set_last_sort_order("timestamp");
-                }
-                break;
-
-            case "filepath":
-                library_elements_copy = library_elements_copy.sort(
-                    (a,b) => (a.filepath.localeCompare(b.filepath)));
-                if (last_sort_order === "filepath") {
-                    library_elements_copy.reverse();
-                    set_last_sort_order("filepath_reverse");
-                }
-                else {
-                    set_last_sort_order("filepath");
-                }
-                break;
-
-            default:
-                console.log("Unknown sort type '" + order + "'");
-                return;
-        }
-        set_library_elements(library_elements_copy);
-    }
-    
-  
-    const [edit_entry_view_visible, set_edit_entry_view_visible] = useState(false);
-    const disable_edit_entry_view = () => {
-      set_edit_entry_view_visible(false);
-    }
-
-
-    function format_duration(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-
-        if (hours > 0) {
-            return `${hours}h${minutes}m`;
-        } else {
-            return `${minutes}m`;
-        }
+    function sort_library_elements(order) {
+        set_library_elements(sort_video_elements(library_elements, order, last_sort_order, set_last_sort_order));
     }
 
 
@@ -250,7 +161,7 @@ export const LibraryView = () => {
                       </div>
                       <div className={tmdbResultsStyles.tmdbresultInfo}>
                         {element.original_title && element.original_title}
-                        {element.title && element.title != element.original_title && <><br/> [{element.title}]</>}
+                        {element.title && element.title !== element.original_title && <><br/> [{element.title}]</>}
                         {!element.title && element.filepath}
                         <br/>
                         {element.director && <><br/>{element.director}<br/></>}
