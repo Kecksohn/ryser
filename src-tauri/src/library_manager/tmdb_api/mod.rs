@@ -355,8 +355,6 @@ pub async fn get_additional_covers(
         }
     }
 
-    print!("{:#?}", &posters);
-
     let poster_paths = posters
         .into_iter()
         .filter_map(|poster| poster.file_path
