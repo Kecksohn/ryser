@@ -17,8 +17,7 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
     const [new_poster_url_or_path, set_new_poster_url_or_path] = useState(video_entry.poster_path);
 
     function was_changed() {
-        return
-            video_entry.original_title !== original_title_input 
+        return video_entry.original_title !== original_title_input
             || video_entry.title !== english_title_input
             || video_entry.year !== year_input
             || video_entry.director !== director_input
