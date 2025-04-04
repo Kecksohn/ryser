@@ -1,0 +1,168 @@
+/* Container for the tooltip trigger */
+.tooltipContainer {
+  position: relative;
+  display: inline-block;
+}
+
+/* Base tooltip styles */
+.tooltip {
+  visibility: hidden;
+  width: 320px;
+  color: #333;
+  border-radius: 8px;
+  padding: 12px;
+  position: absolute;
+  z-index: 10;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.3s, visibility 0.3s;
+  /* Set auto height to adjust to content */
+  height: auto;
+  max-height: 90vh; /* Limit maximum height to 90% of viewport */
+  overflow-y: auto; /* Enable vertical scrolling if needed */
+  background-color: black;
+  border: 2px solid rgba(255, 255, 255, 0.555);
+}
+
+/* Positioning variants */
+.tooltipTop {
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltipBottom {
+  top: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltipLeft {
+  right: 125%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltipRight {
+  left: 125%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Tooltip arrows for different positions */
+.tooltip::after {
+  content: "";
+  position: absolute;
+  border-width: 10px;
+  border-style: solid;
+}
+
+.tooltipTop::after {
+  top: 100%;
+  left: 50%;
+  margin-left: -10px;
+  border-color: #fff transparent transparent transparent;
+}
+
+.tooltipBottom::after {
+  bottom: 100%;
+  left: 50%;
+  margin-left: -10px;
+  border-color: transparent transparent #fff transparent;
+}
+
+.tooltipLeft::after {
+  left: 100%;
+  top: 50%;
+  margin-top: -10px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.tooltipRight::after {
+  right: 100%;
+  top: 50%;
+  margin-top: -10px;
+  border-color: transparent #fff transparent transparent;
+}
+
+/* Show the tooltip when active class is applied */
+.active {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Scrollable image container */
+.imageScroll {
+  display: flex;
+  overflow-x: auto;
+  padding: 10px 0;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #ccc #000000;
+  margin-bottom: 12px;
+}
+
+.imageScroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.imageScroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.imageScroll::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}
+
+/* Individual image container */
+.imageContainer {
+  position: relative;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+
+.imageContainer:hover {
+  transform: translateY(-2px);
+}
+
+.imageContainer.selected {
+  border-color: #4285f4;
+}
+
+/* Images in the tooltip */
+.coverImage {
+  width: 120px;
+  height: auto; /* Changed from fixed height to auto */
+  min-height: 90px; /* Minimum height to maintain consistency */
+  max-height: 200px; /* Maximum height to prevent excessively tall images */
+  object-fit: contain; /* Changed from cover to contain to show full image */
+  border-radius: 4px;
+  display: block;
+}
+
+/* Additional content area */
+.additionalContent {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+/* Vertical scrollbar styling for tooltip */
+.tooltip::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tooltip::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.tooltip::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}

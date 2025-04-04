@@ -1,12 +1,12 @@
 import React from "react";
 import { useState, useEffect } from "react";
 
-import { NotificationManager } from "./NotificationManager";
+import { NotificationManager } from "./UITools/NotificationManager.jsx";
 
 import { HashRouter, Route, Routes } from "react-router-dom";
-import { MainMenu } from "./MainMenu";
-import { LibraryView } from "./LibraryView";
-import { AddLibrary } from "./AddLibrary";
+import { MainMenu } from "./MainMenu/MainMenu.jsx";
+import { LibraryView } from "./LibraryView/LibraryView.jsx";
+import { AddLibrary } from "./LibraryManagement/AddLibrary.jsx";
 
 import "./App.css";
 
