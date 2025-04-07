@@ -7,7 +7,7 @@ export const AddLibrary = () => {
   const navigate = useNavigate();
 
   return (
-    <div>
+    <>
       <Routes>
         <Route
           path="/"
@@ -36,6 +36,6 @@ export const AddLibrary = () => {
           }
         />
       </Routes>
-    </div>
+    </>
   );
 };
