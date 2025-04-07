@@ -5,9 +5,19 @@ import { CoverPickerTooltip } from "./CoverPickerTooltip.jsx";
 
 import editVideoStyles from "./EditVideoEntry.module.css";
 import tmdbResultsStyles from "./TMDBResults.module.css";
+import { useNavigate } from "react-router-dom";
 
 
-export const EditVideoEntryView = ({disable_view, update_element_in_library, video_entry}) => {
+export const EditVideoEntryView = ({update_element_in_library, video_entry}) => {
+
+    if (!video_entry) {
+        // TODO: Get from Backend
+        const { library_id } = useParams();
+        const { video_element_id } = useParams();
+    }
+
+    const navigate = useNavigate();
+
 
     const [original_title_input, set_original_title_input] = useState(video_entry.original_title ? video_entry.original_title : "");
     const [english_title_input, set_english_title_input] = useState(video_entry.title ? video_entry.title : "");
@@ -82,7 +92,7 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
         <div>
             { /* Back Button */}
             <div style={{cursor: "pointer"}} 
-                onClick={() => { disable_view(); }}>
+                onClick={() => { navigate("../"); }}>
                     <i className="fa fa-angle-left" style={{fontSize: "48px", color: "white"}}></i>
             </div>
 
@@ -128,9 +138,9 @@ export const EditVideoEntryView = ({disable_view, update_element_in_library, vid
 
                     <br/>
                     {was_changed && <>
-                        <div style={{cursor: "pointer"}} onClick={() => {commit_changes();disable_view();}}>
+                        <div style={{cursor: "pointer"}} onClick={() => {commit_changes(); navigate("../");}}>
                             Save Changes</div>
-                        <div style={{cursor: "pointer"}} onClick={() => {disable_view();}}>
+                        <div style={{cursor: "pointer"}} onClick={() => {navigate("../");}}>
                             Discard Changes</div>
                     </>}
 

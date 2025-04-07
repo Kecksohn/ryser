@@ -25,13 +25,13 @@ function App() {
           <Route path="/" element={
             <MainMenu />
           } />
-          <Route path="/library/:library_id" element={
+          <Route path="/library/:library_id/*" element={
             <LibraryView />
           } />
           <Route path="/addlibrary/*" element={
             <AddLibrary/>
           } />
-          <Route path="/settings" element={<MainMenu />} />
+          <Route path="/settings/*" element={<MainMenu />} />
         </Routes>
       </HashRouter>
     </ContextMenuProvider>

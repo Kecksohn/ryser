@@ -1,19 +1,21 @@
-
+import { useNavigate } from "react-router-dom";
 
 export const video_element_context_menu_options = ({
     set_selected_element,
-    set_edit_entry_view_visible,
     toggle_watched
 }) => {
+
+    const navigate = useNavigate();
+
     return (context) => [
         {   label: 'Edit',
             action: () => {
-                set_selected_element(context);
-                set_edit_entry_view_visible(true);
+                if (set_selected_element) set_selected_element(context);
+                navigate(`edit_element/${context.year}`); // TODO: Change to ID
             },
             close_after: true
         },
-        { label: context.watched ? 'Mark unwatched' : 'Mark watched',
+        toggle_watched && { label: context.watched ? 'Mark unwatched' : 'Mark watched',
             action: () => {toggle_watched(context) },
             close_after: true,
         },

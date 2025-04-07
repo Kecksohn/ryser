@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import {useNavigate, useParams} from "react-router-dom";
+import { Route, Routes, useNavigate, useParams} from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
 import { HeaderBar } from "../UIElements/HeaderBar.jsx";
@@ -18,7 +18,7 @@ import react_icon from "../assets/react.svg";
 export const LibraryView = () => {
 
     const { useContextMenuOn } = useContextMenu();
-    const { navigate } = useNavigate();
+    const navigate = useNavigate();
     const [, forceRerender] = useState(0);
 
     const { library_id } = useParams();
@@ -95,20 +95,13 @@ export const LibraryView = () => {
     function set_not_watched(element) { if (element.watched) toggle_watched(element); }
 
 
-    // Edit Video Element Submenu
-    const [edit_entry_view_visible, set_edit_entry_view_visible] = useState(false);
-    const disable_edit_entry_view = () => {
-        set_edit_entry_view_visible(false);
-    }
-
 
     // Context Menu
     const [selected_element, set_selected_element] = useState(null);
 
     const get_context_menu_options = video_element_context_menu_options({
         set_selected_element,
-        set_edit_entry_view_visible,
-        toggle_watched
+        toggle_watched,
     });
 
 
@@ -127,65 +120,67 @@ export const LibraryView = () => {
 
 
     return (
-      <div className="container">
-        <HeaderBar 
-            leftside_text={
-                <span>
-                <span style={{fontSize: "1.8em"}}>{library_name}</span>
-                <img src={react_icon} onClick={() => navigate(settings_link)} alt="Change Sort" />
-                <img src={react_icon} onClick={() => navigate(settings_link)} alt="Chage Filters" />
-                </span>
-            } 
-            back_link={"/"}
-            settings_link={"/library/"+library_id}
-        />
-            <br/>
-          {watched_filter !== "filter_watched" && watched_filter !== "filter_unwatched" &&
-              <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_watched")}>Filter Watched</span>}
-          {watched_filter === "filter_watched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_unwatched")}>Filter Unwatched</span>}
-          {watched_filter === "filter_unwatched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("")}>Remove Filter</span>}
-          <Dropdown buttonText={"Sort"} options={sort_dropdown_options()}/>
-          <br/>
-        {
-          !edit_entry_view_visible && filtered_library_elements.map(element => {
-            return(
-              <div key={element.filepath}
-                   className={tmdbResultsStyles.tmdbresult}
-                style={{cursor: "pointer"}}
-                onClick={() => launch_video(element)}
-               {...useContextMenuOn(element, get_context_menu_options)}
-              >
-                  <div className={tmdbResultsStyles.tmdbresultSplitter}>
-                      <div className={tmdbResultsStyles.tmdbresultImg}>
-                          <img src={element.poster_path} alt={element.title}/>
-                      </div>
-                      <div className={tmdbResultsStyles.tmdbresultInfo}>
-                        {element.original_title && element.original_title}
-                        {element.title && element.title !== element.original_title && <><br/> [{element.title}]</>}
-                        {!element.title && element.filepath}
-                        <br/>
-                        {element.director && <><br/>{element.director}<br/></>}
-                        {element.countries && element.countries.length > 0 
-                            && <>{element.countries.map((country, i) => {return(<span key={element+country}>{country}{i < element.countries.length-1 && <>,</>}</span>)})}<br/></>}
-                        <br/>
-                        {format_duration(element.length_in_seconds)}<br/>
-                        {element.watched && <span style={{color: "green"}}>Watched</span>}
-                      </div>
-                  </div>
-              </div>
-            )
-          })
-        }
+    <Routes>
+        <Route path="/" element={
+            <div className="container">
+                <HeaderBar 
+                    leftside_text={
+                        <span>
+                        <span style={{fontSize: "1.8em"}}>{library_name}</span>
+                        <img src={react_icon} onClick={() => navigate(settings_link)} alt="Change Sort" />
+                        <img src={react_icon} onClick={() => navigate(settings_link)} alt="Chage Filters" />
+                        </span>
+                    } 
+                    back_link={"/"}
+                    settings_link={"/library/"+library_id}
+                />
+                <br/>
 
-        {edit_entry_view_visible && selected_element &&
-          <EditVideoEntryView 
-            disable_view={disable_edit_entry_view}
-            update_element_in_library={update_element_in_library}
-            video_entry={selected_element}
-          />
-        }
-        
-      </div>
-    );
+                {watched_filter !== "filter_watched" && watched_filter !== "filter_unwatched" &&
+                    <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_watched")}>Filter Watched</span>}
+                {watched_filter === "filter_watched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("filter_unwatched")}>Filter Unwatched</span>}
+                {watched_filter === "filter_unwatched" && <span style={{cursor: "pointer"}} onClick={() => set_watched_filter("")}>Remove Filter</span>}
+                <Dropdown buttonText={"Sort"} options={sort_dropdown_options()}/>
+                <br/>
+
+                {
+                filtered_library_elements.map(element => {
+                    return(
+                    <div key={element.filepath}
+                        className={tmdbResultsStyles.tmdbresult}
+                        style={{cursor: "pointer"}}
+                        onClick={() => launch_video(element)}
+                    {...useContextMenuOn(element, get_context_menu_options)}
+                    >
+                        <div className={tmdbResultsStyles.tmdbresultSplitter}>
+                            <div className={tmdbResultsStyles.tmdbresultImg}>
+                                <img src={element.poster_path} alt={element.title}/>
+                            </div>
+                            <div className={tmdbResultsStyles.tmdbresultInfo}>
+                                {element.original_title && element.original_title}
+                                {element.title && element.title !== element.original_title && <><br/> [{element.title}]</>}
+                                {!element.title && element.filepath}
+                                <br/>
+                                {element.director && <><br/>{element.director}<br/></>}
+                                {element.countries && element.countries.length > 0 
+                                    && <>{element.countries.map((country, i) => {return(<span key={element+country}>{country}{i < element.countries.length-1 && <>,</>}</span>)})}<br/></>}
+                                <br/>
+                                {format_duration(element.length_in_seconds)}<br/>
+                                {element.watched && <span style={{color: "green"}}>Watched</span>}
+                            </div>
+                        </div>
+                    </div>
+                    )
+                })
+                }
+            </div>
+        } /> 
+        <Route  path="/edit_element/:video_element_id" element={
+            <EditVideoEntryView 
+                update_element_in_library={update_element_in_library}
+                video_entry={selected_element}
+            />
+        }/> 
+    </Routes>);
 
 }
