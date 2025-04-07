@@ -15,7 +15,9 @@
   z-index: 10;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   opacity: 0;
-  transition: opacity 0.3s, visibility 0.3s;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
   /* Set auto height to adjust to content */
   height: auto;
   max-height: 90vh; /* Limit maximum height to 90% of viewport */
@@ -122,7 +124,9 @@
   border-radius: 6px;
   border: 2px solid transparent;
   cursor: pointer;
-  transition: border-color 0.2s, transform 0.2s;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
   flex-shrink: 0;
 }
 

@@ -11,32 +11,23 @@ import { AddLibrary } from "./LibraryManagement/AddLibrary.jsx";
 
 import "./App.css";
 
-
 function App() {
+  return (
+    <>
+      <ContextMenuProvider>
+        <NotificationManager />
 
-  return(<>
-
-    <ContextMenuProvider>
-
-      <NotificationManager/>
-
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={
-            <MainMenu />
-          } />
-          <Route path="/library/:library_id/*" element={
-            <LibraryView />
-          } />
-          <Route path="/addlibrary/*" element={
-            <AddLibrary/>
-          } />
-          <Route path="/settings/*" element={<MainMenu />} />
-        </Routes>
-      </HashRouter>
-    </ContextMenuProvider>
-  </>)
-  
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<MainMenu />} />
+            <Route path="/library/:library_id/*" element={<LibraryView />} />
+            <Route path="/addlibrary/*" element={<AddLibrary />} />
+            <Route path="/settings/*" element={<MainMenu />} />
+          </Routes>
+        </HashRouter>
+      </ContextMenuProvider>
+    </>
+  );
 }
 
 export default App;

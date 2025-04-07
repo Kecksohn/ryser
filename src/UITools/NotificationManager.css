@@ -1,25 +1,25 @@
 .rnc__notification-item--default {
-    background-color: black !important;
-    color: white !important;
-    border: 1px solid white;
+  background-color: black !important;
+  color: white !important;
+  border: 1px solid white;
 }
 
 .rnc__notification-item--warning {
-    background-color: #beb02d !important;
-    color: #F7E43E !important;
-    border: 1px solid white;
+  background-color: #beb02d !important;
+  color: #f7e43e !important;
+  border: 1px solid white;
 }
 
 .rnc__notification-item--error {
-    background-color: #810101 !important;
-    color: #810101 !important;
-    border: 1px solid white;
-}
-  
-.rnc__notification-close {
-    color: white !important;
+  background-color: #810101 !important;
+  color: #810101 !important;
+  border: 1px solid white;
 }
 
-.rnc__notification-message{
-    color: white !important;
+.rnc__notification-close {
+  color: white !important;
+}
+
+.rnc__notification-message {
+  color: white !important;
 }

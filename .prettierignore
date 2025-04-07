@@ -1,0 +1,8 @@
+# Ignore artifacts:
+build
+coverage
+
+src-tauri
+vite.config.js
+package.json
+LICENSE.md

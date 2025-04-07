@@ -15,7 +15,8 @@
   align-items: center;
 }
 
-.header-section span, img {
+.header-section span,
+img {
   display: flex;
   align-items: center;
 }

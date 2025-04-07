@@ -1,5 +1,11 @@
-import React, { useEffect, useRef, useContext, createContext, useState } from 'react';
-import ReactDOM from 'react-dom';
+import React, {
+  useEffect,
+  useRef,
+  useContext,
+  createContext,
+  useState,
+} from "react";
+import ReactDOM from "react-dom";
 
 import "./ContextMenu.css";
 
@@ -12,7 +18,7 @@ export const ContextMenuProvider = ({ children }) => {
     visible: false,
     position: { x: 0, y: 0 },
     context: null,
-    items: []
+    items: [],
   });
 
   const showMenu = (x, y, context, items) => {
@@ -20,26 +26,26 @@ export const ContextMenuProvider = ({ children }) => {
       visible: true,
       position: { x, y },
       context,
-      items
+      items,
     });
   };
 
   const hideMenu = () => {
-    setMenuState(prev => ({ ...prev, visible: false }));
+    setMenuState((prev) => ({ ...prev, visible: false }));
   };
 
   // Close menu when clicking anywhere
   useEffect(() => {
     const handleClick = () => hideMenu();
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
   }, []);
 
   return (
-      <ContextMenuContext.Provider value={{ menuState, showMenu, hideMenu }}>
-        {children}
-        <ContextMenuComponent />
-      </ContextMenuContext.Provider>
+    <ContextMenuContext.Provider value={{ menuState, showMenu, hideMenu }}>
+      {children}
+      <ContextMenuComponent />
+    </ContextMenuContext.Provider>
   );
 };
 
@@ -48,7 +54,7 @@ export const useContextMenu = () => {
   const context = useContext(ContextMenuContext);
 
   if (!context) {
-    throw new Error('useContextMenu must be used within a ContextMenuProvider');
+    throw new Error("useContextMenu must be used within a ContextMenuProvider");
   }
 
   const { showMenu, hideMenu } = context;
@@ -56,18 +62,18 @@ export const useContextMenu = () => {
   // Helper function to create context menu handlers
   const createContextMenuHandler = (context, getItems) => (event) => {
     event.preventDefault();
-    const items = typeof getItems === 'function' ? getItems(context) : getItems;
+    const items = typeof getItems === "function" ? getItems(context) : getItems;
     showMenu(event.clientX, event.clientY, context, items);
   };
 
   return {
     // Attach to an element: useContextMenuOn(element, menuItems)
     useContextMenuOn: (context, getItems) => ({
-      onContextMenu: createContextMenuHandler(context, getItems)
+      onContextMenu: createContextMenuHandler(context, getItems),
     }),
     // Manually show or hide the menu
     showContextMenu: showMenu,
-    hideContextMenu: hideMenu
+    hideContextMenu: hideMenu,
   };
 };
 
@@ -116,25 +122,25 @@ const ContextMenuComponent = () => {
   }
 
   return ReactDOM.createPortal(
-      <div
-          ref={menuRef}
-          className="context-menu"
-          style={{
-            left: `${menuState.position.x}px`,
-            top: `${menuState.position.y}px`,
-          }}
-      >
-        {menuState.items.map((menuItem, index) => (
-            <div
-                key={index}
-                onClick={(e) => handleMenuClick(e, menuItem)}
-                className="context-menu-item"
-            >
-              {menuItem.icon && <span className="w-4 h-4">{menuItem.icon}</span>}
-              {menuItem.label}
-            </div>
-        ))}
-      </div>,
-      document.body
+    <div
+      ref={menuRef}
+      className="context-menu"
+      style={{
+        left: `${menuState.position.x}px`,
+        top: `${menuState.position.y}px`,
+      }}
+    >
+      {menuState.items.map((menuItem, index) => (
+        <div
+          key={index}
+          onClick={(e) => handleMenuClick(e, menuItem)}
+          className="context-menu-item"
+        >
+          {menuItem.icon && <span className="w-4 h-4">{menuItem.icon}</span>}
+          {menuItem.label}
+        </div>
+      ))}
+    </div>,
+    document.body,
   );
 };
