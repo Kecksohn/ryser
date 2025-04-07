@@ -97,6 +97,31 @@ pub(crate) fn add_library(mut lib: library) {
     LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
 }
 
+pub(crate) fn delete_library(lib_id: &str) -> Result<(), String> {
+    
+    let mut libraries = LIBRARIES.lock().unwrap();
+
+    let original_length = libraries.len();
+    libraries.retain(|lib| lib.id != lib_id);
+    let elements_removed = original_length - libraries.len();
+
+    if elements_removed == 0 {
+        return Err(format!("Did not find Library ID '{}', no removal occurred!", lib_id));
+    } 
+
+    let libraries_folder = get_libraries_path();
+    let library_file = libraries_folder.join(lib_id);
+
+    if !library_file.exists() {
+        return Err(format!("Did not find library.json at path '{}'", library_file.to_str().unwrap_or("!Path Unwrap Failed!")));
+    }
+
+    fs::remove_file(&library_file)
+        .map_err(|e| format!("Could not delete '{}': {}", library_file.to_str().unwrap_or("!Path Unwrap Failed!"), e))?;
+
+    Ok(())
+}
+
 
 fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), String> {
     

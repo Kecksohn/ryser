@@ -58,8 +58,9 @@ pub fn run() {
 
                 // UI Home
                 get_available_libraries,
-                // Library Creation
+                // Library Management
                 create_library,
+                delete_library_gui,
                 // Library View
                 get_library_name,
                 get_library_videos,

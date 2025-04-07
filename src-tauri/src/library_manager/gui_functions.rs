@@ -4,7 +4,7 @@ use std::{default, fs};
 use super::json_parser::write_library;
 use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element, get_additional_covers};
 use super::{library, library_path, VideoElement,
-            add_library, update_library_entry,
+            add_library, delete_library, update_library_entry,
             LIBRARIES};
 
 use super::tmdb_api::json_structs::*;
@@ -76,6 +76,11 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
     };
     add_library(new_lib);
     Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn delete_library_gui(library_id: &str) -> Result<(), String> {
+    delete_library(library_id)
 }
 
 

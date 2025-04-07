@@ -6,6 +6,7 @@ import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
 export const MainMenu = () => {
   const navigate = useNavigate();
+  const { useContextMenuOn } = useContextMenu();
 
   const [libraries_loaded, set_libraries_loaded] = useState(false);
   const [libraries, set_libraries] = useState([]);
@@ -29,6 +30,35 @@ export const MainMenu = () => {
     });
   }
 
+  const library_context_menu_options = (context) => [
+    {
+      label: "no impl: Edit",
+      action: () => {},
+    },
+    {
+      label: "no impl: Rescan ALL",
+      action: () => {
+        update_libraries();
+      },
+    },
+    {
+      label: "no impl: Export",
+      action: () => {},
+    },
+    {
+      label: "Delete",
+      action: () => {
+        invoke("delete_library_gui", { library_id: context.id })
+          .then(() => {
+            set_libraries_loaded(false);
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+      },
+    },
+  ];
+
   return (
     <div>
       {!libraries_loaded && <div>Loading...</div>}
@@ -42,6 +72,7 @@ export const MainMenu = () => {
             <div
               key={library.id}
               onClick={() => navigate("/library/" + library.id)}
+              {...useContextMenuOn(library, library_context_menu_options)}
             >
               {library.name}
             </div>
