@@ -110,14 +110,14 @@ pub(crate) fn delete_library(lib_id: &str) -> Result<(), String> {
     } 
 
     let libraries_folder = get_libraries_path();
-    let library_file = libraries_folder.join(lib_id);
+    let library_folder = libraries_folder.join(lib_id);
 
-    if !library_file.exists() {
-        return Err(format!("Did not find library.json at path '{}'", library_file.to_str().unwrap_or("!Path Unwrap Failed!")));
+    if !library_folder.exists() {
+        return Err(format!("Did not find library folder at path '{}'", library_folder.to_str().unwrap_or("!Path Unwrap Failed!")));
     }
 
-    fs::remove_file(&library_file)
-        .map_err(|e| format!("Could not delete '{}': {}", library_file.to_str().unwrap_or("!Path Unwrap Failed!"), e))?;
+    fs::remove_dir_all(&library_folder)
+        .map_err(|e| format!("Could not delete '{}': {}", library_folder.to_str().unwrap_or("!Path Unwrap Failed!"), e))?;
 
     Ok(())
 }
