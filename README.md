@@ -117,6 +117,7 @@ yarn tauri build
 - Async them start-up calls
 - Refactor Rust Notifications
 - Parse TV Series / Episodes
+- Choose Video Player, General Settings
 - Library Renaming, Settings, Default Filter/Sort, etc
 - Parse Audio Languages in File, match with TMDB, choose correct on launch
 - Parse Subtitle Languages, choose correct on Launch if user does not speak chosen audio
