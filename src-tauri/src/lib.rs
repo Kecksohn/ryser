@@ -3,15 +3,11 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-mod video_player;
-use video_player::*;
-use std::{collections::HashMap, sync::{Mutex, Arc}};
-
 mod config;
-use config::{
-    read_config,
-    on_gui_available,
-};
+use config::read_config;
+
+mod notifications;
+use notifications::*;
 
 mod library_manager;
 use library_manager::{
@@ -21,6 +17,11 @@ use library_manager::{
     rescan_all_libraries, 
     rescan_library_by_id,
 };
+
+
+mod video_player;
+use video_player::*;
+use std::{collections::HashMap, sync::{Mutex, Arc}};
 
 
 mod _debug_run;
@@ -37,13 +38,14 @@ async fn open_window(window: Window) {
         .show()
         .unwrap();
 
-    on_gui_available(window);
+    notification_manager::start(window);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     read_config();
     load_all_libraries();
+    // TODO: make this async
     rescan_all_libraries();
     match update_all_libraries_with_tmdb(Some(false)) {
         Ok(_) => (),
