@@ -1,6 +1,6 @@
 use serde_json::json;
 
-pub(crate) fn get_default_config_as_json() -> serde_json::Value {
+pub(crate) fn get_json() -> serde_json::Value {
     json!({
         "FirstName": "John",
         "LastName": "Doe",

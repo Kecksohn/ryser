@@ -4,17 +4,23 @@
 #![allow(unused_imports)]
 
 mod video_player;
-use crate::video_player::*;
+use video_player::*;
 use std::{collections::HashMap, sync::{Mutex, Arc}};
 
-mod app_start;
-use crate::app_start::*;
+mod config;
+use config::{
+    read_config,
+    on_gui_available,
+};
 
 mod library_manager;
-use crate::library_manager::gui_functions::*;
-use crate::library_manager::{load_all_libraries, update_all_libraries_with_tmdb};
-use crate::library_manager::rescan_all_libraries;
-use crate::library_manager::rescan_library_by_id;
+use library_manager::{
+    gui_functions::*,
+    load_all_libraries, 
+    update_all_libraries_with_tmdb, 
+    rescan_all_libraries, 
+    rescan_library_by_id,
+};
 
 
 mod _debug_run;

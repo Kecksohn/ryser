@@ -1,9 +1,8 @@
-use default_config_json::get_default_config_as_json;
+use super::default_config;
+
 use directories::ProjectDirs;
 use std::fs;
 use std::fs::File;
-
-mod default_config_json;
 
 pub(crate) fn read_config() {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
@@ -31,7 +30,7 @@ pub(crate) fn read_config() {
             let file = File::create(config_filepath);
             match file {
                 Ok(file) => {
-                    let _ = serde_json::to_writer_pretty(file, &get_default_config_as_json());
+                    let _ = serde_json::to_writer_pretty(file, &default_config::get_json());
                     println!("Wrote to config.json");
                 }
                 Err(error) => panic!("Problem creating config.json: {error:?}"),
