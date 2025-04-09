@@ -38,34 +38,3 @@ pub(crate) fn read_config() {
         }
     }
 }
-
-
-// TODO: Probably refactor this to a notification manager?
-use tauri::{Manager, Window, Emitter};
-use serde::{Serialize, Deserialize};
-use crate::library_manager::rescan_all_libraries;
-use uuid::Uuid;
-
-#[derive(Serialize, Deserialize, Clone)]
-struct TimedMessage {
-    header: String,
-    message: String,
-    id: String,
-    duration_ms: u64,
-}
-
-pub(crate) fn on_gui_available(window: Window) {
-    
-    // TODO: make this async
-    rescan_all_libraries();
-
-    let message_id = Uuid::new_v4().to_string();
-    let timed_message = TimedMessage {
-        header: "Hello from Rust!".to_owned(),
-        message: "WHAT is UP my dude".to_owned(),
-        id: message_id,
-        duration_ms: 3000,
-    };
-
-    window.emit("display-message", timed_message).unwrap();
-}
