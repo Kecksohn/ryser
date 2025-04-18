@@ -22,7 +22,8 @@ export const MainMenu = () => {
         set_libraries(library_tuples);
       });
     }
-  });
+  }),
+    [libraries_loaded];
 
   function update_libraries() {
     invoke("rescan_all_libraries").then((res) => {

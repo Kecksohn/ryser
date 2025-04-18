@@ -12,6 +12,7 @@ use super::tmdb_api::json_structs::*;
 use super::file_manager::file_utils::create_valid_filename;
 use super::utils::*;
 
+use crate::notifications::show_msg_gui;
 
 #[tauri::command(rename_all = "snake_case")]
 pub fn get_available_libraries() -> Vec<(String, String)> {
@@ -153,5 +154,5 @@ pub async fn get_covers_from_tmdb(
     sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
     filter_other_languages: Option<bool> 
 ) -> Result<Vec<String>, String> {
-     get_additional_covers(tmdb_id, sort_by_languages_in_iso_639_1, filter_other_languages).await
+    get_additional_covers(tmdb_id, sort_by_languages_in_iso_639_1, filter_other_languages).await
 }

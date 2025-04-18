@@ -42,7 +42,7 @@ export const LibraryView = () => {
         });
       });
     }
-  });
+  }, [library_elements_loaded]);
 
   const [watched_filter, set_watched_filter] = useState("");
 

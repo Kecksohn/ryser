@@ -4,7 +4,7 @@ mod send;
 mod error;
 
 // -- Flatten
-pub use send::show_msg_gui;
+pub use send::*;
 pub use error::{Error, Result};
 
 // -- Public Modules

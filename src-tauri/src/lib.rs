@@ -38,7 +38,7 @@ async fn open_window(window: Window) {
         .show()
         .unwrap();
 
-    notification_manager::start(window);
+    let _ = notification_manager::start(window);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
