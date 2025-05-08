@@ -1,9 +1,11 @@
 use directories::ProjectDirs;
 use std::fs;
 
+use crate::Error;
+
 use super::{library, VideoElement};
 
-pub(super) fn get_library(identifier: &str) -> Result<library, String> {
+pub(super) fn get_library(identifier: &str) -> Result<library, Error> {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         let library_json_filepath = proj_dir
             .data_local_dir()
@@ -12,21 +14,21 @@ pub(super) fn get_library(identifier: &str) -> Result<library, String> {
 
         match fs::File::open(&library_json_filepath) {
             Ok(json_file) => match serde_json::from_reader(json_file) {
-                Ok(library) => Result::Ok(library),
-                Err(error) => Result::Err(format!(
+                Ok(library) => Ok(library),
+                Err(error) => Err(Error::from(format!(
                     "Error extracting {} , error: {}",
                     library_json_filepath.to_str().unwrap(),
                     error
-                )),
+                ))),
             },
-            Err(error) => Result::Err(
+            Err(error) => Err(Error::from(
                 "Problem opening ".to_owned()
                     + library_json_filepath.to_str().unwrap()
                     + &error.to_string(),
-            ),
+            )),
         }
     } else {
-        Result::Err("Could not get project config dir paths".to_owned())
+        Err(Error::from("Could not get project config dir paths"))
     }
 }
 

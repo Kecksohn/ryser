@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use once_cell::sync::OnceCell;
 
-use super::Result;
+use crate::Error;
 
 
 static WINDOW: OnceCell<Window> = OnceCell::new();
@@ -19,7 +19,7 @@ pub(super) struct TimedMessage {
     pub duration_ms: u64,
 }
 
-pub(crate) fn start(window: Window) -> Result<()> {
+pub(crate) fn start(window: Window) -> Result<(), Error> {
     let _ = WINDOW.set(window);
     Ok(())
 }
@@ -29,7 +29,7 @@ pub(super) fn send_msg(
     message: &str,
     message_id: Option<String>,
     duration_ms: Option<u64>
-) -> Result<String> {
+) -> Result<String, Error> {
     let duration_ms = duration_ms.unwrap_or(3000);
     let message_id = message_id.unwrap_or(Uuid::new_v4().to_string());
     

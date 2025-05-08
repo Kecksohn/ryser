@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
+use crate::Error;
+
 mod api_token;
 pub(super) mod json_structs;
 mod search_name_creator;
 
 use serde::Deserialize;
 use tauri_plugin_http::reqwest::header::USER_AGENT;
-use tauri_plugin_http::reqwest::{self, Client, Error, Response};
+use tauri_plugin_http::reqwest::{self, Client, Response};
 
 use super::{library, VideoElement};
 use api_token::get_api_token;
@@ -45,16 +47,16 @@ async fn call_tmdb_api(client: &Client, api_url: &str, api_token: &str) -> Resul
         .header("Authorization", "Bearer ".to_owned() + api_token)
         .send()
         .await
+        .map_err(|e| format!("Could not connect to TMDB: {}", e).into())
 }
 
-pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_token: &str, ) -> Result<bool, Error> {
+pub(crate) async fn is_tmdb_api_read_access_token_valid(client: &Client, api_token: &str) -> Result<bool, Error> {
     let test_authentification_url = "https://api.themoviedb.org/3/authentication";
-    let response = call_tmdb_api(client, test_authentification_url, api_token).await;
+    let response = call_tmdb_api(client, test_authentification_url, api_token).await?;
 
-    match response {
-        Ok(res) => Ok(res.json::<TMDBTestAuthentification>().await?.success),
-        Err(err) => Err(err),
-    }
+    response.json::<TMDBTestAuthentification>().await
+        .map(|res| res.success)
+        .map_err(|e| format!("Could not parse authentication response: {}", e).into())
 }
 
 
@@ -68,7 +70,7 @@ async fn search_tmdb
     include_adult: Option<bool>,
     page: Option<i32>
 )
-    -> Result<TMDBSearchMovieResult, String>
+    -> Result<TMDBSearchMovieResult, Error>
 {
     let include_adult = include_adult.unwrap_or(false);
     let page = page.unwrap_or(1);
@@ -94,11 +96,10 @@ async fn search_tmdb
         url
     };
 
-    let response = call_tmdb_api(client, &search_movie_url, api_token).await
-        .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
+    let response = call_tmdb_api(client, &search_movie_url, api_token).await?;
 
     response.json().await
-        .map_err(|e| format!("Could not parse Movie Search JSON: {}", e))
+        .map_err(|e| format!("Could not parse Movie Search JSON: {}", e).into())
 }
 
 async fn create_client_and_search_tmdb
@@ -109,17 +110,17 @@ async fn create_client_and_search_tmdb
     include_adult: Option<bool>,
     page: Option<i32>
 )
-    -> Result<TMDBSearchMovieResult, String>
+    -> Result<TMDBSearchMovieResult, Error>
 {
     let (client, api_token) = create_client().await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
     search_tmdb(&client, &api_token, movietitle, year, language, include_adult, page).await
 }
 
-pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Result<Vec<VideoElement>, String> {
+pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Result<Vec<VideoElement>, Error> {
     let query_result_object = match create_client_and_search_tmdb(search_title, None, None, None, None).await {
         Ok(res) => res,
-        Err(e) => return Err(format!("Error trying to call tmdb database: {}", e))
+        Err(e) => return Err(format!("Error trying to call tmdb database: {}", e).into())
     };
 
     let mut query_result_elements: Vec<VideoElement> = vec![];
@@ -139,19 +140,19 @@ pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Res
     Ok(query_result_elements)
 }
 
-async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, String> {
+async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, Error> {
     let get_movie_details_url = format!("{}{}{}", TMDB_API_MOVIE_URL, movie_id, "?append_to_response=credits");
 
     let response = call_tmdb_api(client, &get_movie_details_url, api_token).await
         .map_err(|e| format!("Could not connect to TMDB: {}", e))?;
 
     response.json().await
-        .map_err(|e| format!("Could not parse Movie Details JSON: {}", e))
+        .map_err(|e| format!("Could not parse Movie Details JSON: {}", e).into())
 }
 
 
 
-pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Option<bool>) -> Result<(), String>
+pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Option<bool>) -> Result<(), Error>
 {
     let reparse_all: bool = reparse_all.unwrap_or(false);
 
@@ -190,7 +191,7 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
                                                             video_element.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
                                                             &video_element.director.as_ref().unwrap_or(&"!MISSING!".to_string()))
                 }
-                Err(str) => {return Err(format!("Error when calling TMDB: {}", str))}
+                Err(str) => {return Err(format!("Error when calling TMDB: {}", str).into())}
             }
         }
     }
@@ -201,9 +202,9 @@ pub(super) async fn parse_library_tmdb(library: &mut library, reparse_all: Optio
 pub(super) async fn get_movie_details_for_video_element(
     video_element: &mut VideoElement,
     overwrite: Option<bool>,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     if video_element.tmdb_id.is_none() {
-        return Err(String::from("No TMDB ID specified, Implement getting it!"));
+        return Err("No TMDB ID specified, Implement getting it!".into());
     }
 
     let (client, api_token) = create_client()
@@ -299,7 +300,7 @@ pub async fn get_additional_covers(
     tmdb_id: usize, 
     sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
     filter_other_languages: Option<bool> 
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, Error> {
 
     let filter_other_languages = filter_other_languages.unwrap_or(false);
 

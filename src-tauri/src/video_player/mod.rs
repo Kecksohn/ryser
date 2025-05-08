@@ -8,7 +8,7 @@ mod error;
 
 pub use gui::*;
 pub use process_manager::*;
-pub use error::{Error, Result};
+pub use error::*;
 
 // -- Public Modules
 

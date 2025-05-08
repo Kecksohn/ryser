@@ -5,7 +5,7 @@ mod error;
 
 // -- Flatten
 pub use send::*;
-pub use error::{Error, Result};
+pub use error::*;
 
 // -- Public Modules
 

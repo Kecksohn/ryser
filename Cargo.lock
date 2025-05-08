@@ -3327,6 +3327,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-http",
  "tauri-plugin-window-state",
+ "thiserror 1.0.69",
  "unicode-segmentation",
  "uuid",
 ]

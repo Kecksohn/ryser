@@ -1,3 +1,5 @@
+use crate::Error;
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -154,7 +156,7 @@ pub(super) struct TMDBImage {
 // Helpers
 use tauri_plugin_http::reqwest::Response;
 
-pub(super) async fn print_response_json(response: Response) -> Result<(), String> {
+pub(super) async fn print_response_json(response: Response) -> Result<(), Error> {
     let json_value: serde_json::Value = response.json().await
         .map_err(|e| format!("Failed to parse JSON: {}", e))?;
     

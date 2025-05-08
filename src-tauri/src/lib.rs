@@ -3,6 +3,9 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
+mod error;
+pub use error::*;
+
 mod config;
 use config::read_config;
 

@@ -7,7 +7,7 @@ mod error;
 // -- Flatten
 
 pub use read_json::*;
-pub use error::{Error, Result};
+pub use error::*;
 
 // -- Public Modules
 

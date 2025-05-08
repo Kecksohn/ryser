@@ -1,7 +1,8 @@
 use tauri::async_runtime;
 
-use crate::library_manager::*;
+use crate::Error;
 
+use crate::library_manager::*;
 use crate::library_manager::gui_functions::*;
 
 // This gets called on 'cargo run debug-backend'
@@ -14,7 +15,7 @@ pub(super) fn debug_main() {
     });
 }
 
-async fn debug_async() -> Result<(), String> {
+async fn debug_async() -> Result<(), Error> {
     
     //let _ = function().await.map_err(|e| format!("{}", e))?;
     

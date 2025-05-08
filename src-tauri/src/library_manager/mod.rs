@@ -5,6 +5,8 @@ mod tmdb_api;
 mod utils;
 mod video_element;
 
+use crate::Error;
+
 use std::cmp::Ordering;
 use std::{fs, path::*, vec};
 use directories::ProjectDirs;
@@ -72,10 +74,10 @@ pub(crate) fn set_libraries(libraries: Vec<library>) {
     *LIBRARIES.lock().unwrap() = libraries;
 }
 
-pub(crate) fn get_library_index_by_id(lib_id: &str) -> Result<usize, String> {
+pub(crate) fn get_library_index_by_id(lib_id: &str) -> Result<usize, Error> {
     LIBRARIES.lock().unwrap().iter()
         .position(|lib| lib.id == lib_id)
-        .ok_or_else(|| format!("Could not find library with id {}", lib_id))
+        .ok_or_else(|| Err(format!("Could not find library with id {}", lib_id).into()))
 }
 
 pub(crate) fn add_library(mut lib: library) {
@@ -97,7 +99,7 @@ pub(crate) fn add_library(mut lib: library) {
     LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
 }
 
-pub(crate) fn delete_library(lib_id: &str) -> Result<(), String> {
+pub(crate) fn delete_library(lib_id: &str) -> Result<(), Error> {
     
     let mut libraries = LIBRARIES.lock().unwrap();
 
@@ -106,14 +108,14 @@ pub(crate) fn delete_library(lib_id: &str) -> Result<(), String> {
     let elements_removed = original_length - libraries.len();
 
     if elements_removed == 0 {
-        return Err(format!("Did not find Library ID '{}', no removal occurred!", lib_id));
+        return Err(format!("Did not find Library ID '{}', no removal occurred!", lib_id).into());
     } 
 
     let libraries_folder = get_libraries_path();
     let library_folder = libraries_folder.join(lib_id);
 
     if !library_folder.exists() {
-        return Err(format!("Did not find library folder at path '{}'", library_folder.to_str().unwrap_or("!Path Unwrap Failed!")));
+        return Err(format!("Did not find library folder at path '{}'", library_folder.to_str().unwrap_or("!Path Unwrap Failed!")).into());
     }
 
     fs::remove_dir_all(&library_folder)
@@ -123,7 +125,7 @@ pub(crate) fn delete_library(lib_id: &str) -> Result<(), String> {
 }
 
 
-fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), String> {
+fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), Error> {
     
     let mut error_message: String = "".to_owned();
     for library_path in lib.library_paths.iter() {
@@ -163,7 +165,7 @@ fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec
         Ok(())
     }
     else {
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
@@ -177,7 +179,9 @@ pub(crate) fn rescan_all_libraries() {
 
 #[tauri::command(rename_all = "snake_case")]
 pub(crate) fn rescan_library_by_id(lib_id: &str) -> Result<(), String> {
-    let index = get_library_index_by_id(lib_id)?;
+    let index = get_library_index_by_id(lib_id)
+        .map_err(|e| format!("Could not get library index: {}", e))?;
+
     rescan_library(&mut LIBRARIES.lock().unwrap()[index]);
     Ok(())
 }
@@ -266,13 +270,13 @@ pub(crate) fn rescan_library(lib: &mut library) {
 pub(crate) fn update_library_entry(
     library: &mut library,
     updated_element: VideoElement,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
-        return Result::Err("Could not get project dirs".to_owned());
+        return Err("Could not get project dirs".into());
     };
     let library_folder = proj_dir.data_local_dir().join(&library.id);
     if !library_folder.exists() {
-        return Result::Err("Could not find library".to_owned());
+        return Err("Could not find library".into());
     }
     for old_element in library.video_files.iter_mut() {
         if old_element.filepath == updated_element.filepath {
@@ -281,20 +285,20 @@ pub(crate) fn update_library_entry(
         }
     }
 
-    Result::Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id))
+    Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id).into())
 }
 
 pub(crate) fn update_library_entry_by_index(
     library: &mut library,
     updated_element: VideoElement,
     index: usize,
-) -> Result<(), String> {
+) -> Result<(), Error> {
     if index >= library.video_files.len() {
-        return Result::Err(format!(
+        return Err(format!(
             "Index {} out of range of library elements ({})",
             index,
             library.video_files.len()
-        ));
+        ).into());
     }
     library.video_files[index] = updated_element;
     Ok(())
