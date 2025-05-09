@@ -77,7 +77,7 @@ pub(crate) fn set_libraries(libraries: Vec<library>) {
 pub(crate) fn get_library_index_by_id(lib_id: &str) -> Result<usize, Error> {
     LIBRARIES.lock().unwrap().iter()
         .position(|lib| lib.id == lib_id)
-        .ok_or_else(|| Err(format!("Could not find library with id {}", lib_id).into()))
+        .ok_or_else(|| format!("Could not find library with id {}", lib_id).into())
 }
 
 pub(crate) fn add_library(mut lib: library) {
