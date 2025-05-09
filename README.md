@@ -91,15 +91,26 @@ Start the server using the npm script, then launch the cargo run config using th
 
 ### Faster Compilation
 
+**1. Debug Back-End Only**
+
 This is Rust so you pretty much take what you can get. However, if you don't need the GUI and just wanna test some functions in the back-end you can run:
 
 `cargo run --features debug-backend`
 
 Which skips building the front-end (approximately x3 the compile time on iterative builds) and executes whatever you put in `debug_main()` inside `/src-tauri/src/_debug_run/` after back-end initialization.
 
-<small>Note: I haven't gotten this to work when editing files using VSCode w rust-analyzer plug-in bc it locks changed files on save. Feel free to pull request if you have.</small>
-
 Combining this with RustRover Debugging is left as an exercise to the reader.
+
+If you're going for 10x programming I'd recommend checking out [watchexec](https://github.com/watchexec/watchexec), which can execute the above command on every save.
+
+**2. Stop VSCode's rust-analyzer from blocking the source directory**
+
+By default, the build command must wait for the rust-analyer to release its lock on the source directory.
+To execute both the analyzer and your build command simultaneously, open your preffered JSON Settings using Ctrl + Shift + P, then add
+
+`"rust-analyzer.extraArgs": ["--target-dir", "C:/tmp/rust-analyzer-check"]`
+
+Note: You may specify a different directory than "C:/tmp/rust-analyzer-check". For Linux, leave out "C:".
 
 <br>
 
