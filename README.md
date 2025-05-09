@@ -105,7 +105,7 @@ If you're going for 10x programming I'd recommend checking out [watchexec](https
 
 **2. Stop VSCode's rust-analyzer from blocking the source directory**
 
-By default, the build command must wait for the rust-analyer to release its lock on the source directory.
+By default, the build command must wait for the rust-analyzer to release its lock on the source directory.
 To execute both the analyzer and your build command simultaneously, open your preffered JSON Settings using Ctrl + Shift + P, then add
 
 `"rust-analyzer.extraArgs": ["--target-dir", "C:/tmp/rust-analyzer-check"]`
