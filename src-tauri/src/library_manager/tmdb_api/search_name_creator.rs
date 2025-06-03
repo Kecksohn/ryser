@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use unicode_segmentation::UnicodeSegmentation;
 use chrono::Datelike;
 
-use crate::library_manager::file_utils::remove_extension_and_path;
+use crate::library_manager::file_manager::file_utils::remove_extension_and_path;
 
 // REGEXs to look for to find end of Movie name
 static YEAR_IN_BRACKETS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:[\(\[\{])(\d{4})(?:[\)\]\}])").unwrap());
