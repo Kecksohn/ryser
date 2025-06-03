@@ -163,3 +163,13 @@ pub async fn get_covers_from_tmdb(
     get_additional_covers(tmdb_id, sort_by_languages_in_iso_639_1, filter_other_languages).await
         .map_err(|e| format!("Could not get TMDB covers: {}", e))
 }
+
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn rescan_all_libraries_gui() {
+    super::rescan_all_libraries();
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) fn rescan_library_by_id_gui(lib_id: &str) -> Result<(), String> {
+    return super::rescan_library_by_id(lib_id);
+}
