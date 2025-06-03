@@ -1,4 +1,4 @@
-use crate::Error;
+use anyhow::{Error, anyhow};
 
 use serde::Deserialize;
 
@@ -158,7 +158,7 @@ use tauri_plugin_http::reqwest::Response;
 
 pub(super) async fn print_response_json(response: Response) -> Result<(), Error> {
     let json_value: serde_json::Value = response.json().await
-        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+        .map_err(|e| anyhow!("Failed to parse JSON: {}", e))?;
     
     // Print the JSON in a pretty format to see the structure
     println!("JSON Response:\n{}", serde_json::to_string_pretty(&json_value).unwrap());

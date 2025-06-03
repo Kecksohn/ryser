@@ -1,11 +1,11 @@
+use anyhow::{anyhow, Error};
+
 use directories::ProjectDirs;
 use std::fs;
 
-use crate::Error;
+use super::{Library, VideoElement};
 
-use super::{library, VideoElement};
-
-pub(super) fn get_library(identifier: &str) -> Result<library, Error> {
+pub(super) fn get_library(identifier: &str) -> Result<Library, Error> {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         let library_json_filepath = proj_dir
             .data_local_dir()
@@ -15,24 +15,24 @@ pub(super) fn get_library(identifier: &str) -> Result<library, Error> {
         match fs::File::open(&library_json_filepath) {
             Ok(json_file) => match serde_json::from_reader(json_file) {
                 Ok(library) => Ok(library),
-                Err(error) => Err(Error::from(format!(
+                Err(error) => Err(anyhow!(
                     "Error extracting {} , error: {}",
                     library_json_filepath.to_str().unwrap(),
                     error
-                ))),
+                )),
             },
-            Err(error) => Err(Error::from(
+            Err(error) => Err(anyhow!(
                 "Problem opening ".to_owned()
                     + library_json_filepath.to_str().unwrap()
                     + &error.to_string(),
             )),
         }
     } else {
-        Err(Error::from("Could not get project config dir paths"))
+        Err(anyhow!("Could not get project config dir paths"))
     }
 }
 
-pub(super) fn write_library(library: &library) {
+pub(super) fn write_library(library: &Library) {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
         // Create library folder if it does not exist
         let library_folder = proj_dir.data_local_dir().join(&library.id);

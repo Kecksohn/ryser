@@ -11,7 +11,7 @@ use std::{collections::HashMap, sync::{Mutex, Arc}};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    init();
+    let _ = init();
 
     #[cfg(not(feature = "backend-only"))]
     {

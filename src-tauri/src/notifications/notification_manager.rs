@@ -1,11 +1,12 @@
+use anyhow::{anyhow, Error};
+
+
 use tauri::{Manager, Window, Emitter};
 use serde::{Serialize, Deserialize};
 use crate::library_manager::rescan_all_libraries;
 use uuid::Uuid;
 
 use once_cell::sync::OnceCell;
-
-use crate::Error;
 
 
 static WINDOW: OnceCell<Window> = OnceCell::new();

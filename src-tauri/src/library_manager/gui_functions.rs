@@ -1,11 +1,9 @@
 use directories::ProjectDirs;
 use std::{default, fs};
 
-use crate::Error;
-
 use super::json_parser::write_library;
 use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element, get_additional_covers};
-use super::{library, library_path, VideoElement,
+use super::{Library, LibraryPath, VideoElement,
             add_library, delete_library, update_library_entry,
             LIBRARIES};
 
@@ -17,9 +15,9 @@ use super::utils::*;
 use crate::notifications::show_msg_gui;
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_available_libraries() -> Vec<(String, String)> {
+pub async fn get_available_libraries() -> Vec<(String, String)> {
     let mut available_libraries: Vec<(String, String)> = vec![];
-    for library in LIBRARIES.lock().unwrap().iter() {
+    for library in LIBRARIES.lock().await.iter() {
         available_libraries.push((library.id.clone(), library.name.clone()));
     }
 
@@ -27,13 +25,13 @@ pub fn get_available_libraries() -> Vec<(String, String)> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name: bool) -> Result<(), String> {
+pub async fn create_library(name: &str, paths: Vec<LibraryPath>, allow_duplicate_name: bool) -> Result<(), String> {
         
     let mut new_library_id = create_valid_filename(name, Some(true), Some(true));
 
     // Check if name already exists and if, ask user for confirmation
     if !allow_duplicate_name {
-        let current_library_names = get_all_library_names();
+        let current_library_names = get_all_library_names().await;
         for library_name in current_library_names
         {
             if library_name == name {
@@ -43,7 +41,7 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
     }
 
     // If ID is already taken, add incremented numbers until a new unique id is found
-    let current_library_ids = get_all_library_ids();
+    let current_library_ids = get_all_library_ids().await;
     let mut i = 2;
 
     loop
@@ -70,29 +68,29 @@ pub fn create_library(name: &str, paths: Vec<library_path>, allow_duplicate_name
         i+=1;
     }
 
-    let new_lib = library {
+    let new_lib = Library {
         id: new_library_id,
         name: name.to_owned(),
         library_paths: paths,
         video_files: vec![],
         child_libraries: vec![],
     };
-    add_library(new_lib);
+    add_library(new_lib).await;
     Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn delete_library_gui(library_id: &str) -> Result<(), String> {
-    delete_library(library_id)
+pub async fn delete_library_gui(library_id: &str) -> Result<(), String> {
+    delete_library(library_id).await
         .map_err(|e| format!("Could not delete library: {}", e))
 }
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_name(library_id: &str) -> Result<String, String> {
+pub async fn get_library_name(library_id: &str) -> Result<String, String> {
     if let Some(library) = LIBRARIES
         .lock()
-        .unwrap()
+        .await
         .iter_mut()
         .find(|library| library.id == library_id)
     {
@@ -104,10 +102,10 @@ pub fn get_library_name(library_id: &str) -> Result<String, String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn get_library_videos(library_id: &str) -> Result<Vec<VideoElement>, String> {
+pub async fn get_library_videos(library_id: &str) -> Result<Vec<VideoElement>, String> {
     if let Some(library) = LIBRARIES
         .lock()
-        .unwrap()
+        .await
         .iter_mut()
         .find(|library| library.id == library_id)
     {
@@ -119,22 +117,23 @@ pub fn get_library_videos(library_id: &str) -> Result<Vec<VideoElement>, String>
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub fn update_library_entry_from_gui(library_id: &str, updated_element: VideoElement) {
-    for library in LIBRARIES.lock().unwrap().iter_mut() {
+pub async fn update_library_entry_from_gui(library_id: &str, updated_element: VideoElement) -> Result<(), String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
         if library.id == library_id {
             match update_library_entry(library, updated_element) {
                 Ok(()) => {
                     write_library(library);
-                    return;
+                    return Ok(());
                 }
                 Err(str) => {
-                    println!("Error when updating Library: {}", str);
-                    return;
+                    return Err(format!("Error when updating Library: {}", str));
                 }
             }
         }
     }
-    println!("Library {} not found!", library_id);
+
+    Err(format!("Library {} not found!", library_id))
+
 }
 
 
@@ -165,11 +164,12 @@ pub async fn get_covers_from_tmdb(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub(crate) fn rescan_all_libraries_gui() {
-    super::rescan_all_libraries();
+pub(crate) async fn rescan_all_libraries_gui() {
+    super::rescan_all_libraries().await;
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub(crate) fn rescan_library_by_id_gui(lib_id: &str) -> Result<(), String> {
-    return super::rescan_library_by_id(lib_id);
+pub(crate) async fn rescan_library_by_id_gui(lib_id: &str) -> Result<(), String> {
+    return super::rescan_library_by_id(lib_id).await
+        .map_err(|e| format!("{}", e));
 }

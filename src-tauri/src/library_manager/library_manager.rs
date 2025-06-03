@@ -1,4 +1,4 @@
-use crate::Error;
+use anyhow::{anyhow, Error};
 
 use std::cmp::Ordering;
 use std::{fs, path::*, vec};
@@ -17,22 +17,28 @@ use super::tmdb_api::*;
 
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
-pub struct library_path {
+pub struct LibraryPath {
     pub(super) path: String,
     pub(super) include_subdirectories: bool,
 } 
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
-pub struct library {
+pub struct Library {
     pub(super) id: String,
     pub(super) name: String,
-    pub(super) library_paths: Vec<library_path>,
+    pub(super) library_paths: Vec<LibraryPath>,
     pub(super) video_files: Vec<VideoElement>,
-    pub(super) child_libraries: Vec<library>,
+    pub(super) child_libraries: Vec<Library>,
 }
 
-use std::sync::Mutex;
-pub(super) static LIBRARIES: Mutex<Vec<library>> = Mutex::new(Vec::new());
+
+use std::sync::Arc;
+use tauri::async_runtime::Mutex;
+use once_cell::sync::Lazy;
+
+pub(super) static LIBRARIES: Lazy<Arc<Mutex<Vec<Library>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
+// TODO: Each Library should have its own mutex
 
 pub(crate) fn get_libraries_path() -> PathBuf {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
@@ -41,14 +47,14 @@ pub(crate) fn get_libraries_path() -> PathBuf {
     else { panic!("Project Dirs failed!"); }
 }
 
-pub(crate) fn load_all_libraries() {
+pub(crate) async fn load_all_libraries() -> Result<(), Error> {
     let libraries_folder = get_libraries_path();
     for file_or_folder in fs::read_dir(libraries_folder).unwrap() {
         match file_or_folder {
             Ok(f) => {
                 if f.path().is_dir() {
                     match get_library(f.file_name().to_str().unwrap()) {
-                        Ok(lib) => LIBRARIES.lock().unwrap().push(lib),
+                        Ok(lib) => LIBRARIES.lock().await.push(lib),
                         Err(error) => println!(
                             "Could not parse library at {}: {}",
                             f.path().to_str().unwrap(),
@@ -57,23 +63,24 @@ pub(crate) fn load_all_libraries() {
                     }
                 }
             }
-            Err(error) => println!("Error while reading libraries folder: {}", error),
+            Err(error) => { return Err(anyhow!("Error while reading libraries folder: {}", error)) }
         }
     }
-    LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
+    LIBRARIES.lock().await.sort_by_key(|lib| lib.name.clone());
+    Ok(())
 }
 
-pub(crate) fn set_libraries(libraries: Vec<library>) {
-    *LIBRARIES.lock().unwrap() = libraries;
+pub(crate) async fn set_libraries(libraries: Vec<Library>) {
+    *LIBRARIES.lock().await = libraries;
 }
 
-pub(crate) fn get_library_index_by_id(lib_id: &str) -> Result<usize, Error> {
-    LIBRARIES.lock().unwrap().iter()
+pub(crate) async fn get_library_index_by_id(lib_id: &str) -> Result<usize, Error> {
+    LIBRARIES.lock().await.iter()
         .position(|lib| lib.id == lib_id)
-        .ok_or_else(|| format!("Could not find library with id {}", lib_id).into())
+        .ok_or_else(|| anyhow!("Could not find library with id {}", lib_id))
 }
 
-pub(crate) fn add_library(mut lib: library) {
+pub(crate) async fn add_library(mut lib: Library) {
     // TODO THINK: Maybe this should be async after the library is added?
     let mut video_files_in_library_paths: Vec<String> = vec![];
     match get_all_video_filepaths(&lib, &mut video_files_in_library_paths) {
@@ -88,39 +95,39 @@ pub(crate) fn add_library(mut lib: library) {
     }
 
     write_library(&lib);
-    LIBRARIES.lock().unwrap().push(lib);
-    LIBRARIES.lock().unwrap().sort_by_key(|lib| lib.name.clone());
+    LIBRARIES.lock().await.push(lib);
+    LIBRARIES.lock().await.sort_by_key(|lib| lib.name.clone());
 
     // TODO: Start async parsing
 }
 
-pub(crate) fn delete_library(lib_id: &str) -> Result<(), Error> {
+pub(crate) async fn delete_library(lib_id: &str) -> Result<(), Error> {
     
-    let mut libraries = LIBRARIES.lock().unwrap();
+    let mut libraries = LIBRARIES.lock().await;
 
     let original_length = libraries.len();
     libraries.retain(|lib| lib.id != lib_id);
     let elements_removed = original_length - libraries.len();
 
     if elements_removed == 0 {
-        return Err(format!("Did not find Library ID '{}', no removal occurred!", lib_id).into());
+        return Err(anyhow!("Did not find Library ID '{}', no removal occurred!", lib_id));
     } 
 
     let libraries_folder = get_libraries_path();
     let library_folder = libraries_folder.join(lib_id);
 
     if !library_folder.exists() {
-        return Err(format!("Did not find library folder at path '{}'", library_folder.to_str().unwrap_or("!Path Unwrap Failed!")).into());
+        return Err(anyhow!("Did not find library folder at path '{}'", library_folder.to_str().unwrap_or("!Path Unwrap Failed!")));
     }
 
     fs::remove_dir_all(&library_folder)
-        .map_err(|e| format!("Could not delete '{}': {}", library_folder.to_str().unwrap_or("!Path Unwrap Failed!"), e))?;
+        .map_err(|e| anyhow!("Could not delete '{}': {}", library_folder.to_str().unwrap_or("!Path Unwrap Failed!"), e))?;
 
     Ok(())
 }
 
 
-fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), Error> {
+fn get_all_video_filepaths(lib: &Library, video_files_in_library_paths: &mut Vec<String>) -> Result<(), Error> {
     
     let mut error_message: String = "".to_owned();
     for library_path in lib.library_paths.iter() {
@@ -160,30 +167,30 @@ fn get_all_video_filepaths(lib: &library, video_files_in_library_paths: &mut Vec
         Ok(())
     }
     else {
-        Err(error_message.into())
+        Err(anyhow!(error_message))
     }
 }
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub(crate) fn rescan_all_libraries() {
-    for lib in LIBRARIES.lock().unwrap().iter_mut() {
-        rescan_library(lib);
+pub(crate) async fn rescan_all_libraries() {
+    for lib in LIBRARIES.lock().await.iter_mut() {
+        rescan_library(lib).await;
     }
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub(crate) fn rescan_library_by_id(lib_id: &str) -> Result<(), String> {
-    let index = get_library_index_by_id(lib_id)
-        .map_err(|e| format!("Could not get library index: {}", e))?;
+pub(crate) async fn rescan_library_by_id(lib_id: &str) -> Result<(), Error> {
+    let index = get_library_index_by_id(lib_id).await
+        .map_err(|e| anyhow!("Could not get library index: {}", e))?;
 
-    rescan_library(&mut LIBRARIES.lock().unwrap()[index]);
+    rescan_library(&mut LIBRARIES.lock().await[index]).await;
     Ok(())
 }
 
 //  Compares Files present in library paths with data in json
 //  Tries to match files whose filenames have simply changed (!TODO: MD5 sum or simply length?)
-pub(crate) fn rescan_library(lib: &mut library) {
+pub(crate) async fn rescan_library(lib: &mut Library) {
         
     // Since we want to optimize matching we first get all files and then compare both sorted lists simultaneously
     let mut video_files_in_library_paths: Vec<String> = vec![];
@@ -263,15 +270,15 @@ pub(crate) fn rescan_library(lib: &mut library) {
 }
 
 pub(crate) fn update_library_entry(
-    library: &mut library,
+    library: &mut Library,
     updated_element: VideoElement,
 ) -> Result<(), Error> {
     let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
-        return Err("Could not get project dirs".into());
+        return Err(anyhow!("Could not get project dirs"));
     };
     let library_folder = proj_dir.data_local_dir().join(&library.id);
     if !library_folder.exists() {
-        return Err("Could not find library".into());
+        return Err(anyhow!("Could not find library"));
     }
     for old_element in library.video_files.iter_mut() {
         if old_element.filepath == updated_element.filepath {
@@ -280,20 +287,20 @@ pub(crate) fn update_library_entry(
         }
     }
 
-    Err(format!("Could not find '{}' in '{}'", updated_element.filepath, library.id).into())
+    Err(anyhow!("Could not find '{}' in '{}'", updated_element.filepath, library.id))
 }
 
 pub(crate) fn update_library_entry_by_index(
-    library: &mut library,
+    library: &mut Library,
     updated_element: VideoElement,
     index: usize,
 ) -> Result<(), Error> {
     if index >= library.video_files.len() {
-        return Err(format!(
+        return Err(anyhow!(
             "Index {} out of range of library elements ({})",
             index,
             library.video_files.len()
-        ).into());
+        ));
     }
     library.video_files[index] = updated_element;
     Ok(())
@@ -301,12 +308,10 @@ pub(crate) fn update_library_entry_by_index(
 
 
 #[tauri::command]
-pub(crate) fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Result<(), String> {
-    for lib in LIBRARIES.lock().unwrap().iter_mut() { // TODO
-        async_runtime::block_on(async {
-            parse_library_tmdb(lib, reparse_all).await
-                .map_err(|e| format!("Could not parse Library with TMDB: {}", e))
-        })?;
+pub(crate) async fn update_all_libraries_with_tmdb(reparse_all: Option<bool>) -> Result<(), Error> {
+    for lib in LIBRARIES.lock().await.iter_mut() { // TODO ? What
+        parse_library_tmdb(lib, reparse_all).await
+                .map_err(|e| anyhow!("Could not parse Library with TMDB: {}", e))?;
         write_library(lib);
     }
 

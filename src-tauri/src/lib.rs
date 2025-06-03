@@ -16,14 +16,11 @@ mod library_manager;
 mod video_player;
 
 mod _debug_run;
-mod error;
 
 // -- Flatten
 
 pub use run::*;
 pub(crate) use config::*;
-
-pub use error::*;
 
 // -- Public Modules
 
