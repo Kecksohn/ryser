@@ -1,5 +1,11 @@
 // src/components/ScaleProvider/ScaleProvider.jsx
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 
 const ScaleContext = createContext();
 
@@ -19,12 +25,13 @@ export const ScaleProvider = ({ children }) => {
     });
   }, [componentScales]);
 
-  const setComponentScale = (componentName, scale) => {
+  // Memoize this function to prevent infinite re-renders
+  const setComponentScale = useCallback((componentName, scale) => {
     setComponentScales((prev) => ({
       ...prev,
       [componentName]: scale,
     }));
-  };
+  }, []);
 
   return (
     <ScaleContext.Provider
