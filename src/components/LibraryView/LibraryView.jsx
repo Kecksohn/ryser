@@ -12,7 +12,7 @@ import { sort_video_elements, format_duration } from "./LibraryViewUtils.js";
 import { video_element_context_menu_options } from "./VideoElementContextMenu.js";
 
 import tmdbResultsStyles from "./LibraryDataManagement/TMDBResults.module.css";
-import react_icon from "../assets/react.svg";
+import react_icon from "../../assets/react.svg";
 
 export const LibraryView = () => {
   const { useContextMenuOn } = useContextMenu();
@@ -75,8 +75,8 @@ export const LibraryView = () => {
         setTimeout(
           resolve,
           ((video.length_in_seconds * percentage_needed_to_set_watched) / 100) *
-            1000,
-        ),
+            1000
+        )
       );
 
       const is_running = await invoke("is_process_running", {
@@ -134,8 +134,8 @@ export const LibraryView = () => {
         library_elements,
         order,
         last_sort_order,
-        set_last_sort_order,
-      ),
+        set_last_sort_order
+      )
     );
   }
 
@@ -191,7 +191,11 @@ export const LibraryView = () => {
                 Remove Filter
               </span>
             )}
-            <Dropdown buttonText={"Sort"} options={sort_dropdown_options()} />
+            <Dropdown
+              buttonText={"Sort"}
+              options={sort_dropdown_options()}
+              scale={1}
+            />
             <br />
 
             {filtered_library_elements.map((element) => {

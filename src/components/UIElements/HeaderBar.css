@@ -1,0 +1,30 @@
+.header-container {
+  /* Use scaled custom properties */
+  min-height: calc(50px * var(--header-scale) * var(--global-scale));
+  padding: var(--spacing-sm);
+  font-size: calc(var(--font-size-xl) * var(--header-scale));
+
+  /* Non-scaling properties remain normal */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-section {
+  display: flex;
+  align-items: center;
+}
+
+.header-section span,
+img {
+  display: flex;
+  align-items: center;
+}
+
+.header-section img {
+  vertical-align: middle;
+  height: calc(1em * var(--header-scale));
+  width: auto;
+  cursor: pointer;
+  margin: 0 var(--spacing-xs);
+}
