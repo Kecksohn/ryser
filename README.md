@@ -6,6 +6,31 @@ A project born from the fact that mpc-hc lags a BIT when used with Kodi. Will ho
 
 <br>
 
+# Table of Contents
+
+<!-- toc -->
+
+- [Download Latest](#download-latest)
+- [Dev Set-Up](#dev-set-up)
+    + [TheMovieDatabase Integration](#themoviedatabase-integration)
+    + [Debugging With RustRover](#debugging-with-rustrover)
+    + [Faster Compilation](#faster-compilation)
+    + [Prettier VSCode Set-Up](#prettier-vscode-set-up)
+- [Dev Build](#dev-build)
+- [Roadmap / TODOs](#roadmap--todos)
+
+<!-- tocstop -->
+
+<!-- 
+TOC Generation: 
+
+- yarn global add markdown-toc
+- yarn global bin (add result to PATH)
+- markdown-toc -i README.md
+-->
+
+<br>
+
 # Download Latest
 
 yeah yeah soon chill u crazy shit
@@ -106,11 +131,55 @@ If you're going for 10x programming I'd recommend checking out [watchexec](https
 **2. Stop VSCode's rust-analyzer from blocking the source directory**
 
 By default, the build command must wait for the rust-analyzer to release its lock on the source directory.
-To execute both the analyzer and your build command simultaneously, open your preffered JSON Settings using Ctrl + Shift + P, then add
+To execute both the analyzer and your build command simultaneously, open your preffered JSON Settings using Ctrl + Shift + P (probably User Settings), then add
 
 `"rust-analyzer.extraArgs": ["--target-dir", "C:/tmp/rust-analyzer-check"]`
 
 Note: You may specify a different directory than "C:/tmp/rust-analyzer-check". For Linux, leave out "C:".
+
+<br>
+
+### Prettier VSCode Set-Up
+
+Install the [VSCode Prettier Extension](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)<details><summary>Enable Format on Save</summary>
+
+`Ctrl + Shift + P` -> `Preferences: Open User Settings (JSON)`
+
+```
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  }
+
+  // Optional, not used by the project but you might as well and enable/disable prettier per workspace
+  "[javascript]": { 
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": { 
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": { 
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  
+```
+
+</details>
+<br>
+
+If you're on Windows and Git gives you the typical line ending warnings it's time to just set
+`git config --global core.autocrlf true`
 
 <br>
 
@@ -119,6 +188,8 @@ Note: You may specify a different directory than "C:/tmp/rust-analyzer-check". F
 ```
 yarn tauri build
 ```
+
+<br>
 
 # Roadmap / TODOs
 
