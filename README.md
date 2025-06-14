@@ -176,10 +176,6 @@ Install the [VSCode Prettier Extension](https://marketplace.visualstudio.com/ite
 ```
 
 </details>
-<br>
-
-If you're on Windows and Git gives you the typical line ending warnings it's time to just set
-`git config --global core.autocrlf true`
 
 <br>
 
