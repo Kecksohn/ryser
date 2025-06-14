@@ -1,4 +1,4 @@
-import { useScale, ScalableWrapper } from "../UITools/ScaleProvider";
+import { useScale, ScaleWrapper } from "../UITools/ScaleWrapper";
 import { useState, useEffect, useRef } from "react";
 import "./Dropdown.css";
 
@@ -37,7 +37,7 @@ export const Dropdown = ({ buttonText, options, scale = 1 }) => {
   }, []);
 
   return (
-    <ScalableWrapper componentScale={scale} className="dropdown-container">
+    <ScaleWrapper componentScale={scale} className="dropdown-container">
       <div
         className="dropdown-container"
         onMouseEnter={handleMouseEnter}
@@ -58,6 +58,6 @@ export const Dropdown = ({ buttonText, options, scale = 1 }) => {
           </div>
         )}
       </div>
-    </ScalableWrapper>
+    </ScaleWrapper>
   );
 };

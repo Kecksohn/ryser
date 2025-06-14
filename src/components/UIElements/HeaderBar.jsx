@@ -1,4 +1,4 @@
-import { useScale, ScalableWrapper } from "../UITools/ScaleProvider";
+import { useScale, ScaleWrapper } from "../UITools/ScaleWrapper";
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,7 +22,7 @@ export const HeaderBar = ({
   }, [scale, setComponentScale]);
 
   return (
-    <ScalableWrapper componentScale={scale}>
+    <ScaleWrapper componentScale={scale}>
       <div className="header-container">
         <div className="header-section">
           {back_link && (
@@ -48,6 +48,6 @@ export const HeaderBar = ({
           )}
         </div>
       </div>
-    </ScalableWrapper>
+    </ScaleWrapper>
   );
 };

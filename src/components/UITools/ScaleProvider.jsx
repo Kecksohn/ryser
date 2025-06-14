@@ -1,4 +1,3 @@
-// src/components/ScaleProvider/ScaleProvider.jsx
 import React, {
   createContext,
   useContext,
@@ -7,7 +6,8 @@ import React, {
   useCallback,
 } from "react";
 
-const ScaleContext = createContext();
+// DO NOT USE THIS, ONLY EXPORTED FOR SCALEWRAPPER
+export const ScaleContext = createContext();
 
 export const ScaleProvider = ({ children }) => {
   const [globalScale, setGlobalScale] = useState(1);
@@ -44,31 +44,5 @@ export const ScaleProvider = ({ children }) => {
     >
       {children}
     </ScaleContext.Provider>
-  );
-};
-
-export const useScale = () => {
-  const context = useContext(ScaleContext);
-  if (!context) {
-    throw new Error("useScale must be used within ScaleProvider");
-  }
-  return context;
-};
-
-export const ScalableWrapper = ({
-  children,
-  componentScale = 1,
-  className = "",
-  style = {},
-}) => {
-  const wrapperStyle = {
-    "--component-scale": componentScale,
-    ...style,
-  };
-
-  return (
-    <div className={`scalable-wrapper ${className}`} style={wrapperStyle}>
-      {children}
-    </div>
   );
 };
