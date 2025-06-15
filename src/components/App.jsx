@@ -1,16 +1,17 @@
 import React from "react";
 import { useState, useEffect } from "react";
 
-import { ScaleProvider } from "./components/UITools/ScaleProvider.jsx";
-import { ContextMenuProvider } from "./components/UITools/ContextMenu.jsx";
-import { NotificationManager } from "./components/UITools/NotificationManager.jsx";
+import "@/styles/global.css";
+import "@/styles/colors.css";
 
+import { ScaleProvider } from "./UITools/ScaleProvider.jsx";
+import { ContextMenuProvider } from "./UITools/ContextMenu.jsx";
+import { NotificationManager } from "./UITools/NotificationManager.jsx";
 import { HashRouter, Route, Routes } from "react-router-dom";
-import { MainMenu } from "./components/MainMenu/MainMenu.jsx";
-import { LibraryView } from "./components/LibraryView/LibraryView.jsx";
-import { AddLibrary } from "./components/LibraryManagement/AddLibrary.jsx";
 
-import "./styles/global.css";
+import { MainMenu } from "./MainMenu/MainMenu.jsx";
+import { LibraryView } from "./LibraryView/LibraryView.jsx";
+import { AddLibrary } from "./LibraryManagement/AddLibrary.jsx";
 
 function App() {
   return (

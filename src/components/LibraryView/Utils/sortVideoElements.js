@@ -2,7 +2,7 @@ export const sort_video_elements = (
   library_elements,
   order,
   last_sort_order,
-  set_last_sort_order,
+  set_last_sort_order
 ) => {
   let library_elements_copy = library_elements.slice();
   switch (order) {
@@ -25,7 +25,7 @@ export const sort_video_elements = (
 
     case "duration":
       library_elements_copy = library_elements_copy.sort(
-        (a, b) => a.length_in_seconds - b.length_in_seconds,
+        (a, b) => a.length_in_seconds - b.length_in_seconds
       );
       if (last_sort_order === "duration") {
         library_elements_copy.reverse();
@@ -37,7 +37,7 @@ export const sort_video_elements = (
 
     case "timestamp":
       library_elements_copy = library_elements_copy.sort(
-        (a, b) => b.timestamp_modified - a.timestamp_modified,
+        (a, b) => b.timestamp_modified - a.timestamp_modified
       );
       if (last_sort_order === "timestamp") {
         library_elements_copy.reverse();
@@ -49,7 +49,7 @@ export const sort_video_elements = (
 
     case "filepath":
       library_elements_copy = library_elements_copy.sort((a, b) =>
-        a.filepath.localeCompare(b.filepath),
+        a.filepath.localeCompare(b.filepath)
       );
       if (last_sort_order === "filepath") {
         library_elements_copy.reverse();
@@ -66,14 +66,3 @@ export const sort_video_elements = (
 
   return library_elements_copy;
 };
-
-export function format_duration(seconds) {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-
-  if (hours > 0) {
-    return `${hours}h${minutes}m`;
-  } else {
-    return `${minutes}m`;
-  }
-}

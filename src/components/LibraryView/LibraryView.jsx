@@ -8,8 +8,9 @@ import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
 import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
 
-import { sort_video_elements, format_duration } from "./LibraryViewUtils.js";
-import { video_element_context_menu_options } from "./VideoElementContextMenu.js";
+import { sort_video_elements } from "./Utils/sortVideoElements.js";
+import { format_duration } from "./Utils/formatDuration.js";
+import { video_element_context_menu_options } from "./ContextMenuVideoElement.js";
 
 import tmdbResultsStyles from "./LibraryDataManagement/TMDBResults.module.css";
 import react_icon from "../../assets/react.svg";
