@@ -11,7 +11,6 @@ import { LibraryView } from "./components/LibraryView/LibraryView.jsx";
 import { AddLibrary } from "./components/LibraryManagement/AddLibrary.jsx";
 
 import "./styles/global.css";
-import "./styles/scaling.css";
 
 function App() {
   return (

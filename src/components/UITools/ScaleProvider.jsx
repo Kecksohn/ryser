@@ -6,8 +6,9 @@ import React, {
   useCallback,
 } from "react";
 
-// DO NOT USE THIS, ONLY EXPORTED FOR SCALEWRAPPER
-export const ScaleContext = createContext();
+import "@/styles/scaling.css";
+
+const ScaleContext = createContext();
 
 export const ScaleProvider = ({ children }) => {
   const [globalScale, setGlobalScale] = useState(1);
@@ -45,4 +46,12 @@ export const ScaleProvider = ({ children }) => {
       {children}
     </ScaleContext.Provider>
   );
+};
+
+export const getScaleContext = () => {
+  const context = useContext(ScaleContext);
+  if (!context) {
+    throw new Error("useScale must be used within ScaleProvider");
+  }
+  return context;
 };

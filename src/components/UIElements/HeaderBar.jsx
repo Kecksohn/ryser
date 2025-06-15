@@ -1,4 +1,4 @@
-import { useScale, ScaleWrapper } from "../UITools/ScaleWrapper";
+import { useScale, ScaleWrapper } from "@/components/UITools/ScaleWrapper";
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -14,12 +14,12 @@ export const HeaderBar = ({
   settings_link,
   scale = 1,
 }) => {
-  const navigate = useNavigate();
   const { setComponentScale } = useScale();
-
   useEffect(() => {
     setComponentScale("header", scale);
   }, [scale, setComponentScale]);
+
+  const navigate = useNavigate();
 
   return (
     <ScaleWrapper componentScale={scale}>

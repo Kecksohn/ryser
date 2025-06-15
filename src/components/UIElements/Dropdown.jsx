@@ -3,13 +3,13 @@ import { useState, useEffect, useRef } from "react";
 import "./Dropdown.css";
 
 export const Dropdown = ({ buttonText, options, scale = 1 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const { setComponentScale } = useScale();
-  const closeTimeoutRef = useRef(null);
-
   useEffect(() => {
     setComponentScale("dropdown", scale);
   }, [scale, setComponentScale]);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const closeTimeoutRef = useRef(null);
 
   const handleMouseEnter = () => {
     // Clear any pending close timeout
