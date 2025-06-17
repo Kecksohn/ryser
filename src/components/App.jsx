@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import "@/styles/global.css";
 import "@/styles/colors.css";
 
-import { ScaleProvider } from "./UITools/ScaleProvider.jsx";
+import { ScaleWrapperGlobal } from "./UITools/ScaleWrapper.jsx";
 import { ContextMenuProvider } from "./UITools/ContextMenu.jsx";
 import { NotificationManager } from "./UITools/NotificationManager.jsx";
 import { HashRouter, Route, Routes } from "react-router-dom";
@@ -16,7 +16,7 @@ import { AddLibrary } from "./LibraryManagement/AddLibrary.jsx";
 function App() {
   return (
     <>
-      <ScaleProvider>
+      <ScaleWrapperGlobal>
         <ContextMenuProvider>
           <NotificationManager />
 
@@ -29,7 +29,7 @@ function App() {
             </Routes>
           </HashRouter>
         </ContextMenuProvider>
-      </ScaleProvider>
+      </ScaleWrapperGlobal>
     </>
   );
 }
