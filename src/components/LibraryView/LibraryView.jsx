@@ -149,7 +149,7 @@ export const LibraryView = () => {
             <HeaderBar
               leftside_text={
                 <span>
-                  <span style={{ fontSize: "1.8em" }}>{library_name}</span>
+                  <span className={"headerbar-title"}>{library_name}</span>
                   <img
                     src={react_icon}
                     onClick={() => navigate(settings_link)}

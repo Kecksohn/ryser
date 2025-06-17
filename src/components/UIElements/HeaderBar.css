@@ -28,3 +28,7 @@ img {
   cursor: pointer;
   margin: 0 var(--spacing-xs);
 }
+
+.headerbar-title {
+  font-size: var(--font-size-xxl);
+}
