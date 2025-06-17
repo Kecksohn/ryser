@@ -7,7 +7,9 @@
   --spacing-xs: calc(0.25rem * var(--global-scale));
   --spacing-sm: calc(0.5rem * var(--global-scale));
   --spacing-md: calc(1rem * var(--global-scale));
+  --spacing-ml: calc(1rem * var(--global-scale));
   --spacing-lg: calc(1.5rem * var(--global-scale));
+  --spacing-lx: calc(1.75rem * var(--global-scale));
   --spacing-xl: calc(2rem * var(--global-scale));
 
   /* Typography scaling */
@@ -17,6 +19,7 @@
   --font-size-lg: calc(1.125rem * var(--global-scale));
   --font-size-xl: calc(1.25rem * var(--global-scale));
   --font-size-2xl: calc(1.5rem * var(--global-scale));
+  --font-size-xxl: calc(1.8rem * var(--global-scale));
 
   /* Component-specific scales (can be overridden) */
   --header-scale: 1;
