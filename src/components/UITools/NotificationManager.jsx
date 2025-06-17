@@ -29,7 +29,7 @@ export const NotificationManager = () => {
     header,
     message,
     rust_notification_id,
-    duration_ms = 3000,
+    duration_ms = 3000
   ) {
     const js_notification_id = Store.addNotification({
       title: header,
@@ -56,7 +56,7 @@ export const NotificationManager = () => {
       },
       onRemoval: (id, removed_by) => {
         set_notifications((prev) =>
-          prev.filter((notification) => notification.js_notification_id !== id),
+          prev.filter((notification) => notification.js_notification_id !== id)
         );
       },
     });

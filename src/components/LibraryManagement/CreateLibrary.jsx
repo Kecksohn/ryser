@@ -16,14 +16,14 @@ export const CreateLibrary = () => {
   const updateLibraryPath = (index, new_path) => {
     setLibraryPaths((libraryPaths) =>
       libraryPaths.map((item, i) =>
-        i === index ? { ...item, path: new_path } : item,
-      ),
+        i === index ? { ...item, path: new_path } : item
+      )
     );
   };
 
   const updateIncludeSubdirectories = (
     index,
-    updated_include_subdirectories,
+    updated_include_subdirectories
   ) => {
     console.log(updated_include_subdirectories);
     setLibraryPaths((libraryPaths) =>
@@ -33,8 +33,8 @@ export const CreateLibrary = () => {
               ...item,
               include_subdirectories: updated_include_subdirectories,
             }
-          : item,
-      ),
+          : item
+      )
     );
   };
 
