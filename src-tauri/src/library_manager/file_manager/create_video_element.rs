@@ -26,7 +26,7 @@ pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
     };
     match get_duration_in_s(filepath) {
         Ok(length_in_s) => {
-            ve.length_in_seconds = length_in_s as i32;
+            ve.length_in_seconds = Some(length_in_s as i32);
         }
         Err(error) => {
             println!("Get duration of video file failed with Error: {}", error);
@@ -34,6 +34,7 @@ pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
     }
     let modified = get_modified_secs(filepath);
     ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
+    
     ve
 }
 

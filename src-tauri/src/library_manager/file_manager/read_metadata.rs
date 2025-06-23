@@ -1,4 +1,5 @@
 extern crate ffmpeg_next as ffmpeg;
+// ffmpeg::init() already makes sure only one instance is running, so just call at the top of each function
 
 pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
     ffmpeg::init()?;
@@ -7,6 +8,12 @@ pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
         Ok(context) => Ok(context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE)),
         Err(error) => Err(error),
     }
+}
+
+pub(super) fn get_audio_tracks(filepath: &str) -> Result<Vec<String>, ffmpeg::Error> {
+    ffmpeg::init()?;
+
+    Ok(vec![])
 }
 
 pub(super) fn print_all_metadata(filepath: &str) -> Result<(), ffmpeg::Error> {
