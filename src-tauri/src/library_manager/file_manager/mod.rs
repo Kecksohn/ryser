@@ -2,11 +2,13 @@
 
 mod create_video_element;
 mod read_metadata;
+
 mod error;
 
 // -- Flatten
 
 pub(super) use create_video_element::*;
+
 pub use error::*;
 
 // -- Public Modules

@@ -1,15 +1,14 @@
-use serde::Deserialize;
 use chrono::{serde::ts_milliseconds, DateTime, Utc};
+use serde::Deserialize;
 
 use std::fmt;
-
 
 #[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
 pub struct VideoElement {
     pub id: i32,
     pub watched: bool,
     pub index_priority: i32, // Perhaps a better name? Should specify custom sort
-    
+
     // Local file
     pub filepath: String,
     pub length_in_seconds: Option<i32>,

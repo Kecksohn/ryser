@@ -34,7 +34,7 @@ pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
     }
     let modified = get_modified_secs(filepath);
     ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
-    
+
     ve
 }
 

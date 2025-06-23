@@ -1,4 +1,4 @@
-use anyhow::{Error, anyhow};
+use anyhow::{anyhow, Error};
 
 use serde::Deserialize;
 
@@ -7,7 +7,6 @@ pub(super) struct TMDBTestAuthentification {
     pub success: bool,
 }
 
-
 #[derive(Deserialize, Debug)]
 pub(super) struct TMDBSearchMovieResult {
     pub page: usize,
@@ -15,7 +14,6 @@ pub(super) struct TMDBSearchMovieResult {
     pub total_pages: usize,
     pub total_results: usize,
 }
-
 
 #[derive(Deserialize, Debug)]
 pub(super) struct TMDBMovie {
@@ -39,7 +37,7 @@ pub(super) struct TMDBMovie {
 pub(super) struct TMDBMovieDetails {
     #[serde(flatten)]
     pub tmdb_movie: TMDBMovie,
-    
+
     pub belongs_to_collection: Option<TMDBCollection>,
     pub budget: Option<usize>,
     pub genres: Option<Vec<TMDBGenre>>,
@@ -93,7 +91,6 @@ pub(super) struct TMDBSpokenLanguage {
     pub name: Option<String>,
 }
 
-
 #[derive(Deserialize, Debug)]
 pub(super) struct TMDBCredits {
     pub cast: Option<Vec<TMDBCast>>,
@@ -117,7 +114,7 @@ pub(super) struct TMDBPerson {
 pub(super) struct TMDBCast {
     #[serde(flatten)]
     pub tmdb_person: TMDBPerson,
-    
+
     pub cast_id: Option<usize>,
     pub character: Option<String>,
     pub order: Option<usize>,
@@ -127,7 +124,7 @@ pub(super) struct TMDBCast {
 pub(super) struct TMDBCrew {
     #[serde(flatten)]
     pub tmdb_person: TMDBPerson,
-    
+
     pub department: Option<String>,
     pub job: Option<String>,
 }
@@ -151,16 +148,19 @@ pub(super) struct TMDBImage {
     pub width: Option<i32>,
 }
 
-
-
 // Helpers
 use tauri_plugin_http::reqwest::Response;
 
 pub(super) async fn print_response_json(response: Response) -> Result<(), Error> {
-    let json_value: serde_json::Value = response.json().await
+    let json_value: serde_json::Value = response
+        .json()
+        .await
         .map_err(|e| anyhow!("Failed to parse JSON: {}", e))?;
-    
+
     // Print the JSON in a pretty format to see the structure
-    println!("JSON Response:\n{}", serde_json::to_string_pretty(&json_value).unwrap());
+    println!(
+        "JSON Response:\n{}",
+        serde_json::to_string_pretty(&json_value).unwrap()
+    );
     Ok(())
 }

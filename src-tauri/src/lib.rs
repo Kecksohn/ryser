@@ -4,23 +4,22 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
-
 // region: --- Modules
 
-mod run;
 mod init;
+mod run;
 
 mod config;
-mod notifications;
 mod library_manager;
+mod notifications;
 mod video_player;
 
 mod _debug_run;
 
 // -- Flatten
 
-pub use run::*;
 pub(crate) use config::*;
+pub use run::*;
 
 // -- Public Modules
 

@@ -103,14 +103,24 @@ Combining this with RustRover Debugging is left as an exercise to the reader.
 
 If you're going for 10x programming I'd recommend checking out [watchexec](https://github.com/watchexec/watchexec), which can execute the above command on every save.
 
-**2. Stop VSCode's rust-analyzer from blocking the source directory**
+**2. Watchexec and VSCode's rust-analyzer integration**
 
+rust-analyzer blocks the directory on save, leading to your build taking longer than it needs.
+Unfortunately, old workarounds using --target-dir no longer work, so either you use
+`"rust-analyzer.cargo.extraEnv": {"CARGO": script.bat/sh}` to a wrapper that calls `cargo --target-dir path` (untested!) or you disable it when using watchexec by
+
+Ctrl + Shift + P -> Open User Settings (JSON) ->
+`"rust-analyzer.checkOnSave.enable: false"`
+
+<details><summary>Old workaround ;__;</summary>
 By default, the build command must wait for the rust-analyzer to release its lock on the source directory.
 To execute both the analyzer and your build command simultaneously, open your preffered JSON Settings using Ctrl + Shift + P, then add
 
 `"rust-analyzer.extraArgs": ["--target-dir", "C:/tmp/rust-analyzer-check"]`
 
 Note: You may specify a different directory than "C:/tmp/rust-analyzer-check". For Linux, leave out "C:".
+
+</details>
 
 <br>
 
@@ -134,3 +144,10 @@ yarn tauri build
 - Parse Subtitle Languages, choose correct on Launch if user does not speak chosen audio
 - Real-Time Library Rescan (Folder Watching)
 - Start-Up Library Rescan should catch moving of whole library and other issues and ask for confirmation
+- Put this somewhere else in the Readme after merging:
+  ```
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  ```

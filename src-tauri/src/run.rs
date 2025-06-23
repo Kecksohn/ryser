@@ -6,8 +6,10 @@ use super::library_manager::gui_functions::*;
 use super::video_player::*;
 
 // Process Manager
-use std::{collections::HashMap, sync::{Mutex, Arc}};
-
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,7 +26,6 @@ pub fn run() {
             }))
             .invoke_handler(tauri::generate_handler![
                 open_window,
-
                 // UI Home
                 get_available_libraries,
                 // Library Management

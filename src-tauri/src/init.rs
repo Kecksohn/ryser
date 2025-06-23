@@ -1,8 +1,10 @@
-use anyhow::{Error, anyhow};
-use super::notifications::*;
+use anyhow::{anyhow, Error};
 
+use super::library_manager::{
+    load_all_libraries, rescan_all_libraries, update_all_libraries_with_tmdb,
+};
 use super::read_config;
-use super::library_manager::{load_all_libraries, rescan_all_libraries, update_all_libraries_with_tmdb};
+use crate::notifications::*;
 
 use tauri::async_runtime;
 
@@ -11,21 +13,21 @@ pub(super) fn init() -> Result<(), Error> {
 
     // Synced
     async_runtime::block_on(async {
-        load_all_libraries().await
+        load_all_libraries()
+            .await
             .map_err(|e| anyhow!("Failure while loading libraries: {}", e))
     })?;
 
     // Async
     async_runtime::spawn(async {
         rescan_all_libraries().await;
-        update_all_libraries_with_tmdb(Some(false)).await
+        update_all_libraries_with_tmdb(Some(false))
+            .await
             .map_err(|e| anyhow!("TMDB update failed: {}", e))
     });
 
     Ok(())
 }
-
-
 
 use tauri::{Manager, Window};
 // This command must be async so that it doesn't run on the main thread.

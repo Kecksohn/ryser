@@ -13,7 +13,7 @@ pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
 pub(super) fn get_audio_tracks(filepath: &str) -> Result<Vec<String>, ffmpeg::Error> {
     ffmpeg::init()?;
 
-    Ok(vec![])
+    panic!("Not implemented! But looking at all the options... we better create an ffmpeg module and an audio submodule.");
 }
 
 pub(super) fn print_all_metadata(filepath: &str) -> Result<(), ffmpeg::Error> {
