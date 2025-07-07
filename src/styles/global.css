@@ -14,6 +14,10 @@
   -webkit-text-size-adjust: 100%;
 }
 
+.no-select {
+  user-select: none;
+}
+
 .container {
   margin: 0;
   display: flex;
@@ -54,8 +58,4 @@ button:hover {
 button:active {
   border-color: var(--color-primary-hover);
   background-color: var(--color-interactive-active);
-}
-
-.no-select {
-  user-select: none;
 }

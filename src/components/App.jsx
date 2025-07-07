@@ -1,8 +1,8 @@
 import React from "react";
-import { useState, useEffect } from "react";
 
 import "@/styles/global.css";
-import "@/styles/colors.css";
+import "@/styles/colors-light.css";
+import "@/styles/colors-dark.css";
 
 import { ScaleWrapperGlobal } from "./UITools/ScaleWrapper.jsx";
 import { ContextMenuProvider } from "./UITools/ContextMenu.jsx";
