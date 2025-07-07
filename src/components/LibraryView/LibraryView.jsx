@@ -6,13 +6,13 @@ import { HeaderBar } from "../UIElements/HeaderBar.jsx";
 import { Dropdown } from "../UIElements/Dropdown.jsx";
 import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
+import { LibraryViewScroll } from "./Views/LibraryViewScroll.jsx";
+
 import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
 
 import { sort_video_elements } from "./Utils/sortVideoElements.js";
-import { format_duration } from "./Utils/formatDuration.js";
 import { video_element_context_menu_options } from "./ContextMenuVideoElement.js";
 
-import tmdbResultsStyles from "./LibraryDataManagement/TMDBResults.module.css";
 import react_icon from "../../assets/react.svg";
 
 export const LibraryView = () => {
@@ -199,60 +199,11 @@ export const LibraryView = () => {
             />
             <br />
 
-            {filtered_library_elements.map((element) => {
-              return (
-                <div
-                  key={element.filepath}
-                  className={tmdbResultsStyles.tmdbresult}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => launch_video(element)}
-                  {...useContextMenuOn(element, get_context_menu_options)}
-                >
-                  <div className={tmdbResultsStyles.tmdbresultSplitter}>
-                    <div className={tmdbResultsStyles.tmdbresultImg}>
-                      <img src={element.poster_path} alt={element.title} />
-                    </div>
-                    <div className={tmdbResultsStyles.tmdbresultInfo}>
-                      {element.original_title && element.original_title}
-                      {element.title &&
-                        element.title !== element.original_title && (
-                          <>
-                            <br /> [{element.title}]
-                          </>
-                        )}
-                      {!element.title && element.filepath}
-                      <br />
-                      {element.director && (
-                        <>
-                          <br />
-                          {element.director}
-                          <br />
-                        </>
-                      )}
-                      {element.countries && element.countries.length > 0 && (
-                        <>
-                          {element.countries.map((country, i) => {
-                            return (
-                              <span key={element + country}>
-                                {country}
-                                {i < element.countries.length - 1 && <>,</>}
-                              </span>
-                            );
-                          })}
-                          <br />
-                        </>
-                      )}
-                      <br />
-                      {format_duration(element.length_in_seconds)}
-                      <br />
-                      {element.watched && (
-                        <span style={{ color: "green" }}>Watched</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            <LibraryViewScroll
+              library_elements={filtered_library_elements}
+              get_context_menu_options={get_context_menu_options}
+              launch_video={launch_video}
+            />
           </div>
         }
       />

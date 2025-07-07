@@ -14,7 +14,7 @@ export const AddLibrary = () => {
           element={
             <>
               <span onClick={() => navigate("../")}>Back</span>
-              <h2>Add Library</h2>
+              <h2 className="no-select">Add Library</h2>
               <div onClick={() => navigate("/addlibrary/create")}>
                 Create New Library
               </div>
