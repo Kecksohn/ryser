@@ -1,0 +1,44 @@
+:root {
+  /* Brand Colors */
+  --color-primary: #646cff;
+  --color-primary-hover: #535bf2;
+  --color-secondary: #24c8db;
+  --color-accent: #61dafb;
+
+  /* Neutral Colors */
+  --color-white: #ffffff;
+  --color-gray-50: #f6f6f6;
+  --color-gray-100: #e8e8e8;
+  --color-gray-900: #0f0f0f;
+  --color-black: #050505;
+
+  /* Semantic Colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Text Colors */
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  /* Background Colors */
+  --color-bg-primary: var(--color-gray-50);
+  --color-bg-secondary: var(--color-white);
+  --color-bg-elevated: var(--color-white);
+
+  /* Border Colors */
+  --color-border: #d1d5db;
+  --color-border-hover: #396cd8;
+  --color-border-focus: var(--color-primary);
+
+  /* Interactive Colors */
+  --color-interactive: var(--color-primary);
+  --color-interactive-hover: var(--color-primary-hover);
+  --color-interactive-active: #4338ca;
+
+  /* Shadow Colors */
+  --color-shadow: rgba(0, 0, 0, 0.1);
+  --color-shadow-lg: rgba(0, 0, 0, 0.2);
+}

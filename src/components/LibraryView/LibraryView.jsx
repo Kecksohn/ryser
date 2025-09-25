@@ -6,13 +6,14 @@ import { HeaderBar } from "../UIElements/HeaderBar.jsx";
 import { Dropdown } from "../UIElements/Dropdown.jsx";
 import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
+import { LibraryViewScroll } from "./Views/LibraryViewScroll.jsx";
+
 import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
 
-import { sort_video_elements, format_duration } from "./LibraryViewUtils.js";
-import { video_element_context_menu_options } from "./VideoElementContextMenu.js";
+import { sort_video_elements } from "./Utils/sortVideoElements.js";
+import { video_element_context_menu_options } from "./ContextMenuVideoElement.js";
 
-import tmdbResultsStyles from "./LibraryDataManagement/TMDBResults.module.css";
-import react_icon from "../assets/react.svg";
+import react_icon from "../../assets/react.svg";
 
 export const LibraryView = () => {
   const { useContextMenuOn } = useContextMenu();
@@ -75,8 +76,8 @@ export const LibraryView = () => {
         setTimeout(
           resolve,
           ((video.length_in_seconds * percentage_needed_to_set_watched) / 100) *
-            1000,
-        ),
+            1000
+        )
       );
 
       const is_running = await invoke("is_process_running", {
@@ -134,8 +135,8 @@ export const LibraryView = () => {
         library_elements,
         order,
         last_sort_order,
-        set_last_sort_order,
-      ),
+        set_last_sort_order
+      )
     );
   }
 
@@ -148,7 +149,7 @@ export const LibraryView = () => {
             <HeaderBar
               leftside_text={
                 <span>
-                  <span style={{ fontSize: "1.8em" }}>{library_name}</span>
+                  <span className={"headerbar-title"}>{library_name}</span>
                   <img
                     src={react_icon}
                     onClick={() => navigate(settings_link)}
@@ -191,63 +192,18 @@ export const LibraryView = () => {
                 Remove Filter
               </span>
             )}
-            <Dropdown buttonText={"Sort"} options={sort_dropdown_options()} />
+            <Dropdown
+              buttonText={"Sort"}
+              options={sort_dropdown_options()}
+              scale={1}
+            />
             <br />
 
-            {filtered_library_elements.map((element) => {
-              return (
-                <div
-                  key={element.filepath}
-                  className={tmdbResultsStyles.tmdbresult}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => launch_video(element)}
-                  {...useContextMenuOn(element, get_context_menu_options)}
-                >
-                  <div className={tmdbResultsStyles.tmdbresultSplitter}>
-                    <div className={tmdbResultsStyles.tmdbresultImg}>
-                      <img src={element.poster_path} alt={element.title} />
-                    </div>
-                    <div className={tmdbResultsStyles.tmdbresultInfo}>
-                      {element.original_title && element.original_title}
-                      {element.title &&
-                        element.title !== element.original_title && (
-                          <>
-                            <br /> [{element.title}]
-                          </>
-                        )}
-                      {!element.title && element.filepath}
-                      <br />
-                      {element.director && (
-                        <>
-                          <br />
-                          {element.director}
-                          <br />
-                        </>
-                      )}
-                      {element.countries && element.countries.length > 0 && (
-                        <>
-                          {element.countries.map((country, i) => {
-                            return (
-                              <span key={element + country}>
-                                {country}
-                                {i < element.countries.length - 1 && <>,</>}
-                              </span>
-                            );
-                          })}
-                          <br />
-                        </>
-                      )}
-                      <br />
-                      {format_duration(element.length_in_seconds)}
-                      <br />
-                      {element.watched && (
-                        <span style={{ color: "green" }}>Watched</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            <LibraryViewScroll
+              library_elements={filtered_library_elements}
+              get_context_menu_options={get_context_menu_options}
+              launch_video={launch_video}
+            />
           </div>
         }
       />

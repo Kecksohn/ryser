@@ -12,17 +12,17 @@ A project born from the fact that mpc-hc lags a BIT when used with Kodi. Will ho
 
 - [Download Latest](#download-latest)
 - [Dev Set-Up](#dev-set-up)
-    + [TheMovieDatabase Integration](#themoviedatabase-integration)
-    + [Debugging With RustRover](#debugging-with-rustrover)
-    + [Faster Compilation](#faster-compilation)
-    + [Prettier VSCode Set-Up](#prettier-vscode-set-up)
+  - [TheMovieDatabase Integration](#themoviedatabase-integration)
+  - [Debugging With RustRover](#debugging-with-rustrover)
+  - [Faster Compilation](#faster-compilation)
+  - [Prettier VSCode Set-Up](#prettier-vscode-set-up)
 - [Dev Build](#dev-build)
 - [Roadmap / TODOs](#roadmap--todos)
 
 <!-- tocstop -->
 
-<!-- 
-TOC Generation: 
+<!--
+TOC Generation:
 
 - yarn global add markdown-toc
 - yarn global bin (add result to PATH)
@@ -156,15 +156,15 @@ Install the [VSCode Prettier Extension](https://marketplace.visualstudio.com/ite
   }
 
   // Optional, not used by the project but you might as well and enable/disable prettier per workspace
-  "[javascript]": { 
+  "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  "[typescript]": { 
+  "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  "[typescriptreact]": { 
+  "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
@@ -172,7 +172,7 @@ Install the [VSCode Prettier Extension](https://marketplace.visualstudio.com/ite
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
   },
-  
+
 ```
 
 </details>

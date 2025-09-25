@@ -20,22 +20,22 @@ export const EditVideoEntryView = ({
   const navigate = useNavigate();
 
   const [original_title_input, set_original_title_input] = useState(
-    video_entry.original_title ? video_entry.original_title : "",
+    video_entry.original_title ? video_entry.original_title : ""
   );
   const [english_title_input, set_english_title_input] = useState(
-    video_entry.title ? video_entry.title : "",
+    video_entry.title ? video_entry.title : ""
   );
   const [year_input, set_year_input] = useState(
-    video_entry.year ? video_entry.year : "",
+    video_entry.year ? video_entry.year : ""
   );
   const [director_input, set_director_input] = useState(
-    video_entry.director ? video_entry.director : "",
+    video_entry.director ? video_entry.director : ""
   );
   const [countries_input, set_countries_input] = useState(
-    video_entry.countries ? video_entry.countries : [""],
+    video_entry.countries ? video_entry.countries : [""]
   );
   const [new_poster_url_or_path, set_new_poster_url_or_path] = useState(
-    video_entry.poster_path,
+    video_entry.poster_path
   );
 
   function was_changed() {

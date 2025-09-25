@@ -1,0 +1,26 @@
+.libraryElement {
+  display: block;
+  font-size: var(--font-size-2xl);
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.libraryElement:hover {
+  cursor: pointer;
+  background-color: white;
+  color: black;
+}
+
+.libraryEle .librariesContainer {
+  margin-top: var(--spacing-mx);
+  margin-left: var(--spacing-md);
+}
+
+.libraryManagementContainer {
+  composes: librariesContainer;
+  margin-top: var(--spacing-xl);
+}
+
+.libraryElementAdd {
+  composes: libraryElement;
+}

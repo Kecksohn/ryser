@@ -4,6 +4,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
+import { HeaderBar } from "../UIElements/HeaderBar.jsx";
+
+import mainMenuStyles from "./MainMenu.module.css";
+
 export const MainMenu = () => {
   const navigate = useNavigate();
   const { useContextMenuOn } = useContextMenu();
@@ -62,31 +66,58 @@ export const MainMenu = () => {
 
   return (
     <div>
+      {/* Header */}
+      <HeaderBar
+        leftside_text={
+          <span>
+            <span className={"headerbar-title"}>ryser</span>
+          </span>
+        }
+      />
+
+      {/* Loading & Error Message */}
       {!libraries_loaded && <div>Loading...</div>}
       {libraries_loaded && libraries.length == 0 && (
         <div>ryser could not find any libraries</div>
       )}
-      {libraries_loaded &&
-        libraries.length > 0 &&
-        libraries.map((library) => {
-          return (
-            <div
-              key={library.id}
-              onClick={() => navigate("/library/" + library.id)}
-              {...useContextMenuOn(library, library_context_menu_options)}
-            >
-              {library.name}
-            </div>
-          );
-        })}
-      <br />
-      {libraries_loaded && (
-        <>
-          <div onClick={() => navigate("/addlibrary/")}>Add Library</div>
-          <br />
 
-          {/* <div onClick={() => updateLibraries()}>Update Libraries</div>*/}
-        </>
+      {/* Libraries On Disk*/}
+      <div className={mainMenuStyles.librariesContainer}>
+        {libraries_loaded &&
+          libraries.length > 0 &&
+          libraries.map((library) => {
+            return (
+              <div
+                key={library.id}
+                className={mainMenuStyles.libraryElement}
+                onClick={() => navigate("/library/" + library.id)}
+                {...useContextMenuOn(library, library_context_menu_options)}
+              >
+                {library.name}
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Add/Update Libraries*/}
+      {libraries_loaded && (
+        <div className={mainMenuStyles.libraryManagementContainer}>
+          <div
+            className={mainMenuStyles.libraryElement}
+            onClick={() => navigate("/addlibrary/")}
+          >
+            Add Library
+          </div>
+
+          {
+            <div
+              className={mainMenuStyles.libraryElementAdd}
+              onClick={() => updateLibraries()}
+            >
+              Update Libraries
+            </div>
+          }
+        </div>
       )}
     </div>
   );

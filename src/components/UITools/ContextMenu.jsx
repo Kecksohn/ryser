@@ -141,6 +141,6 @@ const ContextMenuComponent = () => {
         </div>
       ))}
     </div>,
-    document.body,
+    document.body
   );
 };
