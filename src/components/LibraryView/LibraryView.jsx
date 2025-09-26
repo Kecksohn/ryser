@@ -47,6 +47,7 @@ export const LibraryView = () => {
 
   const [watched_filter, set_watched_filter] = useState("");
   const [filter_preferences_loaded, set_filter_preferences_loaded] = useState(false);
+  const [saved_watched_filter, set_saved_watched_filter] = useState("");
 
   const filtered_library_elements = useMemo(() => {
     return library_elements.filter((element) => {
@@ -130,6 +131,7 @@ export const LibraryView = () => {
   ];
   const [last_sort_order, set_last_sort_order] = useState("filepath");
   const [sort_preference_loaded, set_sort_preference_loaded] = useState(false);
+  const [saved_sort_preference, set_saved_sort_preference] = useState("title");
 
   // Load sort preference when library is loaded
   useEffect(() => {
@@ -146,6 +148,7 @@ export const LibraryView = () => {
           );
           set_library_elements(sorted_elements);
           set_last_sort_order(preference);
+          set_saved_sort_preference(preference);
         })
         .catch((error) => {
           console.log("Failed to load sort preference:", error);
@@ -158,6 +161,7 @@ export const LibraryView = () => {
           );
           set_library_elements(sorted_elements);
           set_last_sort_order("title");
+          set_saved_sort_preference("title");
         });
     }
   }, [library_elements_loaded, sort_preference_loaded, library_elements]);
@@ -169,25 +173,43 @@ export const LibraryView = () => {
       invoke("get_library_filter_preferences", { library_id: library_id })
         .then((preferences) => {
           set_watched_filter(preferences.watched_filter);
+          set_saved_watched_filter(preferences.watched_filter);
         })
         .catch((error) => {
           console.log("Failed to load filter preferences:", error);
           // Use default filter if loading fails
           set_watched_filter("");
+          set_saved_watched_filter("");
         });
     }
   }, [library_elements_loaded, filter_preferences_loaded]);
 
-  // Save filter preferences when filter changes
+  // Update filter without saving
   function update_watched_filter(new_filter) {
     set_watched_filter(new_filter);
-    // Save the filter preference to backend
+  }
+
+  // Save functions
+  function save_sort_preference() {
+    invoke("set_library_sort_preference", {
+      library_id: library_id,
+      sort_preference: last_sort_order
+    }).then(() => {
+      set_saved_sort_preference(last_sort_order);
+    }).catch((error) => {
+      console.log("Failed to save sort preference:", error);
+    });
+  }
+
+  function save_filter_preferences() {
     const filter_preferences = {
-      watched_filter: new_filter
+      watched_filter: watched_filter
     };
     invoke("set_library_filter_preferences", {
       library_id: library_id,
       filter_preferences: filter_preferences
+    }).then(() => {
+      set_saved_watched_filter(watched_filter);
     }).catch((error) => {
       console.log("Failed to save filter preferences:", error);
     });
@@ -206,14 +228,11 @@ export const LibraryView = () => {
 
   function sort_library_elements(order) {
     sort_library_elements_internal(order);
-    // Save the sort preference to backend
-    invoke("set_library_sort_preference", {
-      library_id: library_id,
-      sort_preference: order
-    }).catch((error) => {
-      console.log("Failed to save sort preference:", error);
-    });
   }
+
+  // Check if preferences have changed
+  const sort_has_changed = last_sort_order !== saved_sort_preference;
+  const filter_has_changed = watched_filter !== saved_watched_filter;
 
   return (
     <Routes>
@@ -267,11 +286,28 @@ export const LibraryView = () => {
                 Remove Filter
               </span>
             )}
+            {filter_has_changed && (
+              <button
+                onClick={save_filter_preferences}
+                style={{ marginLeft: "10px", cursor: "pointer" }}
+              >
+                Save Filter
+              </button>
+            )}
+            <br />
             <Dropdown
               buttonText={"Sort"}
               options={sort_dropdown_options()}
               scale={1}
             />
+            {sort_has_changed && (
+              <button
+                onClick={save_sort_preference}
+                style={{ marginLeft: "10px", cursor: "pointer" }}
+              >
+                Save Sort
+              </button>
+            )}
             <br />
 
             <LibraryViewScroll
