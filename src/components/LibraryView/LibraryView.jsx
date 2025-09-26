@@ -46,6 +46,8 @@ export const LibraryView = () => {
   }, [library_elements_loaded]);
 
   const [watched_filter, set_watched_filter] = useState("");
+  const [filter_preferences_loaded, set_filter_preferences_loaded] = useState(false);
+  const [saved_watched_filter, set_saved_watched_filter] = useState("");
 
   const filtered_library_elements = useMemo(() => {
     return library_elements.filter((element) => {
@@ -128,8 +130,92 @@ export const LibraryView = () => {
     { label: "Filepath", onClick: () => sort_library_elements("filepath") },
   ];
   const [last_sort_order, set_last_sort_order] = useState("filepath");
+  const [sort_preference_loaded, set_sort_preference_loaded] = useState(false);
+  const [saved_sort_preference, set_saved_sort_preference] = useState("title");
 
-  function sort_library_elements(order) {
+  // Load sort preference when library is loaded
+  useEffect(() => {
+    if (library_elements_loaded && !sort_preference_loaded && library_elements.length > 0) {
+      set_sort_preference_loaded(true);
+      invoke("get_library_sort_preference", { library_id: library_id })
+        .then((preference) => {
+          // Apply the loaded sort preference immediately
+          const sorted_elements = sort_video_elements(
+            library_elements,
+            preference,
+            "filepath", // Use filepath as initial state since we haven't sorted yet
+            () => {} // Don't update last_sort_order during initial load
+          );
+          set_library_elements(sorted_elements);
+          set_last_sort_order(preference);
+          set_saved_sort_preference(preference);
+        })
+        .catch((error) => {
+          console.log("Failed to load sort preference:", error);
+          // Use default sort if loading fails
+          const sorted_elements = sort_video_elements(
+            library_elements,
+            "title",
+            "filepath",
+            () => {}
+          );
+          set_library_elements(sorted_elements);
+          set_last_sort_order("title");
+          set_saved_sort_preference("title");
+        });
+    }
+  }, [library_elements_loaded, sort_preference_loaded, library_elements]);
+
+  // Load filter preferences when library is loaded
+  useEffect(() => {
+    if (library_elements_loaded && !filter_preferences_loaded) {
+      set_filter_preferences_loaded(true);
+      invoke("get_library_filter_preferences", { library_id: library_id })
+        .then((preferences) => {
+          set_watched_filter(preferences.watched_filter);
+          set_saved_watched_filter(preferences.watched_filter);
+        })
+        .catch((error) => {
+          console.log("Failed to load filter preferences:", error);
+          // Use default filter if loading fails
+          set_watched_filter("");
+          set_saved_watched_filter("");
+        });
+    }
+  }, [library_elements_loaded, filter_preferences_loaded]);
+
+  // Update filter without saving
+  function update_watched_filter(new_filter) {
+    set_watched_filter(new_filter);
+  }
+
+  // Save functions
+  function save_sort_preference() {
+    invoke("set_library_sort_preference", {
+      library_id: library_id,
+      sort_preference: last_sort_order
+    }).then(() => {
+      set_saved_sort_preference(last_sort_order);
+    }).catch((error) => {
+      console.log("Failed to save sort preference:", error);
+    });
+  }
+
+  function save_filter_preferences() {
+    const filter_preferences = {
+      watched_filter: watched_filter
+    };
+    invoke("set_library_filter_preferences", {
+      library_id: library_id,
+      filter_preferences: filter_preferences
+    }).then(() => {
+      set_saved_watched_filter(watched_filter);
+    }).catch((error) => {
+      console.log("Failed to save filter preferences:", error);
+    });
+  }
+
+  function sort_library_elements_internal(order) {
     set_library_elements(
       sort_video_elements(
         library_elements,
@@ -139,6 +225,14 @@ export const LibraryView = () => {
       )
     );
   }
+
+  function sort_library_elements(order) {
+    sort_library_elements_internal(order);
+  }
+
+  // Check if preferences have changed
+  const sort_has_changed = last_sort_order !== saved_sort_preference;
+  const filter_has_changed = watched_filter !== saved_watched_filter;
 
   return (
     <Routes>
@@ -171,7 +265,7 @@ export const LibraryView = () => {
               watched_filter !== "filter_unwatched" && (
                 <span
                   style={{ cursor: "pointer" }}
-                  onClick={() => set_watched_filter("filter_watched")}
+                  onClick={() => update_watched_filter("filter_watched")}
                 >
                   Filter Watched
                 </span>
@@ -179,7 +273,7 @@ export const LibraryView = () => {
             {watched_filter === "filter_watched" && (
               <span
                 style={{ cursor: "pointer" }}
-                onClick={() => set_watched_filter("filter_unwatched")}
+                onClick={() => update_watched_filter("filter_unwatched")}
               >
                 Filter Unwatched
               </span>
@@ -187,16 +281,33 @@ export const LibraryView = () => {
             {watched_filter === "filter_unwatched" && (
               <span
                 style={{ cursor: "pointer" }}
-                onClick={() => set_watched_filter("")}
+                onClick={() => update_watched_filter("")}
               >
                 Remove Filter
               </span>
             )}
+            {filter_has_changed && (
+              <button
+                onClick={save_filter_preferences}
+                style={{ marginLeft: "10px", cursor: "pointer" }}
+              >
+                Save Filter
+              </button>
+            )}
+            <br />
             <Dropdown
               buttonText={"Sort"}
               options={sort_dropdown_options()}
               scale={1}
             />
+            {sort_has_changed && (
+              <button
+                onClick={save_sort_preference}
+                style={{ marginLeft: "10px", cursor: "pointer" }}
+              >
+                Save Sort
+              </button>
+            )}
             <br />
 
             <LibraryViewScroll
