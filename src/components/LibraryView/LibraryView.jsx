@@ -128,8 +128,40 @@ export const LibraryView = () => {
     { label: "Filepath", onClick: () => sort_library_elements("filepath") },
   ];
   const [last_sort_order, set_last_sort_order] = useState("filepath");
+  const [sort_preference_loaded, set_sort_preference_loaded] = useState(false);
 
-  function sort_library_elements(order) {
+  // Load sort preference when library is loaded
+  useEffect(() => {
+    if (library_elements_loaded && !sort_preference_loaded && library_elements.length > 0) {
+      set_sort_preference_loaded(true);
+      invoke("get_library_sort_preference", { library_id: library_id })
+        .then((preference) => {
+          // Apply the loaded sort preference immediately
+          const sorted_elements = sort_video_elements(
+            library_elements,
+            preference,
+            "filepath", // Use filepath as initial state since we haven't sorted yet
+            () => {} // Don't update last_sort_order during initial load
+          );
+          set_library_elements(sorted_elements);
+          set_last_sort_order(preference);
+        })
+        .catch((error) => {
+          console.log("Failed to load sort preference:", error);
+          // Use default sort if loading fails
+          const sorted_elements = sort_video_elements(
+            library_elements,
+            "title",
+            "filepath",
+            () => {}
+          );
+          set_library_elements(sorted_elements);
+          set_last_sort_order("title");
+        });
+    }
+  }, [library_elements_loaded, sort_preference_loaded, library_elements]);
+
+  function sort_library_elements_internal(order) {
     set_library_elements(
       sort_video_elements(
         library_elements,
@@ -138,6 +170,17 @@ export const LibraryView = () => {
         set_last_sort_order
       )
     );
+  }
+
+  function sort_library_elements(order) {
+    sort_library_elements_internal(order);
+    // Save the sort preference to backend
+    invoke("set_library_sort_preference", {
+      library_id: library_id,
+      sort_preference: order
+    }).catch((error) => {
+      console.log("Failed to save sort preference:", error);
+    });
   }
 
   return (

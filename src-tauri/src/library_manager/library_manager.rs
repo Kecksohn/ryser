@@ -15,6 +15,10 @@ use super::file_manager::directory_utils::*;
 use super::json_parser::*;
 use super::tmdb_api::*;
 
+fn default_sort_preference() -> String {
+    "title".to_string()
+}
+
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct LibraryPath {
@@ -29,6 +33,8 @@ pub struct Library {
     pub(super) library_paths: Vec<LibraryPath>,
     pub(super) video_files: Vec<VideoElement>,
     pub(super) child_libraries: Vec<Library>,
+    #[serde(default = "default_sort_preference")]
+    pub(super) sort_preference: String,
 }
 
 
@@ -92,6 +98,11 @@ pub(crate) async fn add_library(mut lib: Library) {
         println!("{}", video_filepath);
         let video_file = create_video_element_from_file(video_filepath);
         lib.video_files.push(video_file);
+    }
+
+    // Set default sort preference if not already set
+    if lib.sort_preference.is_empty() {
+        lib.sort_preference = default_sort_preference();
     }
 
     write_library(&lib);

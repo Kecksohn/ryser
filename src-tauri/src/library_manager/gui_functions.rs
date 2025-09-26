@@ -74,6 +74,7 @@ pub async fn create_library(name: &str, paths: Vec<LibraryPath>, allow_duplicate
         library_paths: paths,
         video_files: vec![],
         child_libraries: vec![],
+        sort_preference: "title".to_string(),
     };
     add_library(new_lib).await;
     Ok(())
@@ -172,4 +173,31 @@ pub(crate) async fn rescan_all_libraries_gui() {
 pub(crate) async fn rescan_library_by_id_gui(lib_id: &str) -> Result<(), String> {
     return super::rescan_library_by_id(lib_id).await
         .map_err(|e| format!("{}", e));
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn get_library_sort_preference(library_id: &str) -> Result<String, String> {
+    if let Some(library) = LIBRARIES
+        .lock()
+        .await
+        .iter()
+        .find(|library| library.id == library_id)
+    {
+        Ok(library.sort_preference.clone())
+    }
+    else {
+        Err(format!("Library {} not found!", library_id))
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn set_library_sort_preference(library_id: &str, sort_preference: &str) -> Result<(), String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            library.sort_preference = sort_preference.to_string();
+            write_library(library);
+            return Ok(());
+        }
+    }
+    Err(format!("Library {} not found!", library_id))
 }
