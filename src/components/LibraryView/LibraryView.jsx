@@ -46,6 +46,7 @@ export const LibraryView = () => {
   }, [library_elements_loaded]);
 
   const [watched_filter, set_watched_filter] = useState("");
+  const [filter_preferences_loaded, set_filter_preferences_loaded] = useState(false);
 
   const filtered_library_elements = useMemo(() => {
     return library_elements.filter((element) => {
@@ -161,6 +162,37 @@ export const LibraryView = () => {
     }
   }, [library_elements_loaded, sort_preference_loaded, library_elements]);
 
+  // Load filter preferences when library is loaded
+  useEffect(() => {
+    if (library_elements_loaded && !filter_preferences_loaded) {
+      set_filter_preferences_loaded(true);
+      invoke("get_library_filter_preferences", { library_id: library_id })
+        .then((preferences) => {
+          set_watched_filter(preferences.watched_filter);
+        })
+        .catch((error) => {
+          console.log("Failed to load filter preferences:", error);
+          // Use default filter if loading fails
+          set_watched_filter("");
+        });
+    }
+  }, [library_elements_loaded, filter_preferences_loaded]);
+
+  // Save filter preferences when filter changes
+  function update_watched_filter(new_filter) {
+    set_watched_filter(new_filter);
+    // Save the filter preference to backend
+    const filter_preferences = {
+      watched_filter: new_filter
+    };
+    invoke("set_library_filter_preferences", {
+      library_id: library_id,
+      filter_preferences: filter_preferences
+    }).catch((error) => {
+      console.log("Failed to save filter preferences:", error);
+    });
+  }
+
   function sort_library_elements_internal(order) {
     set_library_elements(
       sort_video_elements(
@@ -214,7 +246,7 @@ export const LibraryView = () => {
               watched_filter !== "filter_unwatched" && (
                 <span
                   style={{ cursor: "pointer" }}
-                  onClick={() => set_watched_filter("filter_watched")}
+                  onClick={() => update_watched_filter("filter_watched")}
                 >
                   Filter Watched
                 </span>
@@ -222,7 +254,7 @@ export const LibraryView = () => {
             {watched_filter === "filter_watched" && (
               <span
                 style={{ cursor: "pointer" }}
-                onClick={() => set_watched_filter("filter_unwatched")}
+                onClick={() => update_watched_filter("filter_unwatched")}
               >
                 Filter Unwatched
               </span>
@@ -230,7 +262,7 @@ export const LibraryView = () => {
             {watched_filter === "filter_unwatched" && (
               <span
                 style={{ cursor: "pointer" }}
-                onClick={() => set_watched_filter("")}
+                onClick={() => update_watched_filter("")}
               >
                 Remove Filter
               </span>

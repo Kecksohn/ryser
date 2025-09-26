@@ -19,6 +19,24 @@ fn default_sort_preference() -> String {
     "title".to_string()
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
+pub struct FilterPreferences {
+    pub watched_filter: String,
+    // Future filter options can be added here:
+    // pub genre_filter: Vec<String>,
+    // pub year_range: Option<(u32, u32)>,
+    // pub rating_filter: Option<f32>,
+    // pub duration_range: Option<(u32, u32)>,
+}
+
+impl Default for FilterPreferences {
+    fn default() -> Self {
+        Self {
+            watched_filter: "".to_string(),
+        }
+    }
+}
+
 
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct LibraryPath {
@@ -35,6 +53,8 @@ pub struct Library {
     pub(super) child_libraries: Vec<Library>,
     #[serde(default = "default_sort_preference")]
     pub(super) sort_preference: String,
+    #[serde(default)]
+    pub(super) filter_preferences: FilterPreferences,
 }
 
 

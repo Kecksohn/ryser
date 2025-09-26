@@ -3,7 +3,7 @@ use std::{default, fs};
 
 use super::json_parser::write_library;
 use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element, get_additional_covers};
-use super::{Library, LibraryPath, VideoElement,
+use super::{Library, LibraryPath, VideoElement, FilterPreferences,
             add_library, delete_library, update_library_entry,
             LIBRARIES};
 
@@ -75,6 +75,7 @@ pub async fn create_library(name: &str, paths: Vec<LibraryPath>, allow_duplicate
         video_files: vec![],
         child_libraries: vec![],
         sort_preference: "title".to_string(),
+        filter_preferences: FilterPreferences::default(),
     };
     add_library(new_lib).await;
     Ok(())
@@ -195,6 +196,33 @@ pub async fn set_library_sort_preference(library_id: &str, sort_preference: &str
     for library in LIBRARIES.lock().await.iter_mut() {
         if library.id == library_id {
             library.sort_preference = sort_preference.to_string();
+            write_library(library);
+            return Ok(());
+        }
+    }
+    Err(format!("Library {} not found!", library_id))
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn get_library_filter_preferences(library_id: &str) -> Result<FilterPreferences, String> {
+    if let Some(library) = LIBRARIES
+        .lock()
+        .await
+        .iter()
+        .find(|library| library.id == library_id)
+    {
+        Ok(library.filter_preferences.clone())
+    }
+    else {
+        Err(format!("Library {} not found!", library_id))
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn set_library_filter_preferences(library_id: &str, filter_preferences: FilterPreferences) -> Result<(), String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            library.filter_preferences = filter_preferences;
             write_library(library);
             return Ok(());
         }
