@@ -33,6 +33,10 @@ pub fn run() {
                 // Library View
                 get_library_name,
                 get_library_videos,
+                get_library_sort_preference,
+                set_library_sort_preference,
+                get_library_filter_preferences,
+                set_library_filter_preferences,
                 // Library Rescan
                 rescan_all_libraries_gui,
                 rescan_library_by_id_gui,
