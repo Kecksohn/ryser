@@ -112,25 +112,29 @@ export const MainMenu = () => {
       {libraries_loaded && (
         <div className={mainMenuStyles.libraryManagementContainer}>
           <div
-            className={mainMenuStyles.libraryElement}
+            className={`${mainMenuStyles.libraryElement} ${libraries.length > 0 ? mainMenuStyles.scaledButton : ''}`}
             onClick={() => navigate("/addlibrary/")}
           >
             Add Library
           </div>
 
-          <div
-            className={mainMenuStyles.libraryElementAdd}
-            onClick={() => update_libraries()}
-          >
-            Update Libraries
-          </div>
+          {libraries.length > 0 && (
+            <>
+              <div
+                className={`${mainMenuStyles.libraryElementAdd} ${mainMenuStyles.scaledButton}`}
+                onClick={() => update_libraries()}
+              >
+                Update Libraries
+              </div>
 
-          <div
-            className={mainMenuStyles.libraryElementAdd}
-            onClick={() => reparse_libraries()}
-          >
-            Reparse Libraries
-          </div>
+              <div
+                className={`${mainMenuStyles.libraryElementAdd} ${mainMenuStyles.scaledButton}`}
+                onClick={() => reparse_libraries()}
+              >
+                Reparse Libraries
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

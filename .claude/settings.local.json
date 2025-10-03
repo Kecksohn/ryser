@@ -16,7 +16,8 @@
       "WebFetch(domain:commons.wikimedia.org)",
       "WebFetch(domain:www.babelstone.co.uk)",
       "WebFetch(domain:flagpedia.net)",
-      "Bash(cargo:*)"
+      "Bash(cargo:*)",
+      "Read(//c/Users/~/AppData/Local/ryser/data/film/**)"
     ],
     "deny": [],
     "ask": []

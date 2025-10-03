@@ -24,3 +24,10 @@
 .libraryElementAdd {
   composes: libraryElement;
 }
+
+.scaledButton {
+  transform: scale(0.75);
+  transform-origin: left center;
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
