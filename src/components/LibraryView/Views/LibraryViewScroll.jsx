@@ -42,13 +42,19 @@ export const LibraryViewScroll = ({
                 <br />
               </>
             )}
+            {element.release_date && element.release_date.length >= 4 && (
+              <>
+                {element.release_date.substring(0, 4)}
+                <br />
+              </>
+            )}
             {element.countries && element.countries.length > 0 && (
               <>
                 {element.countries.map((country, i) => {
                   return (
                     <span key={element + country}>
                       {country}
-                      {i < element.countries.length - 1 && <>,</>}
+                      {i < element.countries.length - 1 && <span>, </span>}
                     </span>
                   );
                 })}
