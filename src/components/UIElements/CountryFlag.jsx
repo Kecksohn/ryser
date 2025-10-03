@@ -17,19 +17,20 @@ export const getCountryFlag = (countryCode) => {
     'DD': '🇩🇩', // East Germany
   };
 
-  if (historicalFlags[countryCode.toUpperCase()]) {
-    return historicalFlags[countryCode.toUpperCase()];
+  const upperCode = countryCode.toUpperCase();
+
+  if (historicalFlags[upperCode]) {
+    return historicalFlags[upperCode];
   }
 
   // Standard conversion for modern ISO codes
   try {
-    const codePoints = countryCode
-      .toUpperCase()
+    const codePoints = upperCode
       .split('')
       .map(char => 127397 + char.charCodeAt(0));
     return String.fromCodePoint(...codePoints);
   } catch (error) {
-    console.warn(`Could not generate flag for country code: ${countryCode}`);
+    console.warn(`Could not generate flag for country code: ${countryCode}`, error);
     return null;
   }
 };

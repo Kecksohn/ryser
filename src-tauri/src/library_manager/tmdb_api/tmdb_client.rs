@@ -195,6 +195,84 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
     Ok(())
 }
 
+/// Reparse library TMDB data, updating all metadata but preserving existing covers
+pub async fn reparse_library_tmdb_preserve_covers(library: &mut Library) -> Result<(), Error>
+{
+    let (client, api_token) = create_client().await
+        .map_err(|e| anyhow!("Could not connect to TMDB: {}", e))?;
+
+    for video_element in library.video_files.iter_mut() {
+        // Only reparse movies that already have TMDB IDs
+        if let Some(tmdb_id) = video_element.tmdb_id {
+            let movie_details = get_movie_details(&client, tmdb_id, &api_token).await
+                .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
+
+            // Update all metadata but preserve existing covers
+            fill_video_element_with_movie_details_preserve_covers(video_element, &movie_details);
+
+            println!("Reparsed: {} [{}] ({}) by {}",
+                video_element.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                video_element.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                video_element.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
+        }
+    }
+
+    Ok(())
+}
+
+/// Fill video element with movie details, updating all data but preserving existing covers
+fn fill_video_element_with_movie_details_preserve_covers(video_element: &mut VideoElement, movie_details: &TMDBMovieDetails)
+{
+    // Store existing cover paths to preserve them
+    let existing_poster = video_element.poster_path.clone();
+    let existing_backdrop = video_element.backdrop_path.clone();
+    let existing_thumbnail = video_element.thumbnail_path.clone();
+
+    // Update all metadata from search result (this includes titles, language, genre, overview, release_date)
+    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, Some(true));
+
+    // Restore existing covers if they were set, otherwise keep the new ones from TMDB
+    if existing_poster.is_some() {
+        video_element.poster_path = existing_poster;
+    }
+    if existing_backdrop.is_some() {
+        video_element.backdrop_path = existing_backdrop;
+    }
+    if existing_thumbnail.is_some() {
+        video_element.thumbnail_path = existing_thumbnail;
+    }
+
+    // Update tagline (from movie details)
+    video_element.tagline = movie_details.tagline.clone();
+
+    // Update countries using production_countries (the corrected field)
+    if let Some(production_countries) = &movie_details.production_countries {
+        let country_codes: Vec<String> = production_countries
+            .iter()
+            .filter_map(|country| country.iso_3166_1.clone())
+            .collect();
+
+        if !country_codes.is_empty() {
+            video_element.countries = Some(country_codes);
+        }
+    }
+
+    // Update director from credits
+    if let Some(credits) = &movie_details.credits {
+        if let Some(crew) = &credits.crew {
+            for crew_member in crew {
+                if let Some(job) = &crew_member.job {
+                    if job == "Director" {
+                        video_element.director = crew_member.tmdb_person.name.clone();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub async fn get_movie_details_for_video_element(
     video_element: &mut VideoElement,
     overwrite: Option<bool>,
@@ -256,8 +334,19 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
 
     if overwrite || video_element.tagline.is_none() 
         { video_element.tagline = movie_details.tagline.clone(); }
-    if overwrite || video_element.countries.is_none()
-        { video_element.countries = movie_details.origin_country.clone()}
+    if overwrite || video_element.countries.is_none() {
+        // Extract ISO country codes from production_countries
+        if let Some(production_countries) = &movie_details.production_countries {
+            let country_codes: Vec<String> = production_countries
+                .iter()
+                .filter_map(|country| country.iso_3166_1.clone())
+                .collect();
+
+            if !country_codes.is_empty() {
+                video_element.countries = Some(country_codes);
+            }
+        }
+    }
         
     if let Some(credits) = &movie_details.credits {
         if let Some(crew) = &credits.crew {

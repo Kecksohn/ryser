@@ -40,6 +40,7 @@ pub fn run() {
                 // Library Rescan
                 rescan_all_libraries_gui,
                 rescan_library_by_id_gui,
+                reparse_all_libraries_preserve_covers_gui,
                 // Library Update
                 update_library_entry_from_gui,
                 search_tmdb_from_gui,

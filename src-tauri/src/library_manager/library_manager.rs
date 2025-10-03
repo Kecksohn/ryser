@@ -210,6 +210,17 @@ pub(crate) async fn rescan_all_libraries() {
     }
 }
 
+/// Reparse all libraries to update country data while preserving covers
+#[tauri::command(rename_all = "snake_case")]
+pub(crate) async fn reparse_all_libraries_preserve_covers() -> Result<(), String> {
+    for lib in LIBRARIES.lock().await.iter_mut() {
+        reparse_library_tmdb_preserve_covers(lib).await
+            .map_err(|e| format!("Could not reparse Library with TMDB: {}", e))?;
+        write_library(lib);
+    }
+    Ok(())
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub(crate) async fn rescan_library_by_id(lib_id: &str) -> Result<(), Error> {
     let index = get_library_index_by_id(lib_id).await

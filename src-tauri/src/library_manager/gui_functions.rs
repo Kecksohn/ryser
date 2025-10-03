@@ -171,6 +171,11 @@ pub(crate) async fn rescan_all_libraries_gui() {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+pub(crate) async fn reparse_all_libraries_preserve_covers_gui() -> Result<(), String> {
+    super::reparse_all_libraries_preserve_covers().await
+}
+
+#[tauri::command(rename_all = "snake_case")]
 pub(crate) async fn rescan_library_by_id_gui(lib_id: &str) -> Result<(), String> {
     return super::rescan_library_by_id(lib_id).await
         .map_err(|e| format!("{}", e));

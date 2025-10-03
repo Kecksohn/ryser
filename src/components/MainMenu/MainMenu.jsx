@@ -30,8 +30,17 @@ export const MainMenu = () => {
     [libraries_loaded];
 
   function update_libraries() {
-    invoke("rescan_all_libraries").then((res) => {
+    invoke("rescan_all_libraries_gui").then((res) => {
       set_libraries_loaded(false);
+    });
+  }
+
+  function reparse_libraries() {
+    invoke("reparse_all_libraries_preserve_covers_gui").then((res) => {
+      console.log("Libraries reparsed successfully");
+      set_libraries_loaded(false); // Refresh the view
+    }).catch((error) => {
+      console.error("Error reparsing libraries:", error);
     });
   }
 
@@ -109,14 +118,19 @@ export const MainMenu = () => {
             Add Library
           </div>
 
-          {
-            <div
-              className={mainMenuStyles.libraryElementAdd}
-              onClick={() => updateLibraries()}
-            >
-              Update Libraries
-            </div>
-          }
+          <div
+            className={mainMenuStyles.libraryElementAdd}
+            onClick={() => update_libraries()}
+          >
+            Update Libraries
+          </div>
+
+          <div
+            className={mainMenuStyles.libraryElementAdd}
+            onClick={() => reparse_libraries()}
+          >
+            Reparse Libraries
+          </div>
         </div>
       )}
     </div>
