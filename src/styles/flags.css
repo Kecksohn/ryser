@@ -1,0 +1,42 @@
+/* BabelStone Flags Font for Historical and Modern Country Flags */
+@font-face {
+    font-family: 'BabelStone Flags';
+    src: url('/fonts/BabelStoneFlags.woff2') format('woff2');
+    font-display: swap;
+    font-weight: normal;
+    font-style: normal;
+}
+
+.flag-emoji {
+    font-family: 'BabelStone Flags', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+    font-size: 1.2em;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.flag-inline {
+    font-size: 1em;
+    margin-right: 0.25em;
+}
+
+.flag-small {
+    font-size: 0.9em;
+}
+
+.flag-large {
+    font-size: 1.5em;
+}
+
+.flag-fallback {
+    font-size: 0.8em;
+    background-color: #f0f0f0;
+    color: #666;
+    padding: 0.1em 0.3em;
+    border-radius: 2px;
+    border: 1px solid #ddd;
+}
+
+.flag-separator {
+    margin: 0 0.1em;
+}

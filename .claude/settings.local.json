@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(cargo check:*)",
+      "Bash(npm run tauri:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:catamphetamine.gitlab.io)",
+      "WebFetch(domain:flagpack.xyz)",
+      "WebFetch(domain:developer.themoviedb.org)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:bundlephobia.com)",
+      "WebFetch(domain:smucode.github.io)",
+      "WebFetch(domain:hampusborgos.github.io)",
+      "WebFetch(domain:commons.wikimedia.org)",
+      "WebFetch(domain:www.babelstone.co.uk)",
+      "WebFetch(domain:flagpedia.net)",
+      "Bash(cargo:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

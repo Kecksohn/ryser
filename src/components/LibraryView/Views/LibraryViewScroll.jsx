@@ -1,6 +1,7 @@
 import React from "react";
 
 import { useContextMenu } from "../../UITools/ContextMenu.jsx";
+import { CountryFlags } from "../../UIElements/CountryFlag.jsx";
 
 import { format_duration } from "../Utils/formatDuration.js";
 
@@ -50,14 +51,11 @@ export const LibraryViewScroll = ({
             )}
             {element.countries && element.countries.length > 0 && (
               <>
-                {element.countries.map((country, i) => {
-                  return (
-                    <span key={element + country}>
-                      {country}
-                      {i < element.countries.length - 1 && <span>, </span>}
-                    </span>
-                  );
-                })}
+                <CountryFlags
+                  countries={element.countries}
+                  size="small"
+                  separator=" "
+                />
                 <br />
               </>
             )}
