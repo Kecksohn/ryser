@@ -3,6 +3,8 @@ use once_cell::sync::Lazy;
 
 use unicode_segmentation::UnicodeSegmentation;
 use chrono::Datelike;
+use std::path::Path;
+use std::fs;
 
 use crate::library_manager::file_manager::file_utils::remove_extension_and_path;
 
@@ -13,6 +15,8 @@ static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\D)(\d{4})(?:$|[
 // Or TV Show name
 static SEASON_EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)s\d{1,2}(?i)e\d+").unwrap());
 static EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"($|\s)(?i)e\d+($|\s)").unwrap());
+static SEASON_EPISODE_X_FORMAT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d{1,2}x\d+").unwrap()); // Matches: 1x05, 12x3
+static FOLDER_SEASON_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)season\s*\d+|(?i)s\d{1,2}").unwrap()); // Matches: Season 1, season 01, S01, s1
 
 // If those fail, we try to find other patterns and take the left-most to find end of movie name
 static FILENAME_NOISE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
@@ -230,4 +234,188 @@ fn remove_square_bracket_text(filename: &str) -> String
 
     // Trim any extra whitespace that might remain
     result.trim().to_string()
+}
+
+
+// Checks if a file is likely a TV episode based on filename and folder context
+// Returns true if high confidence it's a TV episode, false otherwise
+pub(super) fn is_tv_episode(filepath: &str) -> bool
+{
+    let filename = remove_extension_and_path(filepath);
+
+    // Step 1: Check high confidence patterns
+    // S01E05 format (case-insensitive)
+    if SEASON_EPISODE_NUMBER_REGEX.is_match(&filename) {
+        return true;
+    }
+
+    // 1x05 format
+    if SEASON_EPISODE_X_FORMAT_REGEX.is_match(&filename) {
+        return true;
+    }
+
+    // Step 2: Check weak patterns + folder context
+    if EPISODE_NUMBER_REGEX.is_match(&filename) {
+        // Extract folder path from filepath
+        let path = Path::new(filepath);
+        if let Some(parent) = path.parent() {
+            // Check folder for similar files with different episode numbers
+            if verify_with_folder_context(&filename, parent) {
+                return true;
+            }
+
+            // Check if parent folder has season indicators
+            if let Some(folder_name) = parent.file_name() {
+                if let Some(folder_str) = folder_name.to_str() {
+                    if FOLDER_SEASON_REGEX.is_match(folder_str) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Step 3: Check parent folder for season indicators even without episode marker
+    // This catches cases like: /Show Name/Season 1/Episode Title.mkv
+    let path = Path::new(filepath);
+    if let Some(parent) = path.parent() {
+        if let Some(folder_name) = parent.file_name() {
+            if let Some(folder_str) = folder_name.to_str() {
+                if FOLDER_SEASON_REGEX.is_match(folder_str) {
+                    // Also verify this folder has multiple video files (likely episodes)
+                    if count_video_files_in_folder(parent) > 1 {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
+// Verifies TV episode detection by checking for similar filenames in the same folder
+// with different episode numbers
+fn verify_with_folder_context(filename: &str, folder_path: &Path) -> bool
+{
+    // Extract base title by removing episode number pattern
+    let base_title = EPISODE_NUMBER_REGEX.replace(filename, " ").to_string();
+    let base_title = base_title.trim();
+
+    // Read files in the same directory
+    let Ok(entries) = fs::read_dir(folder_path) else {
+        return false;
+    };
+
+    let mut matching_files = 0;
+
+    for entry in entries.flatten() {
+        if let Ok(file_type) = entry.file_type() {
+            if file_type.is_file() {
+                if let Some(entry_filename) = entry.file_name().to_str() {
+                    let entry_name = remove_extension_and_path(entry_filename);
+
+                    // Skip the current file itself
+                    if entry_name == filename {
+                        continue;
+                    }
+
+                    // Check if this file also has an episode pattern
+                    if EPISODE_NUMBER_REGEX.is_match(&entry_name) {
+                        // Remove episode number and compare base titles
+                        let entry_base = EPISODE_NUMBER_REGEX.replace(&entry_name, " ").to_string();
+                        let entry_base = entry_base.trim();
+
+                        // If base titles are similar, it's likely the same show
+                        if similarity(base_title, entry_base) > 0.8 {
+                            matching_files += 1;
+                            // Found at least one similar file with different episode
+                            if matching_files >= 1 {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
+// Counts video files in a folder (used to verify season folders have multiple episodes)
+fn count_video_files_in_folder(folder_path: &Path) -> usize
+{
+    let Ok(entries) = fs::read_dir(folder_path) else {
+        return 0;
+    };
+
+    entries.flatten()
+        .filter(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Some(ext) = entry.path().extension() {
+                        let ext_str = ext.to_str().unwrap_or("").to_lowercase();
+                        return matches!(ext_str.as_str(), "mkv" | "mp4" | "avi" | "mov" | "m2ts");
+                    }
+                }
+            }
+            false
+        })
+        .count()
+}
+
+// Simple string similarity comparison (normalized Levenshtein distance)
+// Returns value between 0.0 (completely different) and 1.0 (identical)
+fn similarity(s1: &str, s2: &str) -> f32
+{
+    if s1 == s2 {
+        return 1.0;
+    }
+
+    let len1 = s1.len();
+    let len2 = s2.len();
+
+    if len1 == 0 || len2 == 0 {
+        return 0.0;
+    }
+
+    let distance = levenshtein_distance(s1, s2);
+    let max_len = len1.max(len2);
+
+    1.0 - (distance as f32 / max_len as f32)
+}
+
+// Calculates Levenshtein distance between two strings
+fn levenshtein_distance(s1: &str, s2: &str) -> usize
+{
+    let len1 = s1.len();
+    let len2 = s2.len();
+
+    if len1 == 0 {
+        return len2;
+    }
+    if len2 == 0 {
+        return len1;
+    }
+
+    let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
+
+    for i in 0..=len1 {
+        matrix[i][0] = i;
+    }
+    for j in 0..=len2 {
+        matrix[0][j] = j;
+    }
+
+    for (i, c1) in s1.chars().enumerate() {
+        for (j, c2) in s2.chars().enumerate() {
+            let cost = if c1 == c2 { 0 } else { 1 };
+            matrix[i + 1][j + 1] = (matrix[i][j + 1] + 1)
+                .min(matrix[i + 1][j] + 1)
+                .min(matrix[i][j] + cost);
+        }
+    }
+
+    matrix[len1][len2]
 }

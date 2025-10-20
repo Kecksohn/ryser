@@ -9,7 +9,7 @@ use tauri_plugin_http::reqwest::{self, Client, Response};
 use super::super::{Library, VideoElement};
 use super::api_token::get_api_token;
 use super::json_structs::*;
-use super::search_name_creator::get_movie_title_and_year_from_filename;
+use super::search_name_creator::{get_movie_title_and_year_from_filename, is_tv_episode};
 
 static TMDB_API_MOVIE_URL: &str = "https://api.themoviedb.org/3/movie/";
 static TMDB_IMAGE_URL: &str = "https://image.tmdb.org/t/p/original";
@@ -159,7 +159,12 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
         if reparse_all || video_element.tmdb_id.is_none() {
             let filename = &video_element.filepath;
 
-            // TODO: Check if filename hints at this being a TV episode
+            // Check if filename hints at this being a TV episode
+            if is_tv_episode(filename) {
+                // TODO: Handle TV show parsing with TMDB TV API
+                println!("Detected TV episode: {}", filename);
+                continue;
+            }
 
             let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
 
