@@ -17,6 +17,10 @@ static SEASON_EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)
 static EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"($|\s)(?i)e\d+($|\s)").unwrap());
 static SEASON_EPISODE_X_FORMAT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d{1,2}x\d+").unwrap()); // Matches: 1x05, 12x3
 static FOLDER_SEASON_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)season\s*\d+|(?i)s\d{1,2}").unwrap()); // Matches: Season 1, season 01, S01, s1
+static DASH_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+-\s+0?\d{1,3}(?:\s+|$)").unwrap()); // Matches: " - 01 ", " - 1 ", " - 001"
+static BRACKETED_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(?:CM)?\d{1,3}\]").unwrap()); // Matches: [01], [CM01]
+static EP_PREFIX_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)ep\.?\s*\d+").unwrap()); // Matches: Ep. 01, Ep 01, ep.01
+static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)special").unwrap()); // Matches: SPECIAL, Special, special
 
 // If those fail, we try to find other patterns and take the left-most to find end of movie name
 static FILENAME_NOISE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
@@ -291,6 +295,33 @@ pub(super) fn is_tv_episode(filepath: &str) -> bool
         }
     }
 
+    // Step 4: Ep. prefix pattern (e.g., "Ep. 01", "Episode 5")
+    if EP_PREFIX_REGEX.is_match(&filename) {
+        return true;
+    }
+
+    // Step 5: Dash-number pattern with folder context (requires 3+ matching files)
+    // e.g., "Show Name - 01", "Show Name - 001"
+    if DASH_NUMBER_REGEX.is_match(&filename) {
+        let path = Path::new(filepath);
+        if let Some(parent) = path.parent() {
+            if verify_dash_number_with_folder_context(&filename, parent, 3) {
+                return true;
+            }
+        }
+    }
+
+    // Step 6: Bracketed number pattern with folder context
+    // e.g., "[01]", "[CM01]"
+    if BRACKETED_NUMBER_REGEX.is_match(&filename) {
+        let path = Path::new(filepath);
+        if let Some(parent) = path.parent() {
+            if verify_bracketed_number_with_folder_context(&filename, parent) {
+                return true;
+            }
+        }
+    }
+
     false
 }
 
@@ -418,4 +449,99 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize
     }
 
     matrix[len1][len2]
+}
+
+// Verifies dash-number pattern by requiring minimum number of similar files
+// This helps avoid false positives with movie series (Fast & Furious 1-8, etc.)
+fn verify_dash_number_with_folder_context(filename: &str, folder_path: &Path, min_matches: usize) -> bool
+{
+    // Extract base title by removing dash-number pattern
+    let base_title = DASH_NUMBER_REGEX.replace(filename, " ").to_string();
+    let base_title = base_title.trim();
+
+    let Ok(entries) = fs::read_dir(folder_path) else {
+        return false;
+    };
+
+    let mut matching_files = 0;
+
+    for entry in entries.flatten() {
+        if let Ok(file_type) = entry.file_type() {
+            if file_type.is_file() {
+                if let Some(entry_filename) = entry.file_name().to_str() {
+                    let entry_name = remove_extension_and_path(entry_filename);
+
+                    // Skip the current file itself
+                    if entry_name == filename {
+                        continue;
+                    }
+
+                    // Check if this file also has dash-number pattern
+                    if DASH_NUMBER_REGEX.is_match(&entry_name) {
+                        // Remove dash-number and compare base titles
+                        let entry_base = DASH_NUMBER_REGEX.replace(&entry_name, " ").to_string();
+                        let entry_base = entry_base.trim();
+
+                        // If base titles are similar, it's likely the same show
+                        if similarity(base_title, entry_base) > 0.8 {
+                            matching_files += 1;
+                            // Need min_matches to confirm it's a TV show
+                            if matching_files >= min_matches {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
+// Verifies bracketed number pattern with folder context
+fn verify_bracketed_number_with_folder_context(filename: &str, folder_path: &Path) -> bool
+{
+    // Extract base title by removing bracketed number pattern
+    let base_title = BRACKETED_NUMBER_REGEX.replace(filename, " ").to_string();
+    let base_title = base_title.trim();
+
+    let Ok(entries) = fs::read_dir(folder_path) else {
+        return false;
+    };
+
+    let mut matching_files = 0;
+
+    for entry in entries.flatten() {
+        if let Ok(file_type) = entry.file_type() {
+            if file_type.is_file() {
+                if let Some(entry_filename) = entry.file_name().to_str() {
+                    let entry_name = remove_extension_and_path(entry_filename);
+
+                    // Skip the current file itself
+                    if entry_name == filename {
+                        continue;
+                    }
+
+                    // Check if this file also has bracketed number pattern
+                    if BRACKETED_NUMBER_REGEX.is_match(&entry_name) {
+                        // Remove bracketed number and compare base titles
+                        let entry_base = BRACKETED_NUMBER_REGEX.replace(&entry_name, " ").to_string();
+                        let entry_base = entry_base.trim();
+
+                        // If base titles are similar, it's likely the same show
+                        if similarity(base_title, entry_base) > 0.8 {
+                            matching_files += 1;
+                            // Found at least one similar file with different episode
+                            if matching_files >= 1 {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    false
 }
