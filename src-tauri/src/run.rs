@@ -45,6 +45,8 @@ pub fn run() {
                 update_library_entry_from_gui,
                 search_tmdb_from_gui,
                 get_covers_from_tmdb,
+                // File Management
+                show_in_explorer,
                 // Video Start
                 start_video_in_mpc,
                 start_video_in_vlc,

@@ -9,7 +9,7 @@ use super::{Library, LibraryPath, VideoElement, FilterPreferences,
 
 use super::tmdb_api::json_structs::*;
 
-use super::file_manager::file_utils::create_valid_filename;
+use super::file_manager::file_utils::{create_valid_filename, reveal_file_in_file_manager};
 use super::utils::*;
 
 use crate::notifications::show_msg_gui;
@@ -233,4 +233,9 @@ pub async fn set_library_filter_preferences(library_id: &str, filter_preferences
         }
     }
     Err(format!("Library {} not found!", library_id))
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub fn show_in_explorer(filepath: &str) -> Result<(), String> {
+    reveal_file_in_file_manager(filepath)
 }

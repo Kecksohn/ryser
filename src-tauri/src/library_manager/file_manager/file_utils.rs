@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn create_valid_filename(input: &str, remove_whitespace: Option<bool>, ascii_only: Option<bool>) -> String {
     
@@ -49,4 +49,29 @@ pub fn remove_extension_and_path(filename: &str) -> String {
             .and_then(|stem| stem.to_str()))
         .unwrap_or(filename)
         .to_string()
+}
+
+/// Shows a file in the system's file manager (Explorer on Windows, Finder on macOS, etc.)
+/// and highlights/selects the file.
+///
+/// This is cross-platform and uses native APIs:
+/// - Windows: SHOpenFolderAndSelectItems
+/// - macOS: NSWorkspace activateFileViewerSelectingURLs
+/// - Linux: D-Bus org.freedesktop.FileManager1.ShowItems
+pub fn reveal_file_in_file_manager(filepath: &str) -> Result<(), String> {
+    let path = PathBuf::from(filepath);
+
+    // Verify the file exists
+    if !path.exists() {
+        return Err(format!("File does not exist: {}", filepath));
+    }
+
+    // Canonicalize to get the absolute, normalized path with proper separators for the OS
+    let canonical_path = path.canonicalize()
+        .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
+
+    // Use the showfile crate which handles cross-platform file revealing
+    showfile::show_path_in_file_manager(&canonical_path);
+
+    Ok(())
 }
