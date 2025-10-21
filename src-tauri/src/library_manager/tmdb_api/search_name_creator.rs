@@ -322,6 +322,17 @@ pub(super) fn is_tv_episode(filepath: &str) -> bool
         }
     }
 
+    // Step 7: "Special" keyword with folder context
+    // e.g., "Show Name Special", "Show Name - Special Episode"
+    if SPECIAL_REGEX.is_match(&filename) {
+        let path = Path::new(filepath);
+        if let Some(parent) = path.parent() {
+            if verify_special_with_folder_context(&filename, parent) {
+                return true;
+            }
+        }
+    }
+
     false
 }
 
@@ -544,4 +555,263 @@ fn verify_bracketed_number_with_folder_context(filename: &str, folder_path: &Pat
     }
 
     false
+}
+
+// Verifies "special" keyword with folder context
+// If other files in the same folder have similar names (without "special" or episode numbers),
+// then this file with "special" is likely also a TV episode
+fn verify_special_with_folder_context(filename: &str, folder_path: &Path) -> bool
+{
+    // Extract base title by removing "special" keyword and normalizing spaces
+    let mut base_title = SPECIAL_REGEX.replace(filename, " ").to_string();
+    base_title = normalize_spaces(&base_title);
+
+    println!("[DEBUG] Special file base_title: '{}'", base_title);
+
+    let Ok(entries) = fs::read_dir(folder_path) else {
+        return false;
+    };
+
+    let mut matching_files = 0;
+
+    for entry in entries.flatten() {
+        if let Ok(file_type) = entry.file_type() {
+            if file_type.is_file() {
+                if let Some(entry_filename) = entry.file_name().to_str() {
+                    let entry_name = remove_extension_and_path(entry_filename);
+
+                    // Skip the current file itself
+                    if entry_name == filename {
+                        continue;
+                    }
+
+                    // For comparison, remove common episode patterns from the other file
+                    let mut entry_base = entry_name.clone();
+
+                    // Remove various episode patterns to get base show name
+                    if SEASON_EPISODE_NUMBER_REGEX.is_match(&entry_base) {
+                        entry_base = SEASON_EPISODE_NUMBER_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    if EPISODE_NUMBER_REGEX.is_match(&entry_base) {
+                        entry_base = EPISODE_NUMBER_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    if SEASON_EPISODE_X_FORMAT_REGEX.is_match(&entry_base) {
+                        entry_base = SEASON_EPISODE_X_FORMAT_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    // Also remove standalone season markers (S01, S1, etc.)
+                    if FOLDER_SEASON_REGEX.is_match(&entry_base) {
+                        entry_base = FOLDER_SEASON_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    if DASH_NUMBER_REGEX.is_match(&entry_base) {
+                        entry_base = DASH_NUMBER_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    if BRACKETED_NUMBER_REGEX.is_match(&entry_base) {
+                        entry_base = BRACKETED_NUMBER_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+                    if EP_PREFIX_REGEX.is_match(&entry_base) {
+                        entry_base = EP_PREFIX_REGEX.replace_all(&entry_base, " ").to_string();
+                    }
+
+                    // Normalize spaces after all replacements
+                    entry_base = normalize_spaces(&entry_base);
+
+                    // Calculate similarity and debug
+                    let sim_score = similarity(&base_title, &entry_base);
+                    println!("[DEBUG] Comparing '{}' vs '{}' = {:.3}", base_title, entry_base, sim_score);
+
+                    // If base titles are similar, it's likely the same show
+                    if sim_score > 0.8 {
+                        matching_files += 1;
+                        // Found at least one similar file - confirms this is a TV episode
+                        if matching_files >= 1 {
+                            println!("[DEBUG] Match found! Confirmed as TV episode.");
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("[DEBUG] No matches found for special file.");
+    false
+}
+
+// Helper function to normalize multiple spaces into single spaces and trim
+fn normalize_spaces(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+// Extracts TV show name, season number, and episode number from filename
+// Returns: (show_name, season_number, episode_number)
+// Returns None for season/episode if not found
+pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<i32>, Option<i32>)
+{
+    let filename = remove_extension_and_path(filepath);
+    let mut show_name = filename.clone();
+    let mut season: Option<i32> = None;
+    let mut episode: Option<i32> = None;
+
+    // Try to find S01E05 format (highest confidence)
+    if let Some(capture) = SEASON_EPISODE_NUMBER_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str();
+
+            // Extract season and episode numbers from the match
+            // Format is like "S01E05" or "s2e10"
+            let upper = matched_str.to_uppercase();
+            if let Some(s_pos) = upper.find('S') {
+                if let Some(e_pos) = upper.find('E') {
+                    // Extract season number between 'S' and 'E'
+                    let season_str = &upper[s_pos + 1..e_pos];
+                    season = season_str.parse::<i32>().ok();
+
+                    // Extract episode number after 'E'
+                    let episode_str = &upper[e_pos + 1..];
+                    episode = episode_str.parse::<i32>().ok();
+                }
+            }
+
+            // Extract show name (everything before the match)
+            show_name = filename[..matched.start()].to_string();
+        }
+    }
+    // Try 1x05 format
+    else if let Some(capture) = SEASON_EPISODE_X_FORMAT_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str();
+
+            // Split on 'x' to get season and episode
+            let parts: Vec<&str> = matched_str.split('x').collect();
+            if parts.len() == 2 {
+                season = parts[0].parse::<i32>().ok();
+                episode = parts[1].parse::<i32>().ok();
+            }
+
+            show_name = filename[..matched.start()].to_string();
+        }
+    }
+    // Try E05 format with folder context for season
+    else if let Some(capture) = EPISODE_NUMBER_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str().trim();
+
+            // Extract episode number (after 'E')
+            let upper = matched_str.to_uppercase();
+            if let Some(e_pos) = upper.find('E') {
+                let episode_str = &upper[e_pos + 1..].trim();
+                episode = episode_str.parse::<i32>().ok();
+            }
+
+            show_name = filename[..matched.start()].to_string();
+
+            // Try to extract season from folder path
+            let path = Path::new(filepath);
+            if let Some(parent) = path.parent() {
+                if let Some(folder_name) = parent.file_name() {
+                    if let Some(folder_str) = folder_name.to_str() {
+                        season = extract_season_from_folder(folder_str);
+                    }
+                }
+            }
+        }
+    }
+    // Try dash-number format (e.g., "Show Name - 01")
+    else if let Some(capture) = DASH_NUMBER_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str().trim();
+
+            // Extract episode number from the dash pattern
+            let number_str = matched_str.trim_start_matches('-').trim();
+            episode = number_str.parse::<i32>().ok();
+
+            show_name = filename[..matched.start()].to_string();
+
+            // Try to extract season from folder path
+            let path = Path::new(filepath);
+            if let Some(parent) = path.parent() {
+                if let Some(folder_name) = parent.file_name() {
+                    if let Some(folder_str) = folder_name.to_str() {
+                        season = extract_season_from_folder(folder_str);
+                    }
+                }
+            }
+        }
+    }
+    // Try bracketed number format (e.g., "[01]")
+    else if let Some(capture) = BRACKETED_NUMBER_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str();
+
+            // Extract number from brackets, removing any prefix like "CM"
+            let number_str = matched_str.trim_matches(|c| c == '[' || c == ']');
+            let number_str = number_str.trim_start_matches(|c: char| !c.is_numeric());
+            episode = number_str.parse::<i32>().ok();
+
+            show_name = filename[..matched.start()].to_string();
+
+            // Try to extract season from folder path
+            let path = Path::new(filepath);
+            if let Some(parent) = path.parent() {
+                if let Some(folder_name) = parent.file_name() {
+                    if let Some(folder_str) = folder_name.to_str() {
+                        season = extract_season_from_folder(folder_str);
+                    }
+                }
+            }
+        }
+    }
+    // Try Ep. format (e.g., "Ep. 01", "Episode 5")
+    else if let Some(capture) = EP_PREFIX_REGEX.captures(&filename) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str();
+
+            // Extract episode number from the match
+            let number_str: String = matched_str.chars()
+                .filter(|c| c.is_numeric())
+                .collect();
+            episode = number_str.parse::<i32>().ok();
+
+            show_name = filename[..matched.start()].to_string();
+
+            // Try to extract season from folder path
+            let path = Path::new(filepath);
+            if let Some(parent) = path.parent() {
+                if let Some(folder_name) = parent.file_name() {
+                    if let Some(folder_str) = folder_name.to_str() {
+                        season = extract_season_from_folder(folder_str);
+                    }
+                }
+            }
+        }
+    }
+
+    // Clean up show name
+    show_name = show_name.trim().to_string();
+    // Remove square brackets content from show name
+    show_name = remove_square_bracket_text(&show_name);
+    // Convert special chars to spaces
+    show_name = make_alphanumeric_with_spaces(&show_name);
+    show_name = show_name.trim().to_string();
+
+    (show_name, season, episode)
+}
+
+// Helper function to extract season number from folder name
+// Handles formats like: "Season 1", "Season 01", "S01", "s1"
+fn extract_season_from_folder(folder_name: &str) -> Option<i32>
+{
+    if let Some(capture) = FOLDER_SEASON_REGEX.captures(folder_name) {
+        if let Some(matched) = capture.get(0) {
+            let matched_str = matched.as_str();
+
+            // Extract numbers from the match
+            let number_str: String = matched_str.chars()
+                .filter(|c| c.is_numeric())
+                .collect();
+
+            return number_str.parse::<i32>().ok();
+        }
+    }
+    None
 }

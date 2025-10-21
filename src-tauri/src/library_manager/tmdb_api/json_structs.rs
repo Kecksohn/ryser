@@ -156,10 +156,101 @@ pub(super) struct TMDBImage {
 // Helpers
 use tauri_plugin_http::reqwest::Response;
 
+// TV Show Structs
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBSearchTVResult {
+    pub page: usize,
+    pub results: Vec<TMDBTVShow>,
+    pub total_pages: usize,
+    pub total_results: usize,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBTVShow {
+    pub adult: Option<bool>,
+    pub backdrop_path: Option<String>,
+    pub genre_ids: Option<Vec<usize>>,
+    pub id: Option<usize>,
+    pub origin_country: Option<Vec<String>>,
+    pub original_language: Option<String>,
+    pub original_name: Option<String>,
+    pub overview: Option<String>,
+    pub popularity: Option<f32>,
+    pub poster_path: Option<String>,
+    pub first_air_date: Option<String>,
+    pub name: Option<String>,
+    pub vote_average: Option<f32>,
+    pub vote_count: Option<usize>,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBTVShowDetails {
+    #[serde(flatten)]
+    pub tmdb_tv_show: TMDBTVShow,
+
+    pub created_by: Option<Vec<TMDBCreator>>,
+    pub episode_run_time: Option<Vec<i32>>,
+    pub genres: Option<Vec<TMDBGenre>>,
+    pub homepage: Option<String>,
+    pub in_production: Option<bool>,
+    pub languages: Option<Vec<String>>,
+    pub last_air_date: Option<String>,
+    pub number_of_episodes: Option<i32>,
+    pub number_of_seasons: Option<i32>,
+    pub production_companies: Option<Vec<TMDBProductionCompanies>>,
+    pub production_countries: Option<Vec<TMDBProductionCountries>>,
+    pub seasons: Option<Vec<TMDBSeason>>,
+    pub status: Option<String>,
+    pub tagline: Option<String>,
+    pub type_field: Option<String>,
+
+    // Possible appends
+    pub credits: Option<TMDBCredits>,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBCreator {
+    pub id: Option<usize>,
+    pub credit_id: Option<String>,
+    pub name: Option<String>,
+    pub gender: Option<usize>,
+    pub profile_path: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBSeason {
+    pub air_date: Option<String>,
+    pub episode_count: Option<i32>,
+    pub id: Option<usize>,
+    pub name: Option<String>,
+    pub overview: Option<String>,
+    pub poster_path: Option<String>,
+    pub season_number: Option<i32>,
+}
+
+#[derive(Deserialize, Debug)]
+pub(super) struct TMDBEpisodeDetails {
+    pub air_date: Option<String>,
+    pub episode_number: Option<i32>,
+    pub id: Option<usize>,
+    pub name: Option<String>,
+    pub overview: Option<String>,
+    pub production_code: Option<String>,
+    pub runtime: Option<i32>,
+    pub season_number: Option<i32>,
+    pub show_id: Option<usize>,
+    pub still_path: Option<String>,
+    pub vote_average: Option<f32>,
+    pub vote_count: Option<usize>,
+    pub crew: Option<Vec<TMDBCrew>>,
+    pub guest_stars: Option<Vec<TMDBCast>>,
+}
+
+
 pub(super) async fn print_response_json(response: Response) -> Result<(), Error> {
     let json_value: serde_json::Value = response.json().await
         .map_err(|e| anyhow!("Failed to parse JSON: {}", e))?;
-    
+
     // Print the JSON in a pretty format to see the structure
     println!("JSON Response:\n{}", serde_json::to_string_pretty(&json_value).unwrap());
     Ok(())

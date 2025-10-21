@@ -126,10 +126,32 @@ pub(crate) async fn add_library(mut lib: Library) {
     }
 
     write_library(&lib);
+    let lib_id = lib.id.clone();
     LIBRARIES.lock().await.push(lib);
     LIBRARIES.lock().await.sort_by_key(|lib| lib.name.clone());
 
-    // TODO: Start async parsing
+    // Parse library with TMDB asynchronously
+    async_runtime::spawn(async move {
+        // Get the library by ID from LIBRARIES
+        let index = match get_library_index_by_id(&lib_id).await {
+            Ok(idx) => idx,
+            Err(e) => {
+                println!("Error finding library '{}' for TMDB parsing: {}", lib_id, e);
+                return;
+            }
+        };
+
+        let mut libraries = LIBRARIES.lock().await;
+        match parse_library_tmdb(&mut libraries[index], Some(false)).await {
+            Ok(()) => {
+                println!("TMDB parsing complete for library: {}", libraries[index].name);
+                write_library(&libraries[index]);
+            }
+            Err(e) => {
+                println!("Error parsing library '{}' with TMDB: {}", libraries[index].name, e);
+            }
+        }
+    });
 }
 
 pub(crate) async fn delete_library(lib_id: &str) -> Result<(), Error> {
