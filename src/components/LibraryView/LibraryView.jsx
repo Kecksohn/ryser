@@ -29,6 +29,42 @@ export const LibraryView = () => {
   const [library_elements_loaded, set_library_elements_loaded] =
     useState(false);
 
+  // Per-movie audio/subtitle track choice, keyed by filepath. Initialised from
+  // the auto-computed playback_selection; "none" subtitle = no subtitles.
+  const [track_selections, set_track_selections] = useState({});
+
+  function derive_track_selection(video, selections) {
+    const existing = selections[video.filepath];
+    if (existing) return existing;
+    const sel = video.playback_selection ?? {};
+    return {
+      audio_index: sel.audio_index ?? 0,
+      subtitle_index:
+        sel.subtitle_status === "Selected" ? sel.subtitle_index : "none",
+    };
+  }
+
+  function get_track_selection(video) {
+    return derive_track_selection(video, track_selections);
+  }
+
+  function set_audio_selection(video, audio_index) {
+    set_track_selections((prev) => ({
+      ...prev,
+      [video.filepath]: { ...derive_track_selection(video, prev), audio_index },
+    }));
+  }
+
+  function set_subtitle_selection(video, subtitle_index) {
+    set_track_selections((prev) => ({
+      ...prev,
+      [video.filepath]: {
+        ...derive_track_selection(video, prev),
+        subtitle_index,
+      },
+    }));
+  }
+
   useEffect(() => {
     if (!library_elements_loaded) {
       set_library_elements_loaded(true);
@@ -62,12 +98,13 @@ export const LibraryView = () => {
   // Functions
 
   async function launch_video(video) {
-    const sel = video.playback_selection ?? {};
-    const subtitle_selected = sel.subtitle_status === "Selected";
+    const sel = get_track_selection(video);
+    const subtitle_track =
+      sel.subtitle_index === "none" ? null : sel.subtitle_index;
     const process_id_option = await invoke("start_video_in_mpc", {
       filepath: video.filepath,
       audio_track: sel.audio_index ?? null,
-      subtitle_track: subtitle_selected ? sel.subtitle_index : null,
+      subtitle_track: subtitle_track,
     });
     if (!process_id_option) {
       console.log("Failed to start videoplayer!");
@@ -318,6 +355,9 @@ export const LibraryView = () => {
               library_elements={filtered_library_elements}
               get_context_menu_options={get_context_menu_options}
               launch_video={launch_video}
+              get_track_selection={get_track_selection}
+              on_audio_change={set_audio_selection}
+              on_subtitle_change={set_subtitle_selection}
             />
           </div>
         }

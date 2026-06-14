@@ -12,17 +12,24 @@ const MPC_PATH: &str = "C:/Program Files (x86)/K-Lite Codec Pack/MPC-HC64/mpc-hc
 // registry before launch). No authentication. See WebClientSocket.cpp.
 const MPC_WEB_ADDR: &str = "127.0.0.1:13579";
 const MPC_WEB_PORT: u32 = 13579;
-// MPC-HC command IDs (src/mpc-hc/resource.h). We deliberately avoid the
-// menu-subitem IDs (2200/2300+index): their offset depends on which internal
-// filters are loaded (audio switcher prepends an "Options" entry, the subtitle
-// renderer prepends 6 control items), so a static offset mis-selects and can
-// pop up the Styles/Options dialog. Instead we step the enabled stream with the
-// next-track commands and converge using the readback from variables.html.
-const MPC_ID_STREAM_AUDIO_NEXT: u32 = 952;
-const MPC_ID_STREAM_SUB_NEXT: u32 = 954;
+// MPC-HC command IDs (src/mpc-hc/resource.h). Selecting a track directly =
+// menu-subitem base + a fixed menu offset + the stream's 0-based ordinal
+// (MainFrm.cpp OnPlayAudio/OnPlaySubtitles):
+//   audio menu: index 0 is an "Options" entry, tracks follow -> offset 1
+//   subtitle menu (internal renderer): 6 control entries precede the list -> offset 6
+// These offsets also keep us clear of the Options/Styles dialog entries. They
+// assume MPC-HC's default filters (internal audio switcher + subtitle renderer),
+// which is the standard K-Lite setup.
+const MPC_ID_AUDIO_SUBITEM_START: usize = 2200;
+const MPC_AUDIO_MENU_OFFSET: usize = 1;
+const MPC_ID_SUBTITLES_SUBITEM_START: usize = 2300;
+const MPC_SUBTITLE_MENU_OFFSET: usize = 6;
 const MPC_ID_STREAM_SUB_ONOFF: u32 = 956; // toggles subtitle visibility
-// Upper bound on cycling steps; far above any real track count.
-const MPC_MAX_CYCLE_STEPS: usize = 50;
+// After the initial select, verify a few times and re-send ONLY if MPC's
+// load-time auto-selection clobbered our choice. MPC has no per-file track
+// memory, so normally the first select sticks and we exit after one check -
+// re-sending an already-correct track needlessly re-inits it (visible hitch).
+const MPC_VERIFY_ROUNDS: usize = 3;
 
 // region: --- VLC
 
@@ -119,49 +126,66 @@ fn apply_mpc_track_selection(file_name: &str, audio_track: Option<usize>, subtit
     // Small settle delay so the stream lists are populated before we select.
     std::thread::sleep(Duration::from_millis(300));
 
-    if let Some(target) = audio_track {
-        converge_track(file_name, "audiotrack", MPC_ID_STREAM_AUDIO_NEXT, target);
-    }
-    match subtitle_track {
-        Some(target) => converge_track(file_name, "subtitletrack", MPC_ID_STREAM_SUB_NEXT, target),
-        // No subtitle wanted: MPC enables one by default, so toggle it off.
-        None => mpc_command(MPC_ID_STREAM_SUB_ONOFF),
-    }
-}
+    // Pre-compute the command IDs that directly select the wanted streams.
+    let audio_cmd =
+        audio_track.map(|i| (MPC_ID_AUDIO_SUBITEM_START + MPC_AUDIO_MENU_OFFSET + i) as u32);
+    let subtitle_cmd =
+        subtitle_track.map(|i| (MPC_ID_SUBTITLES_SUBITEM_START + MPC_SUBTITLE_MENU_OFFSET + i) as u32);
 
-/// Step the enabled audio/subtitle stream forward (which wraps) until the
-/// readback variable equals the target ordinal. Robust to MPC's menu layout
-/// because both the step command and the readback use the real stream index.
-///
-/// Stops as soon as a readback value repeats (a full cycle completed without a
-/// match → target unreachable) so we never hammer MPC with rapid track
-/// switches, and bails if MPC has switched to a different file.
-fn converge_track(file_name: &str, var_id: &str, next_cmd: u32, target: usize) {
-    let mut seen = std::collections::HashSet::new();
-    for _ in 0..MPC_MAX_CYCLE_STEPS {
+    // No subtitle wanted: MPC enables one by default, so toggle it off (once).
+    if subtitle_track.is_none() {
+        mpc_command(MPC_ID_STREAM_SUB_ONOFF);
+    }
+
+    // Select the wanted tracks once.
+    if let Some(cmd) = audio_cmd {
+        mpc_command(cmd);
+    }
+    if let Some(cmd) = subtitle_cmd {
+        mpc_command(cmd);
+    }
+
+    // Record what we landed on, then verify a few times: re-send only if MPC's
+    // load-time auto-select later overrode us (avoids re-initialising an already
+    // correct track, which causes a visible hitch). Exit as soon as it's stable.
+    std::thread::sleep(Duration::from_millis(300));
+    let (mut expected_audio, mut expected_subtitle) = match mpc_get("/variables.html") {
+        Some(body) => (
+            extract_var_str(&body, "audiotrack"),
+            extract_var_str(&body, "subtitletrack"),
+        ),
+        None => (None, None),
+    };
+    for _ in 0..MPC_VERIFY_ROUNDS {
+        std::thread::sleep(Duration::from_millis(400));
         let Some(body) = mpc_get("/variables.html") else {
-            return;
+            break;
         };
         if !body_is_our_file(&body, file_name) {
-            println!("MPC: file changed; abandoning {} selection", var_id);
-            return;
+            return; // MPC's single instance switched movies; leave it alone.
         }
-        match extract_var(&body, var_id) {
-            Some(current) if current == target as i64 => return, // reached target
-            Some(current) => {
-                if !seen.insert(current) {
-                    // Value already seen: we've cycled through every track without
-                    // a match. Stop rather than thrash the renderer.
-                    println!("MPC: target {} for {} unreachable (cycled); leaving as-is", target, var_id);
-                    return;
-                }
+        let mut drifted = false;
+        if let Some(cmd) = audio_cmd {
+            if extract_var_str(&body, "audiotrack") != expected_audio {
+                mpc_command(cmd);
+                drifted = true;
             }
-            None => return, // no readback; give up quietly
         }
-        mpc_command(next_cmd);
-        std::thread::sleep(Duration::from_millis(200));
+        if let Some(cmd) = subtitle_cmd {
+            if extract_var_str(&body, "subtitletrack") != expected_subtitle {
+                mpc_command(cmd);
+                drifted = true;
+            }
+        }
+        if !drifted {
+            break; // selection held; nothing more to do
+        }
+        // Re-read the names we just re-asserted to compare against next round.
+        if let Some(body) = mpc_get("/variables.html") {
+            expected_audio = extract_var_str(&body, "audiotrack");
+            expected_subtitle = extract_var_str(&body, "subtitletrack");
+        }
     }
-    println!("MPC: step limit reached converging {} to {}", var_id, target);
 }
 
 /// True if MPC's variables.html shows our file as the currently loaded one.
@@ -169,8 +193,8 @@ fn body_is_our_file(body: &str, file_name: &str) -> bool {
     body.contains(file_name)
 }
 
-fn mpc_command(id: u32) {
-    let _ = mpc_get(&format!("/command.html?wm_command={}", id));
+fn mpc_command(id: u32) -> bool {
+    mpc_get(&format!("/command.html?wm_command={}", id)).is_some()
 }
 
 /// Minimal blocking HTTP/1.0 GET against the local MPC-HC web server.
@@ -189,14 +213,21 @@ fn mpc_get(path: &str) -> Option<String> {
     response.split_once("\r\n\r\n").map(|(_, body)| body.to_string())
 }
 
-/// Extract an integer from MPC-HC's `variables.html`, e.g.
-/// `<p id="duration">12345</p>`.
-fn extract_var(body: &str, id: &str) -> Option<i64> {
+/// Extract the text content of a `variables.html` field, e.g. the body of
+/// `<p id="audiotrack">A: Original [por] ...</p>`.
+fn extract_var_str(body: &str, id: &str) -> Option<String> {
     let needle = format!("id=\"{}\">", id);
     let start = body.find(&needle)? + needle.len();
     let rest = &body[start..];
     let end = rest.find('<')?;
-    rest[..end].trim().parse::<i64>().ok()
+    let value = rest[..end].trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+/// Extract an integer field from `variables.html`, e.g.
+/// `<p id="duration">12345</p>`.
+fn extract_var(body: &str, id: &str) -> Option<i64> {
+    extract_var_str(body, id)?.parse::<i64>().ok()
 }
 
 // endregion: --- MPC-HC
