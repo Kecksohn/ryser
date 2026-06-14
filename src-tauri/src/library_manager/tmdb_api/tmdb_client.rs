@@ -164,28 +164,24 @@ async fn search_tv_show
     let include_adult = include_adult.unwrap_or(false);
     let page = page.unwrap_or(1);
 
-    let search_tv_url = {
-        let mut url = String::from("https://api.themoviedb.org/3/search/tv?query=");
-        url.push_str(tv_show_name);
-        url.push_str("&include_adult=");
-        url.push_str(match include_adult {true => "true", false => "false"} );
-        url.push_str("&page=");
-        url.push_str(page.to_string().as_str());
+    // Build URL via parse_with_params so the query value (and any other params)
+    // are percent-encoded. Concatenating raw breaks on spaces/&/special chars.
+    let mut params: Vec<(&str, String)> = vec![
+        ("query", tv_show_name.to_string()),
+        ("include_adult", include_adult.to_string()),
+        ("page", page.to_string()),
+    ];
+    if let Some(year) = first_air_date_year {
+        params.push(("first_air_date_year", year.to_string()));
+    }
+    if let Some(language) = language {
+        params.push(("language", language.to_string()));
+    }
 
-        if let Some(year) = first_air_date_year {
-            url.push_str("&first_air_date_year=");
-            url.push_str(year.to_string().as_str());
-        }
+    let search_tv_url = reqwest::Url::parse_with_params("https://api.themoviedb.org/3/search/tv", &params)
+        .map_err(|e| anyhow!("Could not build TV search URL: {}", e))?;
 
-        if let Some(language) = language {
-            url.push_str("&language=");
-            url.push_str(language.to_string().as_str());
-        }
-
-        url
-    };
-
-    let response = call_tmdb_api(client, &search_tv_url, api_token).await?;
+    let response = call_tmdb_api(client, search_tv_url.as_str(), api_token).await?;
 
     response.json().await
         .map_err(|e| anyhow!("Could not parse TV Search JSON: {}", e))
