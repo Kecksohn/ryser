@@ -3,6 +3,8 @@ use chrono::{serde::ts_milliseconds, DateTime, Utc};
 
 use std::fmt;
 
+use super::playback_selection::PlaybackSelection;
+
 
 #[derive(Default, Clone, serde::Serialize, Deserialize, Debug)]
 pub struct VideoElement {
@@ -25,6 +27,12 @@ pub struct VideoElement {
     pub tmdb_language: Option<String>,
     pub audio_languages: Option<Vec<String>>,
     pub subtitle_languages: Option<Vec<String>>,
+    #[serde(default)]
+    pub audio_titles: Option<Vec<Option<String>>>,
+    #[serde(default)]
+    pub subtitle_titles: Option<Vec<Option<String>>>,
+    #[serde(default)]
+    pub playback_selection: Option<PlaybackSelection>,
 
     pub season: Option<i32>,
     pub episode: Option<i32>,

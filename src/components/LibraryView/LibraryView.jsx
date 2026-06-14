@@ -62,8 +62,12 @@ export const LibraryView = () => {
   // Functions
 
   async function launch_video(video) {
+    const sel = video.playback_selection ?? {};
+    const subtitle_selected = sel.subtitle_status === "Selected";
     const process_id_option = await invoke("start_video_in_mpc", {
       filepath: video.filepath,
+      audio_track: sel.audio_index ?? null,
+      subtitle_track: subtitle_selected ? sel.subtitle_index : null,
     });
     if (!process_id_option) {
       console.log("Failed to start videoplayer!");

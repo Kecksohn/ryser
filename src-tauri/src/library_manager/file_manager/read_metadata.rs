@@ -9,6 +9,55 @@ pub(super) fn get_duration_in_s(filepath: &str) -> Result<f64, ffmpeg::Error> {
     }
 }
 
+/// Ordered language tags + titles for the tracks of one media type.
+/// The position in each `Vec` equals the type-relative ordinal that media
+/// players use (e.g. VLC `--audio-track` / `--sub-track`), NOT the global
+/// ffmpeg stream index. Untagged tracks get `"und"`.
+#[derive(Default, Debug, Clone)]
+pub(super) struct TrackInfo {
+    pub languages: Vec<String>,
+    pub titles: Vec<Option<String>>,
+}
+
+fn get_tracks(filepath: &str, kind: ffmpeg::media::Type) -> TrackInfo {
+    let mut info = TrackInfo::default();
+    if ffmpeg::init().is_err() {
+        return info;
+    }
+    match ffmpeg::format::input(filepath) {
+        Ok(context) => {
+            for stream in context.streams() {
+                let codec =
+                    match ffmpeg::codec::context::Context::from_parameters(stream.parameters()) {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+                if codec.medium() != kind {
+                    continue;
+                }
+                let lang = stream
+                    .metadata()
+                    .get("language")
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "und".to_string());
+                let title = stream.metadata().get("title").map(|s| s.to_string());
+                info.languages.push(lang);
+                info.titles.push(title);
+            }
+        }
+        Err(error) => println!("Could not read tracks for {}: {}", filepath, error),
+    }
+    info
+}
+
+pub(super) fn get_audio_tracks(filepath: &str) -> TrackInfo {
+    get_tracks(filepath, ffmpeg::media::Type::Audio)
+}
+
+pub(super) fn get_subtitle_tracks(filepath: &str) -> TrackInfo {
+    get_tracks(filepath, ffmpeg::media::Type::Subtitle)
+}
+
 pub(super) fn print_all_metadata(filepath: &str) -> Result<(), ffmpeg::Error> {
     ffmpeg::init()?;
 

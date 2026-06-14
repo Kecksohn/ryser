@@ -6,6 +6,8 @@ mod json_parser;
 mod tmdb_api;
 mod utils;
 mod video_element;
+mod lang_map;
+mod playback_selection;
 
 mod error;
 
@@ -13,6 +15,7 @@ mod error;
 
 pub use library_manager::*;
 pub use video_element::*;
+pub use playback_selection::*;
 pub use error::*;
 
 // -- Public Modules

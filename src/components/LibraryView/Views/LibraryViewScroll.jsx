@@ -4,6 +4,20 @@ import { useContextMenu } from "../../UITools/ContextMenu.jsx";
 
 import { format_duration } from "../Utils/formatDuration.js";
 
+function format_subtitles(sel) {
+  switch (sel.subtitle_status) {
+    case "Selected":
+      return `${sel.subtitle_lang ?? "?"}${
+        sel.subtitle_index != null ? ` [${sel.subtitle_index}]` : ""
+      }`;
+    case "NotNeeded":
+      return "[not needed]";
+    case "Unavailable":
+    default:
+      return "[unavailable]";
+  }
+}
+
 import tmdbResultsStyles from "../LibraryDataManagement/TMDBResults.module.css";
 
 export const LibraryViewScroll = ({
@@ -58,6 +72,18 @@ export const LibraryViewScroll = ({
             <br />
             {format_duration(element.length_in_seconds)}
             <br />
+            {element.playback_selection && (
+              <>
+                <span>
+                  Language: {element.playback_selection.audio_lang ?? "?"}
+                  {element.playback_selection.audio_index != null &&
+                    ` [${element.playback_selection.audio_index}]`}
+                </span>
+                <br />
+                <span>Subtitles: {format_subtitles(element.playback_selection)}</span>
+                <br />
+              </>
+            )}
             {element.watched && <span style={{ color: "green" }}>Watched</span>}
           </div>
         </div>
