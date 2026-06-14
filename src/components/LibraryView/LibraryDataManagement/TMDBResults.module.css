@@ -35,3 +35,16 @@
   flex-direction: column; /* Stack children vertically */
   justify-content: center; /* Center vertically */
 }
+
+.trackSelector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  cursor: default;
+}
+
+.trackSelector select {
+  max-width: 70%;
+  cursor: pointer;
+}

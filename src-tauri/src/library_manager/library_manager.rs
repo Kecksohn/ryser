@@ -221,6 +221,30 @@ pub(crate) async fn reparse_all_libraries_preserve_covers() -> Result<(), String
     Ok(())
 }
 
+/// One-time backfill of track metadata for entries scanned before the
+/// audio-selection feature existed (they have `audio_languages == None`).
+/// Parses each such file once and persists. New entries are already filled at
+/// creation, so this is a no-op on subsequent runs.
+pub(crate) async fn backfill_all_track_metadata() {
+    for lib in LIBRARIES.lock().await.iter_mut() {
+        backfill_library_track_metadata(lib);
+    }
+}
+
+fn backfill_library_track_metadata(lib: &mut Library) {
+    let mut changed = 0;
+    for ve in lib.video_files.iter_mut() {
+        if ve.audio_languages.is_none() {
+            fill_track_metadata(ve);
+            changed += 1;
+        }
+    }
+    if changed > 0 {
+        println!("Backfilled track metadata for {} files in '{}'", changed, lib.id);
+        write_library(lib);
+    }
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub(crate) async fn rescan_library_by_id(lib_id: &str) -> Result<(), Error> {
     let index = get_library_index_by_id(lib_id).await

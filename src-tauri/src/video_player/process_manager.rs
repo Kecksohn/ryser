@@ -9,9 +9,9 @@ pub struct ProcessManager {
 }
 
 
-pub(super) fn start_process(filepath: &str, args: &str,  state: State<Arc<ProcessManager>>) -> Option<u32> {
-    let process = Command::new(filepath)
-        .arg(args)
+pub(super) fn start_process(executable: &str, args: &[String], state: State<Arc<ProcessManager>>) -> Option<u32> {
+    let process = Command::new(executable)
+        .args(args)
         .spawn()
         .ok()?; // Start process, return None on failure
 
