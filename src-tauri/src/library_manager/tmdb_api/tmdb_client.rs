@@ -6,7 +6,7 @@ use serde::Deserialize;
 use tauri_plugin_http::reqwest::header::USER_AGENT;
 use tauri_plugin_http::reqwest::{self, Client, Response};
 
-use super::super::{Library, VideoElement};
+use super::super::{compute_selection, Library, VideoElement};
 use super::api_token::get_api_token;
 use super::json_structs::*;
 use super::search_name_creator::{get_movie_title_and_year_from_filename, get_tv_show_info_from_filename, is_tv_episode};
@@ -429,6 +429,9 @@ fn fill_video_element_with_movie_details_preserve_covers(video_element: &mut Vid
             }
         }
     }
+
+    // tmdb_language may have changed during reparse; recompute audio/subtitle selection.
+    video_element.playback_selection = Some(compute_selection(video_element));
 }
 
 pub async fn get_movie_details_for_video_element(
@@ -534,6 +537,8 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
     Rest of crew/cast
     */
 
+    // tmdb_language is now known; recompute audio/subtitle selection.
+    video_element.playback_selection = Some(compute_selection(video_element));
 }
 
 // ==================== TV Show Fill Functions ====================
@@ -592,6 +597,9 @@ fn fill_video_element_with_tv_show_only(
         tv_show_details.tmdb_tv_show.name.as_ref().unwrap_or(&"!MISSING!".to_string()),
         season_number,
         episode_number);
+
+    // tmdb_language is now known; recompute audio/subtitle selection.
+    video_element.playback_selection = Some(compute_selection(video_element));
 }
 
 /// Fill video element with TV episode details
@@ -705,6 +713,9 @@ fn fill_video_element_with_tv_episode(
             }
         }
     }
+
+    // tmdb_language is now known; recompute audio/subtitle selection.
+    video_element.playback_selection = Some(compute_selection(video_element));
 }
 
 

@@ -4,8 +4,8 @@ use std::{
     path::PathBuf,
 };
 
-use super::super::{VideoElement, LIBRARIES};
-use super::read_metadata::get_duration_in_s;
+use super::super::{compute_selection, VideoElement, LIBRARIES};
+use super::read_metadata::{get_audio_tracks, get_duration_in_s, get_subtitle_tracks};
 
 pub fn get_modified_secs(filepath: &str) -> usize {
     // Get modification timestamp from file.
@@ -32,9 +32,25 @@ pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
             println!("Get duration of video file failed with Error: {}", error);
         }
     }
+
+    fill_track_metadata(&mut ve);
+
     let modified = get_modified_secs(filepath);
     ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
     ve
+}
+
+/// Parse audio/subtitle track languages + titles from the file and (re)compute
+/// the playback selection. `tmdb_language` may not be set yet at scan time; the
+/// selection is recomputed again after TMDB enrich.
+pub(crate) fn fill_track_metadata(ve: &mut VideoElement) {
+    let audio = get_audio_tracks(&ve.filepath);
+    ve.audio_languages = Some(audio.languages);
+    ve.audio_titles = Some(audio.titles);
+    let subs = get_subtitle_tracks(&ve.filepath);
+    ve.subtitle_languages = Some(subs.languages);
+    ve.subtitle_titles = Some(subs.titles);
+    ve.playback_selection = Some(compute_selection(ve));
 }
 
 pub fn get_video_files(folder_path: &str) -> Vec<VideoElement> {
