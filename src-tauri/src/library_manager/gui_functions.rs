@@ -157,11 +157,12 @@ pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement
 
 #[tauri::command(rename_all = "snake_case")]
 pub async fn get_covers_from_tmdb(
-    tmdb_id: usize, 
-    sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
-    filter_other_languages: Option<bool> 
+    tmdb_id: usize,
+    is_tv: Option<bool>,
+    sort_by_languages_in_iso_639_1: Option<Vec<String>>,
+    filter_other_languages: Option<bool>
 ) -> Result<Vec<String>, String> {
-    get_additional_covers(tmdb_id, sort_by_languages_in_iso_639_1, filter_other_languages).await
+    get_additional_covers(tmdb_id, is_tv.unwrap_or(false), sort_by_languages_in_iso_639_1, filter_other_languages).await
         .map_err(|e| format!("Could not get TMDB covers: {}", e))
 }
 

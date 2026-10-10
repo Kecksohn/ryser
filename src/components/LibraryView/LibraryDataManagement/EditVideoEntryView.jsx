@@ -93,6 +93,7 @@ export const EditVideoEntryView = ({
       // TODO: Also send language sort order when they're in video_element
       await invoke("get_covers_from_tmdb", {
         tmdb_id: video_entry.tmdb_id,
+        is_tv: video_entry.season != null,
       })
         .then((poster_paths) => {
           set_tmdb_cover_results(poster_paths);

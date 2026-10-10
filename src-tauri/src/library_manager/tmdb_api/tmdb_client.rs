@@ -358,6 +358,34 @@ pub async fn reparse_library_tmdb_preserve_covers(library: &mut Library) -> Resu
     for video_element in library.video_files.iter_mut() {
         // Only reparse movies that already have TMDB IDs
         if let Some(tmdb_id) = video_element.tmdb_id {
+            // TV episodes store the show ID in tmdb_id, which is not a valid movie ID
+            if let (Some(season), Some(episode)) = (video_element.season, video_element.episode) {
+                let existing_poster = video_element.poster_path.clone();
+                let existing_backdrop = video_element.backdrop_path.clone();
+
+                let tv_show_details = get_tv_show_details(&client, tmdb_id, &api_token).await
+                    .map_err(|e| anyhow!("Error when getting TV Show Details: {}", e))?;
+
+                match get_tv_episode_details(&client, tmdb_id, season, episode, &api_token).await {
+                    Ok(episode_details) => {
+                        fill_video_element_with_tv_episode(video_element, &tv_show_details, &episode_details, season, episode, Some(true));
+
+                        if existing_poster.is_some() {
+                            video_element.poster_path = existing_poster;
+                        }
+                        if existing_backdrop.is_some() {
+                            video_element.backdrop_path = existing_backdrop;
+                        }
+
+                        println!("Reparsed: {}", video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()));
+                    }
+                    Err(e) => {
+                        println!("Error getting episode details for {} S{:02}E{:02}: {}", video_element.filepath, season, episode, e);
+                    }
+                }
+                continue;
+            }
+
             let movie_details = get_movie_details(&client, tmdb_id, &api_token).await
                 .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
 
@@ -718,9 +746,10 @@ fn fill_video_element_with_tv_episode(
 use std::collections::HashMap;
 
 pub async fn get_additional_covers(
-    tmdb_id: usize, 
-    sort_by_languages_in_iso_639_1: Option<Vec<String>>, 
-    filter_other_languages: Option<bool> 
+    tmdb_id: usize,
+    is_tv: bool,
+    sort_by_languages_in_iso_639_1: Option<Vec<String>>,
+    filter_other_languages: Option<bool>
 ) -> Result<Vec<String>, Error> {
 
     let filter_other_languages = filter_other_languages.unwrap_or(false);
@@ -729,7 +758,8 @@ pub async fn get_additional_covers(
         .await
         .map_err(|e| anyhow!("Could not connect to TMDB: {}", e))?;
 
-    let mut get_covers_url = format!("{}{}{}", TMDB_API_MOVIE_URL, tmdb_id, "/images");
+    let api_url = if is_tv { TMDB_API_TV_URL } else { TMDB_API_MOVIE_URL };
+    let mut get_covers_url = format!("{}{}{}", api_url, tmdb_id, "/images");
 
     if filter_other_languages {
         if let Some(languages) = &sort_by_languages_in_iso_639_1 {
