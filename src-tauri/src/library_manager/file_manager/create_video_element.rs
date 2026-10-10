@@ -5,6 +5,7 @@ use std::{
 };
 
 use super::super::{compute_selection, VideoElement, LIBRARIES};
+use super::external_subtitles::{find_external_subtitles, DirCache};
 use super::read_metadata::{get_audio_tracks, get_duration_in_s, get_subtitle_tracks};
 
 pub fn get_modified_secs(filepath: &str) -> usize {
@@ -50,7 +51,33 @@ pub(crate) fn fill_track_metadata(ve: &mut VideoElement) {
     let subs = get_subtitle_tracks(&ve.filepath);
     ve.subtitle_languages = Some(subs.languages);
     ve.subtitle_titles = Some(subs.titles);
+    ve.external_subtitles = None;
+    fill_external_subtitles(ve, &mut DirCache::new());
     ve.playback_selection = Some(compute_selection(ve));
+}
+
+/// (Re)discover external subtitle files and list them after the embedded
+/// subtitle tracks. Returns whether anything changed (selection is then recomputed).
+pub(crate) fn fill_external_subtitles(ve: &mut VideoElement, cache: &mut DirCache) -> bool {
+    let found = find_external_subtitles(&ve.filepath, cache);
+    let paths: Vec<String> = found.iter().map(|s| s.path.clone()).collect();
+    let old = ve.external_subtitles.clone().unwrap_or_default();
+    if old == paths {
+        return false;
+    }
+
+    let languages = ve.subtitle_languages.get_or_insert_with(Vec::new);
+    let titles = ve.subtitle_titles.get_or_insert_with(Vec::new);
+    let embedded = languages.len().saturating_sub(old.len());
+    languages.truncate(embedded);
+    titles.resize(embedded, None);
+    for sub in found {
+        languages.push(sub.language);
+        titles.push(Some(sub.title));
+    }
+    ve.external_subtitles = Some(paths);
+    ve.playback_selection = Some(compute_selection(ve));
+    true
 }
 
 pub fn get_video_files(folder_path: &str) -> Vec<VideoElement> {

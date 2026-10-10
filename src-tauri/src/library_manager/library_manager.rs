@@ -267,6 +267,24 @@ fn backfill_library_track_metadata(lib: &mut Library) {
     }
 }
 
+/// Re-discover external subtitle files for all entries. They come and go
+/// without the video file changing, so this runs on every start.
+pub(crate) async fn refresh_all_external_subtitles() {
+    let mut cache = DirCache::new();
+    for lib in LIBRARIES.lock().await.iter_mut() {
+        let mut changed = 0;
+        for ve in lib.video_files.iter_mut() {
+            if fill_external_subtitles(ve, &mut cache) {
+                changed += 1;
+            }
+        }
+        if changed > 0 {
+            println!("External subtitles changed for {} files in '{}'", changed, lib.id);
+            write_library(lib);
+        }
+    }
+}
+
 #[tauri::command(rename_all = "snake_case")]
 pub(crate) async fn rescan_library_by_id(lib_id: &str) -> Result<(), Error> {
     let index = get_library_index_by_id(lib_id).await

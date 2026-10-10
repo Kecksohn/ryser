@@ -34,27 +34,38 @@ const MPC_VERIFY_ROUNDS: usize = 3;
 // region: --- VLC
 
 /// VLC selects tracks by type-relative ordinal: `--audio-track=N` / `--sub-track=N`.
-/// `--no-spu` disables subtitles when none is wanted.
-fn vlc_args(filepath: &str, audio_track: Option<usize>, subtitle_track: Option<usize>) -> Vec<String> {
-    let mut args = vec![filepath.to_owned()];
+/// `--no-spu` disables subtitles when none is wanted. An external subtitle
+/// file is loaded (and thereby selected) with `--sub-file`.
+fn vlc_args(
+    filepath: &str,
+    audio_track: Option<usize>,
+    subtitle_track: Option<usize>,
+    subtitle_file: Option<&str>,
+) -> Vec<String> {
+    // VLC does not open `F:/...` paths; it needs backslashes.
+    let mut args = vec![filepath.replace('/', "\\")];
     if let Some(a) = audio_track {
         args.push(format!("--audio-track={}", a));
     }
-    match subtitle_track {
-        Some(s) => args.push(format!("--sub-track={}", s)),
-        None => args.push("--no-spu".to_owned()),
+    match (subtitle_file, subtitle_track) {
+        (Some(f), _) => args.push(format!("--sub-file={}", f.replace('/', "\\"))),
+        (None, Some(s)) => args.push(format!("--sub-track={}", s)),
+        (None, None) => args.push("--no-spu".to_owned()),
     }
     args
 }
 
+/// For an external subtitle, pass its path as `subtitle_file` and the number
+/// of embedded subtitle tracks as `subtitle_track`.
 #[tauri::command(rename_all = "snake_case")]
 pub fn start_video_in_vlc(
     filepath: &str,
     audio_track: Option<usize>,
     subtitle_track: Option<usize>,
+    subtitle_file: Option<&str>,
     state: State<Arc<ProcessManager>>,
 ) -> Option<u32> {
-    let args = vlc_args(filepath, audio_track, subtitle_track);
+    let args = vlc_args(filepath, audio_track, subtitle_track, subtitle_file);
     start_process(VLC_PATH, &args, state)
 }
 
@@ -67,16 +78,30 @@ pub fn start_video_in_vlc(
 /// then send commands to select the exact audio/subtitle track. The web
 /// interface is enabled via the registry beforehand (takes effect on the next
 /// MPC-HC start). Whole flow is best-effort; failures leave MPC's defaults.
+///
+/// For an external subtitle, pass its path as `subtitle_file` and the number
+/// of embedded subtitle tracks as `subtitle_track`.
 #[tauri::command(rename_all = "snake_case")]
 pub fn start_video_in_mpc(
     filepath: &str,
     audio_track: Option<usize>,
     subtitle_track: Option<usize>,
+    subtitle_file: Option<&str>,
     state: State<Arc<ProcessManager>>,
 ) -> Option<u32> {
     enable_mpc_web_interface();
     // MPC-HC wants a leading space before the path (legacy quirk).
-    let args = vec![format!(" {}", filepath)];
+    let mut args = vec![format!(" {}", filepath)];
+    // A file loaded with /sub is listed first among the external subtitles,
+    // which follow the embedded tracks - and, when there are embedded tracks,
+    // the splitter's own "No subtitles" entry after them.
+    let subtitle_track = match (subtitle_file, subtitle_track) {
+        (Some(file), embedded) => {
+            args.extend(["/sub".to_owned(), file.to_owned()]);
+            embedded.map(|n| if n > 0 { n + 1 } else { 0 })
+        }
+        (None, track) => track,
+    };
     let pid = start_process(MPC_PATH, &args, state)?;
 
     // Used to detect that MPC (single-instance) has switched to another file,

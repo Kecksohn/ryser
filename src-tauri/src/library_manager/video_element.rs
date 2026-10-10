@@ -31,6 +31,10 @@ pub struct VideoElement {
     pub audio_titles: Option<Vec<Option<String>>>,
     #[serde(default)]
     pub subtitle_titles: Option<Vec<Option<String>>>,
+    /// Paths of external subtitle files. Their languages/titles are the last
+    /// entries of `subtitle_languages`/`subtitle_titles`, after the embedded tracks.
+    #[serde(default)]
+    pub external_subtitles: Option<Vec<String>>,
     #[serde(default)]
     pub playback_selection: Option<PlaybackSelection>,
 

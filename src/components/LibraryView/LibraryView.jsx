@@ -99,12 +99,24 @@ export const LibraryView = () => {
 
   async function launch_video(video) {
     const sel = get_track_selection(video);
+    // External subtitle files are listed after the embedded tracks; the player
+    // gets their path plus the embedded track count instead of a track index.
+    const external_subtitles = video.external_subtitles ?? [];
+    const embedded_count =
+      (video.subtitle_languages ?? []).length - external_subtitles.length;
+    const subtitle_file =
+      sel.subtitle_index === "none"
+        ? null
+        : (external_subtitles[sel.subtitle_index - embedded_count] ?? null);
     const subtitle_track =
-      sel.subtitle_index === "none" ? null : sel.subtitle_index;
+      sel.subtitle_index === "none"
+        ? null
+        : Math.min(sel.subtitle_index, embedded_count);
     const process_id_option = await invoke("start_video_in_mpc", {
       filepath: video.filepath,
       audio_track: sel.audio_index ?? null,
       subtitle_track: subtitle_track,
+      subtitle_file: subtitle_file,
     });
     if (!process_id_option) {
       console.log("Failed to start videoplayer!");

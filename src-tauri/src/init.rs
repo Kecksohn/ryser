@@ -2,7 +2,7 @@ use anyhow::{Error, anyhow};
 use super::notifications::*;
 
 use super::read_config;
-use super::library_manager::{backfill_all_track_metadata, load_all_libraries, rescan_all_libraries, update_all_libraries_with_tmdb};
+use super::library_manager::{backfill_all_track_metadata, load_all_libraries, refresh_all_external_subtitles, rescan_all_libraries, update_all_libraries_with_tmdb};
 
 use tauri::async_runtime;
 
@@ -19,6 +19,7 @@ pub(super) fn init() -> Result<(), Error> {
     async_runtime::spawn(async {
         rescan_all_libraries().await;
         backfill_all_track_metadata().await;
+        refresh_all_external_subtitles().await;
         update_all_libraries_with_tmdb(Some(false)).await
             .map_err(|e| anyhow!("TMDB update failed: {}", e))
     });
