@@ -16,6 +16,7 @@ const getRevealLabel = () => {
 export const video_element_context_menu_options = ({
   set_selected_element,
   toggle_watched,
+  refresh_element,
 }) => {
   const navigate = useNavigate();
 
@@ -47,6 +48,13 @@ export const video_element_context_menu_options = ({
       label: getRevealLabel(),
       action: () => {
         show_in_explorer(context.filepath);
+      },
+      close_after: true,
+    },
+    refresh_element && {
+      label: "Refresh file info",
+      action: () => {
+        refresh_element(context);
       },
       close_after: true,
     },

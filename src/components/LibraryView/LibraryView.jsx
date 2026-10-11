@@ -164,12 +164,29 @@ export const LibraryView = () => {
     if (element.watched) toggle_watched(element);
   }
 
+  async function refresh_element(element) {
+    try {
+      const refreshed = await invoke("refresh_library_entry", {
+        library_id: library_id,
+        filepath: element.filepath,
+      });
+      // Merge in place: the element is sent back whole on the next update
+      Object.assign(element, refreshed);
+      // Track ordinals may have shifted, drop the manual pick
+      set_track_selections(({ [element.filepath]: _, ...rest }) => rest);
+    } catch (error) {
+      // The backend already showed a notification
+      console.error("Failed to refresh file info:", error);
+    }
+  }
+
   // Context Menu
   const [selected_element, set_selected_element] = useState(null);
 
   const get_context_menu_options = video_element_context_menu_options({
     set_selected_element,
     toggle_watched,
+    refresh_element,
   });
 
   // Dropdown

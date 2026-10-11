@@ -309,6 +309,7 @@ pub(crate) async fn rescan_library(lib: &mut Library) {
 
     let mut new_filepath_indices: Vec<usize> = vec![];
     let mut missing_video_files_indices: Vec<usize> = vec![];
+    let mut refreshed_files = 0;
 
     let mut current_library_match_start_index: usize = 0;
 
@@ -321,7 +322,14 @@ pub(crate) async fn rescan_library(lib: &mut Library) {
             {
                 match &lib.video_files[index].filepath.cmp(filepath_str) {
                     Ordering::Equal => {
-                        // Match, do nothing
+                        // Match, re-read the file only if it was replaced in place
+                        let ve = &mut lib.video_files[index];
+                        if get_modified(filepath_str).is_ok_and(|m| m != ve.timestamp_modified) {
+                            match refresh_file_metadata(ve) {
+                                Ok(()) => refreshed_files += 1,
+                                Err(msg) => println!("{}", msg),
+                            }
+                        }
                         current_library_match_start_index = index + 1;
                         break;
                     },
@@ -372,6 +380,12 @@ pub(crate) async fn rescan_library(lib: &mut Library) {
             lib.video_files.len()
         );
         write_library(lib);
+    }
+    else if refreshed_files > 0 {
+        write_library(lib);
+    }
+    if refreshed_files > 0 {
+        println!("Refreshed {} changed files in '{}'", refreshed_files, lib.id);
     }
 }
 

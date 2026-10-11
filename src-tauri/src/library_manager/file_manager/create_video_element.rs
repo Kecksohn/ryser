@@ -1,4 +1,4 @@
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use std::{
     fs::{self, DirEntry},
     path::PathBuf,
@@ -8,16 +8,17 @@ use super::super::{compute_selection, VideoElement, LIBRARIES};
 use super::external_subtitles::{find_external_subtitles, DirCache};
 use super::read_metadata::{get_audio_tracks, get_duration_in_s, get_subtitle_tracks};
 
-pub fn get_modified_secs(filepath: &str) -> usize {
-    // Get modification timestamp from file.
-    let modified_date = fs::metadata(filepath).expect("Need metadata");
-    let secs = modified_date
-        .modified()
-        .expect("Need modified date")
+/// Modification timestamp of the file, truncated to whole seconds.
+pub(crate) fn get_modified(filepath: &str) -> Result<DateTime<Utc>, String> {
+    let secs = fs::metadata(filepath)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|e| format!("Could not read '{}': {}", filepath, e))?
         .duration_since(std::time::UNIX_EPOCH)
-        .expect("Need duration")
+        .map_err(|e| format!("Invalid modification date of '{}': {}", filepath, e))?
         .as_secs();
-    secs.try_into().unwrap()
+    Utc.timestamp_opt(secs as i64, 0)
+        .single()
+        .ok_or_else(|| format!("Invalid modification date of '{}'", filepath))
 }
 
 pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
@@ -25,20 +26,23 @@ pub fn create_video_element_from_file(filepath: &str) -> VideoElement {
         filepath: filepath.to_owned(),
         ..Default::default()
     };
-    match get_duration_in_s(filepath) {
-        Ok(length_in_s) => {
-            ve.length_in_seconds = length_in_s as i32;
-        }
-        Err(error) => {
-            println!("Get duration of video file failed with Error: {}", error);
-        }
+    if let Err(error) = refresh_file_metadata(&mut ve) {
+        println!("{}", error);
     }
-
-    fill_track_metadata(&mut ve);
-
-    let modified = get_modified_secs(filepath);
-    ve.timestamp_modified = Utc.timestamp_opt(modified as i64, 0).unwrap();
     ve
+}
+
+/// (Re)read everything derived from the file's content: duration, tracks,
+/// modification timestamp. Leaves `ve` untouched if the file cannot be read.
+pub(crate) fn refresh_file_metadata(ve: &mut VideoElement) -> Result<(), String> {
+    let modified = get_modified(&ve.filepath)?;
+    let length_in_s = get_duration_in_s(&ve.filepath)
+        .map_err(|e| format!("Could not open '{}': {}", ve.filepath, e))?;
+
+    ve.length_in_seconds = length_in_s as i32;
+    fill_track_metadata(ve);
+    ve.timestamp_modified = modified;
+    Ok(())
 }
 
 /// Parse audio/subtitle track languages + titles from the file and (re)compute
@@ -108,4 +112,22 @@ pub fn is_video_file(filepath: &PathBuf) -> bool {
         println!("Couldn't get extension type for {:?}", filepath);
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn refresh_of_missing_file_fails_and_keeps_element() {
+        let mut ve = VideoElement {
+            filepath: "does/not/exist.mkv".to_owned(),
+            length_in_seconds: 42,
+            audio_languages: Some(vec!["eng".to_owned()]),
+            ..Default::default()
+        };
+        let before = format!("{:?}", ve);
+        assert!(refresh_file_metadata(&mut ve).is_err());
+        assert_eq!(format!("{:?}", ve), before);
+    }
 }

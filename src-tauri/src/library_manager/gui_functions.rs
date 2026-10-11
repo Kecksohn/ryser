@@ -10,6 +10,7 @@ use super::{Library, LibraryPath, VideoElement, FilterPreferences,
 use super::tmdb_api::json_structs::*;
 
 use super::file_manager::file_utils::{create_valid_filename, reveal_file_in_file_manager};
+use super::file_manager::refresh_file_metadata;
 use super::utils::*;
 
 use crate::notifications::show_msg_gui;
@@ -136,6 +137,29 @@ pub async fn update_library_entry_from_gui(library_id: &str, updated_element: Vi
 
     Err(format!("Library {} not found!", library_id))
 
+}
+
+/// Re-read what is derived from the file's content (duration, tracks) and
+/// leave everything else (TMDB data, user edits) alone.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn refresh_library_entry(library_id: &str, filepath: &str) -> Result<VideoElement, String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            let Some(element) = library.video_files.iter_mut().find(|ve| ve.filepath == filepath)
+            else {
+                return Err(format!("Could not find '{}' in '{}'", filepath, library_id));
+            };
+            if let Err(msg) = refresh_file_metadata(element) {
+                let _ = show_msg_gui("Refresh failed", &msg, None, None);
+                return Err(msg);
+            }
+            let refreshed_element = element.clone();
+            write_library(library);
+            return Ok(refreshed_element);
+        }
+    }
+
+    Err(format!("Library {} not found!", library_id))
 }
 
 

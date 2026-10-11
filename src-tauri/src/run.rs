@@ -43,6 +43,7 @@ pub fn run() {
                 reparse_all_libraries_preserve_covers_gui,
                 // Library Update
                 update_library_entry_from_gui,
+                refresh_library_entry,
                 search_tmdb_from_gui,
                 get_covers_from_tmdb,
                 // File Management
