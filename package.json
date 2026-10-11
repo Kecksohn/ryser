@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:install": "tauri build --bundles nsis && pwsh -c \"exit (Start-Process (gci target/release/bundle/nsis/*-setup.exe | sort LastWriteTime | select -Last 1).FullName '/S' -Wait -PassThru).ExitCode\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
