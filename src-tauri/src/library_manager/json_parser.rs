@@ -3,7 +3,7 @@ use anyhow::{anyhow, Error};
 use directories::ProjectDirs;
 use std::fs;
 
-use super::{Library, VideoElement};
+use super::{Library, LIBRARY_SCHEMA_VERSION};
 
 pub(super) fn get_library(identifier: &str) -> Result<Library, Error> {
     if let Some(proj_dir) = ProjectDirs::from("", "", "ryser") {
@@ -13,8 +13,21 @@ pub(super) fn get_library(identifier: &str) -> Result<Library, Error> {
             .join("library.json");
 
         match fs::File::open(&library_json_filepath) {
-            Ok(json_file) => match serde_json::from_reader(json_file) {
-                Ok(library) => Ok(library),
+            Ok(json_file) => match serde_json::from_reader::<_, Library>(json_file) {
+                Ok(mut library) => {
+                    if library.schema_version < LIBRARY_SCHEMA_VERSION {
+                        // The elements were converted while deserializing. Keep the old file, the conversion drops data.
+                        let backup_filepath = library_json_filepath
+                            .with_file_name(format!("library.v{}.bak.json", library.schema_version.max(1)));
+                        if !backup_filepath.exists() {
+                            fs::copy(&library_json_filepath, &backup_filepath)
+                                .map_err(|e| anyhow!("Could not back up {}: {}", library_json_filepath.to_str().unwrap(), e))?;
+                        }
+                        library.schema_version = LIBRARY_SCHEMA_VERSION;
+                        write_library(&library);
+                    }
+                    Ok(library)
+                }
                 Err(error) => Err(anyhow!(
                     "Error extracting {} , error: {}",
                     library_json_filepath.to_str().unwrap(),

@@ -2,10 +2,13 @@ use directories::ProjectDirs;
 use std::{default, fs};
 
 use super::json_parser::write_library;
-use super::tmdb_api::{get_tmdb_search_as_video_elements, get_movie_details_for_video_element, get_additional_covers};
+use std::collections::BTreeMap;
+
+use super::tmdb_api::{get_tmdb_search_as_films, get_movie_details_for_film, get_additional_covers};
 use super::{Library, LibraryPath, VideoElement, FilterPreferences,
-            add_library, delete_library, update_library_entry,
-            LIBRARIES};
+            FilmMeta, Media, TvShow,
+            add_library, delete_library, drop_shows_without_episodes,
+            LIBRARIES, LIBRARY_SCHEMA_VERSION};
 
 use super::tmdb_api::json_structs::*;
 
@@ -74,7 +77,8 @@ pub async fn create_library(name: &str, paths: Vec<LibraryPath>, allow_duplicate
         name: name.to_owned(),
         library_paths: paths,
         video_files: vec![],
-        child_libraries: vec![],
+        tv_shows: BTreeMap::new(),
+        schema_version: LIBRARY_SCHEMA_VERSION,
         sort_preference: "title".to_string(),
         filter_preferences: FilterPreferences::default(),
     };
@@ -120,23 +124,61 @@ pub async fn get_library_videos(library_id: &str) -> Result<Vec<VideoElement>, S
 }
 
 #[tauri::command(rename_all = "snake_case")]
-pub async fn update_library_entry_from_gui(library_id: &str, updated_element: VideoElement) -> Result<(), String> {
+pub async fn get_library_shows(library_id: &str) -> Result<BTreeMap<u32, TvShow>, String> {
+    if let Some(library) = LIBRARIES
+        .lock()
+        .await
+        .iter()
+        .find(|library| library.id == library_id)
+    {
+        Ok(library.tv_shows.clone())
+    }
+    else {
+        Err(format!("Library {} not found!", library_id))
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn set_watched(library_id: &str, filepaths: Vec<String>, watched: bool) -> Result<(), String> {
     for library in LIBRARIES.lock().await.iter_mut() {
         if library.id == library_id {
-            match update_library_entry(library, updated_element) {
-                Ok(()) => {
-                    write_library(library);
-                    return Ok(());
-                }
-                Err(str) => {
-                    return Err(format!("Error when updating Library: {}", str));
+            for element in library.video_files.iter_mut() {
+                if filepaths.contains(&element.filepath) {
+                    element.watched = watched;
                 }
             }
+            write_library(library);
+            return Ok(());
         }
     }
 
     Err(format!("Library {} not found!", library_id))
+}
 
+/// Replace the catalog metadata of one file with what the user chose.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn set_media(library_id: &str, filepath: &str, media: Media) -> Result<(), String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            if let Media::Episode(episode) = &media {
+                if !library.tv_shows.contains_key(&episode.show_id) {
+                    return Err(format!("Show {} not found in '{}'", episode.show_id, library_id));
+                }
+            }
+            let Some(element) = library.video_files.iter_mut().find(|ve| ve.filepath == filepath)
+            else {
+                return Err(format!("Could not find '{}' in '{}'", filepath, library_id));
+            };
+            element.media = media;
+            // The user decided, automatic matching must not fill in something else
+            element.tmdb_searched = true;
+            drop_shows_without_episodes(library);
+            write_library(library);
+            return Ok(());
+        }
+    }
+
+    Err(format!("Library {} not found!", library_id))
 }
 
 /// Re-read what is derived from the file's content (duration, tracks) and
@@ -164,19 +206,19 @@ pub async fn refresh_library_entry(library_id: &str, filepath: &str) -> Result<V
 
 
 #[tauri::command(rename_all = "snake_case")]
-pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<VideoElement>, String> {
-    let mut query_result_elements: Vec<VideoElement> =
-        get_tmdb_search_as_video_elements(search_title)
+pub async fn search_tmdb_from_gui(search_title: &str) -> Result<Vec<FilmMeta>, String> {
+    let mut query_result_films: Vec<FilmMeta> =
+        get_tmdb_search_as_films(search_title)
             .await
             .map_err(|e| format!("Could not get TMDB search results: {}", e))?;
 
     // TODO: Return in-between results already and make this async
-    for element in query_result_elements.iter_mut() {
-        get_movie_details_for_video_element(element, None).await
+    for film in query_result_films.iter_mut() {
+        get_movie_details_for_film(film, None).await
             .map_err(|e| format!("Could not get TMDB movie details: {}", e))?;
     }
 
-    Ok(query_result_elements)
+    Ok(query_result_films)
 }
 
 #[tauri::command(rename_all = "snake_case")]

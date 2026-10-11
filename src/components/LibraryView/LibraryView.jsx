@@ -26,6 +26,8 @@ export const LibraryView = () => {
   // Load Library
 
   const [library_elements, set_library_elements] = useState([]);
+  // Show table of the library, keyed by show ID. Episodes point into it.
+  const [shows, set_shows] = useState({});
   const [library_elements_loaded, set_library_elements_loaded] =
     useState(false);
 
@@ -72,10 +74,12 @@ export const LibraryView = () => {
       invoke("get_library_name", { library_id: library_id }).then((res) => {
         set_library_name(res);
 
-        invoke("get_library_videos", {
-          library_id: library_id,
-        }).then((res) => {
-          set_library_elements(res);
+        Promise.all([
+          invoke("get_library_shows", { library_id: library_id }),
+          invoke("get_library_videos", { library_id: library_id }),
+        ]).then(([shows_res, videos_res]) => {
+          set_shows(shows_res);
+          set_library_elements(videos_res);
         });
       });
     }
@@ -145,17 +149,24 @@ export const LibraryView = () => {
     }
   }
 
-  async function update_element_in_library(updated_element) {
-    await invoke("update_library_entry_from_gui", {
+  async function save_media(element, media) {
+    element.media = media;
+    forceRerender((prev) => prev + 1);
+    await invoke("set_media", {
       library_id: library_id,
-      updated_element: updated_element,
+      filepath: element.filepath,
+      media: media,
     });
   }
 
   function toggle_watched(element) {
     element.watched = !element.watched;
     forceRerender((prev) => prev + 1);
-    update_element_in_library(element);
+    invoke("set_watched", {
+      library_id: library_id,
+      filepaths: [element.filepath],
+      watched: element.watched,
+    });
   }
   function set_watched(element) {
     if (!element.watched) toggle_watched(element);
@@ -170,7 +181,7 @@ export const LibraryView = () => {
         library_id: library_id,
         filepath: element.filepath,
       });
-      // Merge in place: the element is sent back whole on the next update
+      // Merge in place: other state holds references to this element
       Object.assign(element, refreshed);
       // Track ordinals may have shifted, drop the manual pick
       set_track_selections(({ [element.filepath]: _, ...rest }) => rest);
@@ -214,7 +225,8 @@ export const LibraryView = () => {
             library_elements,
             preference,
             "filepath", // Use filepath as initial state since we haven't sorted yet
-            () => {} // Don't update last_sort_order during initial load
+            () => {}, // Don't update last_sort_order during initial load
+            shows
           );
           set_library_elements(sorted_elements);
           set_last_sort_order(preference);
@@ -227,7 +239,8 @@ export const LibraryView = () => {
             library_elements,
             "title",
             "filepath",
-            () => {}
+            () => {},
+            shows
           );
           set_library_elements(sorted_elements);
           set_last_sort_order("title");
@@ -291,7 +304,8 @@ export const LibraryView = () => {
         library_elements,
         order,
         last_sort_order,
-        set_last_sort_order
+        set_last_sort_order,
+        shows
       )
     );
   }
@@ -382,6 +396,7 @@ export const LibraryView = () => {
 
             <LibraryViewScroll
               library_elements={filtered_library_elements}
+              shows={shows}
               get_context_menu_options={get_context_menu_options}
               launch_video={launch_video}
               get_track_selection={get_track_selection}
@@ -395,8 +410,9 @@ export const LibraryView = () => {
         path="/edit_element/:video_element_id"
         element={
           <EditVideoEntryView
-            update_element_in_library={update_element_in_library}
+            save_media={save_media}
             video_entry={selected_element}
+            shows={shows}
           />
         }
       />

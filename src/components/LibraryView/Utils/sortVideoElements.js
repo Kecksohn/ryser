@@ -1,19 +1,19 @@
+import { display } from "./displayElement.js";
+
 export const sort_video_elements = (
   library_elements,
   order,
   last_sort_order,
-  set_last_sort_order
+  set_last_sort_order,
+  shows
 ) => {
   let library_elements_copy = library_elements.slice();
   switch (order) {
     case "title":
       library_elements_copy = library_elements_copy.sort((a, b) => {
-        // Use title if available, otherwise fallback to filepath
-        const titleA =
-          a.title || a.filepath.substring(a.filepath.lastIndexOf("/") + 1);
-        const titleB =
-          b.title || b.filepath.substring(b.filepath.lastIndexOf("/") + 1);
-        return titleA.localeCompare(titleB);
+        return display(a, shows).sort_title.localeCompare(
+          display(b, shows).sort_title
+        );
       });
       if (last_sort_order === "title") {
         library_elements_copy.reverse();

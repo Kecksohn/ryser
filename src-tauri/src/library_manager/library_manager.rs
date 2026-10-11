@@ -1,13 +1,14 @@
 use anyhow::{anyhow, Error};
 
 use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashSet};
 use std::{fs, path::*, vec};
 use directories::ProjectDirs;
 
 use tauri::async_runtime;
 use serde::Deserialize;
 
-use super::video_element::VideoElement;
+use super::video_element::{Media, TvShow, VideoElement};
 
 use super::file_manager::*;
 use super::file_manager::directory_utils::*;
@@ -44,13 +45,21 @@ pub struct LibraryPath {
     pub(super) include_subdirectories: bool,
 } 
 
+/// `schema_version` of a library written by this build. 1 had the film fields
+/// flat on the video element and no `tv_shows`.
+pub(super) const LIBRARY_SCHEMA_VERSION: u32 = 2;
+
 #[derive(Clone, serde::Serialize, Deserialize, Debug)]
 pub struct Library {
     pub(super) id: String,
     pub(super) name: String,
     pub(super) library_paths: Vec<LibraryPath>,
     pub(super) video_files: Vec<VideoElement>,
-    pub(super) child_libraries: Vec<Library>,
+    /// Shows the episodes in `video_files` belong to, keyed by `TvShow.id`
+    #[serde(default)]
+    pub(super) tv_shows: BTreeMap<u32, TvShow>,
+    #[serde(default)]
+    pub(super) schema_version: u32,
     #[serde(default = "default_sort_preference")]
     pub(super) sort_preference: String,
     #[serde(default)]
@@ -373,6 +382,7 @@ pub(crate) async fn rescan_library(lib: &mut Library) {
         }
 
         lib.video_files.sort_by(|d1, d2| d1.filepath.cmp(&d2.filepath));
+        drop_shows_without_episodes(lib);
         println!(
             "Before: {}, Now: {}",
             lib.video_files.len() - new_filepath_indices.len()
@@ -389,41 +399,14 @@ pub(crate) async fn rescan_library(lib: &mut Library) {
     }
 }
 
-pub(crate) fn update_library_entry(
-    library: &mut Library,
-    updated_element: VideoElement,
-) -> Result<(), Error> {
-    let Some(proj_dir) = ProjectDirs::from("", "", "ryser") else {
-        return Err(anyhow!("Could not get project dirs"));
-    };
-    let library_folder = proj_dir.data_local_dir().join(&library.id);
-    if !library_folder.exists() {
-        return Err(anyhow!("Could not find library"));
-    }
-    for old_element in library.video_files.iter_mut() {
-        if old_element.filepath == updated_element.filepath {
-            *old_element = updated_element;
-            return Ok(());
-        }
-    }
-
-    Err(anyhow!("Could not find '{}' in '{}'", updated_element.filepath, library.id))
-}
-
-pub(crate) fn update_library_entry_by_index(
-    library: &mut Library,
-    updated_element: VideoElement,
-    index: usize,
-) -> Result<(), Error> {
-    if index >= library.video_files.len() {
-        return Err(anyhow!(
-            "Index {} out of range of library elements ({})",
-            index,
-            library.video_files.len()
-        ));
-    }
-    library.video_files[index] = updated_element;
-    Ok(())
+pub(crate) fn drop_shows_without_episodes(lib: &mut Library) {
+    let used_show_ids: HashSet<u32> = lib.video_files.iter()
+        .filter_map(|ve| match &ve.media {
+            Media::Episode(episode) => Some(episode.show_id),
+            _ => None,
+        })
+        .collect();
+    lib.tv_shows.retain(|id, _| used_show_ids.contains(id));
 }
 
 

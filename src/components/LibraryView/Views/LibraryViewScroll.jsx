@@ -3,6 +3,7 @@ import React from "react";
 import { useContextMenu } from "../../UITools/ContextMenu.jsx";
 import { CountryFlags } from "../../UIElements/CountryFlag.jsx";
 
+import { display } from "../Utils/displayElement.js";
 import { format_duration } from "../Utils/formatDuration.js";
 import { languageName } from "../Utils/languageName.js";
 
@@ -36,6 +37,7 @@ const TrackSelect = ({ label, value, onChange, children }) => (
 
 export const LibraryViewScroll = ({
   library_elements,
+  shows,
   get_context_menu_options,
   launch_video,
   get_track_selection,
@@ -50,6 +52,7 @@ export const LibraryViewScroll = ({
     const subtitle_languages = element.subtitle_languages ?? [];
     const subtitle_titles = element.subtitle_titles ?? [];
     const selection = get_track_selection(element);
+    const shown = display(element, shows);
 
     return (
       <div
@@ -61,34 +64,34 @@ export const LibraryViewScroll = ({
       >
         <div className={tmdbResultsStyles.tmdbresultSplitter}>
           <div className={tmdbResultsStyles.tmdbresultImg}>
-            <img src={element.poster_path} alt={element.title} />
+            <img src={shown.image} alt={shown.title} />
           </div>
           <div className={tmdbResultsStyles.tmdbresultInfo}>
-            {element.original_title && element.original_title}
-            {element.title && element.title !== element.original_title && (
+            {shown.original_title && shown.original_title}
+            {shown.title && shown.title !== shown.original_title && (
               <>
-                <br /> [{element.title}]
+                <br /> [{shown.title}]
               </>
             )}
-            {!element.title && element.filepath}
+            {!shown.title && element.filepath}
             <br />
-            {element.director && (
+            {shown.director && (
               <>
                 <br />
-                {element.director}
+                {shown.director}
                 <br />
               </>
             )}
-            {element.release_date && element.release_date.length >= 4 && (
+            {shown.date && shown.date.length >= 4 && (
               <>
-                {element.release_date.substring(0, 4)}
+                {shown.date.substring(0, 4)}
                 <br />
               </>
             )}
-            {element.countries && element.countries.length > 0 && (
+            {shown.countries && shown.countries.length > 0 && (
               <>
                 <CountryFlags
-                  countries={element.countries}
+                  countries={shown.countries}
                   size="small"
                   separator=" "
                 />

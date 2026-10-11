@@ -6,7 +6,9 @@ use serde::Deserialize;
 use tauri_plugin_http::reqwest::header::USER_AGENT;
 use tauri_plugin_http::reqwest::{self, Client, Response};
 
-use super::super::{compute_selection, Library, VideoElement};
+use std::collections::{BTreeMap, HashSet};
+
+use super::super::{compute_selection, EpisodeMeta, FilmMeta, Library, Media, TvSeason, TvShow};
 use super::api_token::get_api_token;
 use super::json_structs::*;
 use super::search_name_creator::{get_movie_title_and_year_from_filename, get_tv_show_info_from_filename, is_tv_episode};
@@ -114,27 +116,21 @@ async fn create_client_and_search_tmdb
     search_tmdb(&client, &api_token, movietitle, year, language, include_adult, page).await
 }
 
-pub(crate) async fn get_tmdb_search_as_video_elements(search_title: &str) -> Result<Vec<VideoElement>, Error> {
+pub(crate) async fn get_tmdb_search_as_films(search_title: &str) -> Result<Vec<FilmMeta>, Error> {
     let query_result_object = match create_client_and_search_tmdb(search_title, None, None, None, None).await {
         Ok(res) => res,
         Err(e) => return Err(anyhow!("Error trying to call tmdb database: {}", e))
     };
 
-    let mut query_result_elements: Vec<VideoElement> = vec![];
+    let mut query_result_films: Vec<FilmMeta> = vec![];
 
     for query_result in query_result_object.results.iter() {
-        
-        let mut result_element = VideoElement {
-            filepath: "".to_owned(),
-            watched: false,
-            ..Default::default()
-        };
-
-        fill_video_element_with_search_result(&mut result_element, query_result, None);
-        query_result_elements.push(result_element);
+        let mut result_film = FilmMeta::default();
+        fill_film_with_search_result(&mut result_film, query_result, false);
+        query_result_films.push(result_film);
     }
 
-    Ok(query_result_elements)
+    Ok(query_result_films)
 }
 
 async fn get_movie_details(client: &Client, movie_id: usize, api_token: &str) -> Result<TMDBMovieDetails, Error> {
@@ -231,8 +227,12 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
     let (client, api_token) = create_client().await
         .map_err(|e| anyhow!("Could not connect to TMDB: {}", e))?;
 
-    for video_element in library.video_files.iter_mut() {
-        if reparse_all || video_element.tmdb_id.is_none() {
+    let Library { video_files, tv_shows, .. } = library;
+    // A reparse searches for an unmatched show again, but once per run and not once per episode
+    let mut resolved_show_names: HashSet<String> = HashSet::new();
+
+    for video_element in video_files.iter_mut() {
+        if reparse_all || !video_element.tmdb_searched {
             let filename = &video_element.filepath;
 
             // Check if filename hints at this being a TV episode
@@ -242,74 +242,59 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
                 let (show_name, season, episode) = get_tv_show_info_from_filename(filename);
 
                 // Need both season and episode to fetch episode details
-                if season.is_none() || episode.is_none() {
+                let (Some(season), Some(episode)) = (season, episode) else {
                     println!("  Could not extract season/episode from filename: {} (Season: {:?}, Episode: {:?})",
                         filename, season, episode);
                     continue;
-                }
+                };
 
-                // Search for the TV show
-                match search_tv_show(&client, &api_token, &show_name, None, None, None, None).await {
-                    Ok(search_result) => {
-                        if search_result.results.is_empty() {
-                            println!("  No TV show found for: {}", show_name);
-                            continue;
-                        }
-
-                        let best_match = &search_result.results[0];
-                        if best_match.id.is_none() {
-                            println!("  TV show search result has no ID");
-                            continue;
-                        }
-
-                        let tv_id = best_match.id.unwrap();
-
-                        // Get TV show details
-                        let tv_show_details = get_tv_show_details(&client, tv_id, &api_token).await
-                            .map_err(|e| anyhow!("Error when getting TV Show Details: {}", e))?;
-
-                        // Get episode details
-                        match get_tv_episode_details(
-                            &client,
-                            tv_id,
-                            season.unwrap(),
-                            episode.unwrap(),
-                            &api_token
-                        ).await {
-                            Ok(episode_details) => {
-                                fill_video_element_with_tv_episode(
-                                    video_element,
-                                    &tv_show_details,
-                                    &episode_details,
-                                    season.unwrap(),
-                                    episode.unwrap(),
-                                    None
-                                );
-
-                                println!("  Updated: {} S{:02}E{:02} - {}",
-                                    tv_show_details.tmdb_tv_show.name.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                    season.unwrap(),
-                                    episode.unwrap(),
-                                    episode_details.name.as_ref().unwrap_or(&"!MISSING!".to_string()));
-                            }
-                            Err(e) => {
-                                println!("  Error getting episode details for {} S{:02}E{:02}: {}",
-                                    show_name, season.unwrap(), episode.unwrap(), e);
-
-                                // Fallback: Fill with partial data (show info + parsed season/episode numbers)
-                                fill_video_element_with_tv_show_only(
-                                    video_element,
-                                    &tv_show_details,
-                                    season.unwrap(),
-                                    episode.unwrap()
-                                );
-                            }
-                        }
-                    }
+                let retry_unmatched = reparse_all && !resolved_show_names.contains(&show_name);
+                let show_id = match find_or_create_show(&client, &api_token, tv_shows, &show_name, retry_unmatched).await {
+                    Ok(show_id) => show_id,
                     Err(e) => {
                         println!("  Error searching for TV show '{}': {}", show_name, e);
+                        continue;
+                    }
+                };
+                resolved_show_names.insert(show_name);
+                let show = &tv_shows[&show_id];
+
+                // Keep what an earlier parse or the user filled in
+                let mut episode_meta = match &video_element.media {
+                    Media::Episode(existing) if existing.show_id == show_id => existing.clone(),
+                    _ => EpisodeMeta { show_id, ..Default::default() },
+                };
+                let season = *episode_meta.season.get_or_insert(season);
+                let episode = *episode_meta.episode.get_or_insert(episode);
+
+                let mut definite_result = true;
+                if let Some(show_tmdb_id) = show.tmdb_id {
+                    match get_tv_episode_details(&client, show_tmdb_id, season, episode, &api_token).await {
+                        // TMDB answers an unknown episode with an error object, which parses to no ID
+                        Ok(episode_details) if episode_details.id.is_some() => {
+                            fill_episode_with_details(&mut episode_meta, &episode_details, false);
+
+                            println!("  Updated: {} S{:02}E{:02} - {}",
+                                show_name_of(show),
+                                season,
+                                episode,
+                                episode_meta.name.as_ref().unwrap_or(&"!MISSING!".to_string()));
+                        }
+                        Ok(_) => {
+                            println!("  No episode details on TMDB for {} S{:02}E{:02}", show_name_of(show), season, episode);
+                        }
+                        Err(e) => {
+                            println!("  Error getting episode details for {} S{:02}E{:02}: {}",
+                                show_name_of(show), season, episode, e);
+                            definite_result = false;
+                        }
                     }
                 }
+
+                video_element.media = Media::Episode(episode_meta);
+                video_element.tmdb_language = show.tmdb_language.clone();
+                video_element.tmdb_searched = definite_result;
+                video_element.playback_selection = Some(compute_selection(video_element));
                 continue;
             }
 
@@ -319,27 +304,36 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
 
             match search_tmdb( &client, &api_token, possible_title.as_str(), year, None, None, None).await {
                 Ok(search_tmdb_result) => {
-                    if search_tmdb_result.results.is_empty() {
+                    let Some(movie_id) = search_tmdb_result.results.first().and_then(|best_match| best_match.id) else {
                         // TODO: Adjust filename by cutting one word from the end
+                        video_element.tmdb_searched = true;
                         continue;
-                    }
+                    };
 
-                    let best_match = &search_tmdb_result.results[0];
-                    if best_match.id.is_none() {
-                        continue;
-                    }
-
-                    let movie_details = get_movie_details(&client, best_match.id.unwrap(), &api_token).await
+                    let movie_details = get_movie_details(&client, movie_id, &api_token).await
                         .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
 
-                    fill_video_element_with_movie_details(video_element, &movie_details, None);
-                    if video_element.release_date.is_none() && year.is_some() {
-                        video_element.release_date = Some(year.unwrap().to_string());
+                    let mut film = match std::mem::take(&mut video_element.media) {
+                        Media::Film(film) => film,
+                        _ => {
+                            // Was an episode before, its show's language does not apply
+                            video_element.tmdb_language = None;
+                            FilmMeta::default()
+                        }
+                    };
+                    fill_film_with_movie_details(&mut film, &movie_details, false);
+                    if film.release_date.is_none() && year.is_some() {
+                        film.release_date = Some(year.unwrap().to_string());
                     }
-                    println!("Updated: {} [{}] ({}) by {}", video_element.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            &video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            video_element.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            &video_element.director.as_ref().unwrap_or(&"!MISSING!".to_string()))
+                    println!("Updated: {} [{}] ({}) by {}", film.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            film.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            film.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                            film.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
+
+                    video_element.media = Media::Film(film);
+                    fill(&mut video_element.tmdb_language, &movie_details.tmdb_movie.original_language, false);
+                    video_element.tmdb_searched = true;
+                    video_element.playback_selection = Some(compute_selection(video_element));
                 }
                 Err(str) => {return Err(anyhow!("Error when calling TMDB: {}", str))}
             }
@@ -349,159 +343,229 @@ pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>
     Ok(())
 }
 
+fn show_name_of(show: &TvShow) -> &str {
+    show.name.as_deref().unwrap_or("!MISSING!")
+}
+
+/// ID of the show that `show_name` (as parsed from a filename) belongs to.
+/// A name not seen before is searched on TMDB once and the show is added to
+/// `tv_shows`, without a `tmdb_id` when TMDB has no result.
+/// `retry_unmatched` searches again for a known show that has no `tmdb_id`.
+/// Fails without changing `tv_shows` when TMDB cannot be reached.
+async fn find_or_create_show(
+    client: &Client,
+    api_token: &str,
+    tv_shows: &mut BTreeMap<u32, TvShow>,
+    show_name: &str,
+    retry_unmatched: bool,
+) -> Result<u32, Error> {
+    let known_id = tv_shows.values()
+        .find(|show| show.parsed_names.iter().any(|name| name == show_name))
+        .map(|show| show.id);
+    if let Some(id) = known_id {
+        if !retry_unmatched || tv_shows[&id].tmdb_id.is_some() {
+            return Ok(id);
+        }
+    }
+
+    let search_result = search_tv_show(client, api_token, show_name, None, None, None, None).await?;
+    let tmdb_id = search_result.results.first().and_then(|best_match| best_match.id);
+    let tv_show_details = match tmdb_id {
+        Some(tmdb_id) => Some(get_tv_show_details(client, tmdb_id, api_token).await?),
+        None => {
+            println!("  No TV show found for: {}", show_name);
+            None
+        }
+    };
+
+    // The same show can be reached through differently spelled filenames
+    let same_tmdb_show_id = tmdb_id.and_then(|tmdb_id| {
+        tv_shows.values().find(|show| show.tmdb_id == Some(tmdb_id)).map(|show| show.id)
+    });
+    let id = known_id.or(same_tmdb_show_id)
+        .unwrap_or_else(|| tv_shows.keys().next_back().map_or(1, |highest_id| highest_id + 1));
+
+    let show = tv_shows.entry(id).or_insert_with(|| TvShow { id, ..Default::default() });
+    if !show.parsed_names.iter().any(|name| name == show_name) {
+        show.parsed_names.push(show_name.to_owned());
+    }
+    if let Some(tv_show_details) = &tv_show_details {
+        show.tmdb_id = tmdb_id;
+        fill_show_with_details(show, tv_show_details, false);
+    }
+    if show.name.is_none() {
+        show.name = Some(show_name.to_owned());
+    }
+
+    Ok(id)
+}
+
 /// Reparse library TMDB data, updating all metadata but preserving existing covers
 pub async fn reparse_library_tmdb_preserve_covers(library: &mut Library) -> Result<(), Error>
 {
     let (client, api_token) = create_client().await
         .map_err(|e| anyhow!("Could not connect to TMDB: {}", e))?;
 
-    for video_element in library.video_files.iter_mut() {
-        // Only reparse movies that already have TMDB IDs
-        if let Some(tmdb_id) = video_element.tmdb_id {
-            // TV episodes store the show ID in tmdb_id, which is not a valid movie ID
-            if let (Some(season), Some(episode)) = (video_element.season, video_element.episode) {
-                let existing_poster = video_element.poster_path.clone();
-                let existing_backdrop = video_element.backdrop_path.clone();
+    let Library { video_files, tv_shows, .. } = library;
 
-                let tv_show_details = get_tv_show_details(&client, tmdb_id, &api_token).await
-                    .map_err(|e| anyhow!("Error when getting TV Show Details: {}", e))?;
+    for show in tv_shows.values_mut() {
+        let Some(tmdb_id) = show.tmdb_id else { continue };
 
-                match get_tv_episode_details(&client, tmdb_id, season, episode, &api_token).await {
-                    Ok(episode_details) => {
-                        fill_video_element_with_tv_episode(video_element, &tv_show_details, &episode_details, season, episode, Some(true));
+        let tv_show_details = get_tv_show_details(&client, tmdb_id, &api_token).await
+            .map_err(|e| anyhow!("Error when getting TV Show Details: {}", e))?;
+        if tv_show_details.tmdb_tv_show.id.is_none() {
+            println!("Not on TMDB anymore, kept as is: {}", show_name_of(show));
+            continue;
+        }
 
-                        if existing_poster.is_some() {
-                            video_element.poster_path = existing_poster;
+        let existing_poster = show.poster_path.take();
+        let existing_backdrop = show.backdrop_path.take();
+        fill_show_with_details(show, &tv_show_details, true);
+        keep_existing(&mut show.poster_path, existing_poster);
+        keep_existing(&mut show.backdrop_path, existing_backdrop);
+
+        println!("Reparsed: {}", show_name_of(show));
+    }
+
+    for video_element in video_files.iter_mut() {
+        // Only reparse what is already matched
+        let tmdb_language = match &mut video_element.media {
+            Media::Unmatched => continue,
+            Media::Film(film) => {
+                let Some(tmdb_id) = film.tmdb_id else { continue };
+
+                let movie_details = get_movie_details(&client, tmdb_id, &api_token).await
+                    .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
+                if movie_details.tmdb_movie.id.is_none() {
+                    println!("Not on TMDB anymore, kept as is: {}", video_element.filepath);
+                    continue;
+                }
+
+                let existing_poster = film.poster_path.take();
+                let existing_backdrop = film.backdrop_path.take();
+                fill_film_with_movie_details(film, &movie_details, true);
+                keep_existing(&mut film.poster_path, existing_poster);
+                keep_existing(&mut film.backdrop_path, existing_backdrop);
+
+                println!("Reparsed: {} [{}] ({}) by {}",
+                    film.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                    film.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                    film.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                    film.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
+
+                movie_details.tmdb_movie.original_language
+            }
+            Media::Episode(episode_meta) => {
+                let Some(show) = tv_shows.get(&episode_meta.show_id) else { continue };
+
+                if let (Some(show_tmdb_id), Some(season), Some(episode)) = (show.tmdb_id, episode_meta.season, episode_meta.episode) {
+                    match get_tv_episode_details(&client, show_tmdb_id, season, episode, &api_token).await {
+                        Ok(episode_details) if episode_details.id.is_some() => {
+                            let existing_still = episode_meta.still_path.take();
+                            fill_episode_with_details(episode_meta, &episode_details, true);
+                            keep_existing(&mut episode_meta.still_path, existing_still);
+
+                            println!("Reparsed: {} S{:02}E{:02}", show_name_of(show), season, episode);
                         }
-                        if existing_backdrop.is_some() {
-                            video_element.backdrop_path = existing_backdrop;
+                        Ok(_) => {
+                            println!("No episode details on TMDB for {} S{:02}E{:02}", show_name_of(show), season, episode);
                         }
-
-                        println!("Reparsed: {}", video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()));
-                    }
-                    Err(e) => {
-                        println!("Error getting episode details for {} S{:02}E{:02}: {}", video_element.filepath, season, episode, e);
+                        Err(e) => {
+                            println!("Error getting episode details for {} S{:02}E{:02}: {}", video_element.filepath, season, episode, e);
+                        }
                     }
                 }
-                continue;
+
+                // The show may have been re-matched since the episode was parsed
+                show.tmdb_language.clone()
             }
+        };
 
-            let movie_details = get_movie_details(&client, tmdb_id, &api_token).await
-                .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
-
-            // Update all metadata but preserve existing covers
-            fill_video_element_with_movie_details_preserve_covers(video_element, &movie_details);
-
-            println!("Reparsed: {} [{}] ({}) by {}",
-                video_element.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                video_element.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                video_element.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                video_element.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
-        }
+        // tmdb_language may have changed during reparse; recompute audio/subtitle selection.
+        video_element.tmdb_language = tmdb_language;
+        video_element.playback_selection = Some(compute_selection(video_element));
     }
 
     Ok(())
 }
 
-/// Fill video element with movie details, updating all data but preserving existing covers
-fn fill_video_element_with_movie_details_preserve_covers(video_element: &mut VideoElement, movie_details: &TMDBMovieDetails)
-{
-    // Store existing cover paths to preserve them
-    let existing_poster = video_element.poster_path.clone();
-    let existing_backdrop = video_element.backdrop_path.clone();
-    let existing_thumbnail = video_element.thumbnail_path.clone();
-
-    // Update all metadata from search result (this includes titles, language, genre, overview, release_date)
-    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, Some(true));
-
-    // Restore existing covers if they were set, otherwise keep the new ones from TMDB
-    if existing_poster.is_some() {
-        video_element.poster_path = existing_poster;
-    }
-    if existing_backdrop.is_some() {
-        video_element.backdrop_path = existing_backdrop;
-    }
-    if existing_thumbnail.is_some() {
-        video_element.thumbnail_path = existing_thumbnail;
-    }
-
-    // Update tagline (from movie details)
-    video_element.tagline = movie_details.tagline.clone();
-
-    // Update countries using production_countries (the corrected field)
-    if let Some(production_countries) = &movie_details.production_countries {
-        let country_codes: Vec<String> = production_countries
-            .iter()
-            .filter_map(|country| country.iso_3166_1.clone())
-            .collect();
-
-        if !country_codes.is_empty() {
-            video_element.countries = Some(country_codes);
-        }
-    }
-
-    // Update director from credits
-    if let Some(credits) = &movie_details.credits {
-        if let Some(crew) = &credits.crew {
-            for crew_member in crew {
-                if let Some(job) = &crew_member.job {
-                    if job == "Director" {
-                        video_element.director = crew_member.tmdb_person.name.clone();
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    // tmdb_language may have changed during reparse; recompute audio/subtitle selection.
-    video_element.playback_selection = Some(compute_selection(video_element));
-}
-
-pub async fn get_movie_details_for_video_element(
-    video_element: &mut VideoElement,
+pub async fn get_movie_details_for_film(
+    film: &mut FilmMeta,
     overwrite: Option<bool>,
 ) -> Result<(), Error> {
-    if video_element.tmdb_id.is_none() {
+    if film.tmdb_id.is_none() {
         return Err(anyhow!("No TMDB ID specified, Implement getting it!"));
     }
 
     let (client, api_token) = create_client()
         .await
         .map_err(|e| anyhow!("Could not connect to TMDB: {}", e))?;
-    let movie_details = get_movie_details(&client, video_element.tmdb_id.unwrap(), &api_token)
+    let movie_details = get_movie_details(&client, film.tmdb_id.unwrap(), &api_token)
         .await
         .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
-    fill_video_element_with_movie_details(video_element, &movie_details, overwrite);
+    fill_film_with_movie_details(film, &movie_details, overwrite.unwrap_or(false));
 
     Ok(())
 }
 
 
-fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie_search_result: &TMDBMovie, overwrite: Option<bool>)
+// ==================== Fill Functions ====================
+// All of them fill empty fields and replace filled ones only with `overwrite`.
+// The caller owns `tmdb_language` and the playback selection of the element.
+
+fn fill<T: Clone>(field: &mut Option<T>, value: &Option<T>, overwrite: bool) {
+    if overwrite || field.is_none() {
+        *field = value.clone();
+    }
+}
+
+/// Like `fill`, but a value TMDB does not have never empties the field
+fn fill_if_some<T: Clone>(field: &mut Option<T>, value: Option<T>, overwrite: bool) {
+    if value.is_some() {
+        fill(field, &value, overwrite);
+    }
+}
+
+fn keep_existing(field: &mut Option<String>, existing: Option<String>) {
+    if existing.is_some() {
+        *field = existing;
+    }
+}
+
+fn image_url(path: &Option<String>) -> Option<String> {
+    path.as_ref().map(|path| format!("{}{}", TMDB_IMAGE_URL, path))
+}
+
+fn country_codes(production_countries: &Option<Vec<TMDBProductionCountries>>) -> Option<Vec<String>> {
+    let country_codes: Vec<String> = production_countries.as_ref()?
+        .iter()
+        .filter_map(|country| country.iso_3166_1.clone())
+        .collect();
+    (!country_codes.is_empty()).then_some(country_codes)
+}
+
+/// The details endpoints list genres as objects, only search results have `genre_ids`
+fn genre_ids(genres: &Option<Vec<TMDBGenre>>) -> Option<Vec<usize>> {
+    Some(genres.as_ref()?.iter().filter_map(|genre| genre.id).collect())
+}
+
+fn director(crew: &Option<Vec<TMDBCrew>>) -> Option<String> {
+    crew.as_ref()?
+        .iter()
+        .find(|crew_member| crew_member.job.as_deref() == Some("Director"))?
+        .tmdb_person.name.clone()
+}
+
+fn fill_film_with_search_result(film: &mut FilmMeta, movie_search_result: &TMDBMovie, overwrite: bool)
 {
-    let overwrite = overwrite.unwrap_or(false);
-
-    video_element.tmdb_id = movie_search_result.id;
-    if overwrite || video_element.title.is_none() 
-        { video_element.title = movie_search_result.title.clone(); }
-    if overwrite || video_element.original_title.is_none()
-        { video_element.original_title = movie_search_result.original_title.clone(); }
-    if overwrite || video_element.tmdb_language.is_none() 
-        { video_element.tmdb_language = movie_search_result.original_language.clone(); }
-    if overwrite || video_element.genre_ids.is_none()
-        { video_element.genre_ids = movie_search_result.genre_ids.clone(); }
-    if overwrite || video_element.overview.is_none()
-        { video_element.overview = movie_search_result.overview.clone(); }
-    if overwrite || video_element.release_date.is_none()
-        { video_element.release_date = movie_search_result.release_date.clone(); }
-
-    if overwrite || video_element.poster_path.is_none() {
-        video_element.poster_path = movie_search_result.poster_path.as_ref().map(|path| format!("{}{}", TMDB_IMAGE_URL, path));
-    }
-    if overwrite || video_element.backdrop_path.is_none() {
-        video_element.backdrop_path = movie_search_result.backdrop_path.as_ref().map(|path| format!("{}{}", TMDB_IMAGE_URL, path));
-    }
+    film.tmdb_id = movie_search_result.id;
+    fill(&mut film.title, &movie_search_result.title, overwrite);
+    fill(&mut film.original_title, &movie_search_result.original_title, overwrite);
+    fill(&mut film.genre_ids, &movie_search_result.genre_ids, overwrite);
+    fill(&mut film.overview, &movie_search_result.overview, overwrite);
+    fill(&mut film.release_date, &movie_search_result.release_date, overwrite);
+    fill(&mut film.poster_path, &image_url(&movie_search_result.poster_path), overwrite);
+    fill(&mut film.backdrop_path, &image_url(&movie_search_result.backdrop_path), overwrite);
 
     /* Not used:
     pub adult: Option<bool>,
@@ -512,47 +576,24 @@ fn fill_video_element_with_search_result(video_element: &mut VideoElement, movie
      */
 }
 
-fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie_details: &TMDBMovieDetails, overwrite: Option<bool>)
+fn fill_film_with_movie_details(film: &mut FilmMeta, movie_details: &TMDBMovieDetails, overwrite: bool)
 {
-    let overwrite = overwrite.unwrap_or(false);
-    fill_video_element_with_search_result(video_element, &movie_details.tmdb_movie, Some(overwrite));
+    fill_film_with_search_result(film, &movie_details.tmdb_movie, overwrite);
 
-    if overwrite || video_element.tagline.is_none()
-        { video_element.tagline = movie_details.tagline.clone(); }
-    if overwrite || video_element.countries.is_none() {
-        // Extract ISO country codes from production_countries
-        if let Some(production_countries) = &movie_details.production_countries {
-            let country_codes: Vec<String> = production_countries
-                .iter()
-                .filter_map(|country| country.iso_3166_1.clone())
-                .collect();
-
-            if !country_codes.is_empty() {
-                video_element.countries = Some(country_codes);
-            }
-        }
-    }
+    fill(&mut film.tagline, &movie_details.tagline, overwrite);
+    fill_if_some(&mut film.genre_ids, genre_ids(&movie_details.genres), overwrite);
+    fill_if_some(&mut film.countries, country_codes(&movie_details.production_countries), overwrite);
 
     if let Some(credits) = &movie_details.credits {
-        if let Some(crew) = &credits.crew {
-            for crew_member in crew {
-                if let Some(job) = &crew_member.job {
-                    if job == "Director" {
-                        video_element.director = crew_member.tmdb_person.name.clone();
-                    }
-                }
-            }
-        }
+        fill_if_some(&mut film.director, director(&credits.crew), true);
     }
 
     /* Not used:
     pub belongs_to_collection: Option<TMDBCollection>,
     pub budget: Option<usize>,
-    pub genres: Option<Vec<TMDBGenre>>,
     pub homepage: Option<String>,
     pub imdb_id: Option<String>,
     pub production_companies: Option<Vec<TMDBProductionCompanies>>,
-    pub production_countries: Option<Vec<TMDBProductionCountries>>,
     pub revenue: Option<usize>,
     pub runtime: Option<usize>,
     pub spoken_languages: Option<Vec<TMDBSpokenLanguage>>,
@@ -560,186 +601,58 @@ fn fill_video_element_with_movie_details(video_element: &mut VideoElement, movie
 
     Rest of crew/cast
     */
-
-    // tmdb_language is now known; recompute audio/subtitle selection.
-    video_element.playback_selection = Some(compute_selection(video_element));
 }
 
-// ==================== TV Show Fill Functions ====================
-
-/// Fill video element with only TV show details (no episode data)
-/// Used as fallback when episode details aren't available from TMDB
-fn fill_video_element_with_tv_show_only(
-    video_element: &mut VideoElement,
-    tv_show_details: &TMDBTVShowDetails,
-    season_number: i32,
-    episode_number: i32
-)
+/// Does not set `tmdb_id`: the details of a show that left TMDB parse to all-empty
+fn fill_show_with_details(show: &mut TvShow, tv_show_details: &TMDBTVShowDetails, overwrite: bool)
 {
-    // Set TMDB ID to the show ID
-    video_element.tmdb_id = tv_show_details.tmdb_tv_show.id;
+    let tmdb_tv_show = &tv_show_details.tmdb_tv_show;
 
-    // Set season and episode numbers from filename parsing
-    video_element.season = Some(season_number);
-    video_element.episode = Some(episode_number);
+    fill(&mut show.name, &tmdb_tv_show.name, overwrite);
+    fill(&mut show.original_name, &tmdb_tv_show.original_name, overwrite);
+    fill(&mut show.overview, &tmdb_tv_show.overview, overwrite);
+    fill(&mut show.first_air_date, &tmdb_tv_show.first_air_date, overwrite);
+    fill(&mut show.tmdb_language, &tmdb_tv_show.original_language, overwrite);
+    fill(&mut show.poster_path, &image_url(&tmdb_tv_show.poster_path), overwrite);
+    fill(&mut show.backdrop_path, &image_url(&tmdb_tv_show.backdrop_path), overwrite);
+    fill(&mut show.tagline, &tv_show_details.tagline, overwrite);
+    fill(&mut show.status, &tv_show_details.status, overwrite);
 
-    // Build title with show name and episode numbers (no episode name)
-    let combined_title = {
-        let show_name = tv_show_details.tmdb_tv_show.name.as_deref().unwrap_or("Unknown Show");
-        format!("{} S{:02}E{:02}", show_name, season_number, episode_number)
-    };
+    let genre_ids = genre_ids(&tv_show_details.genres).or_else(|| tmdb_tv_show.genre_ids.clone());
+    fill_if_some(&mut show.genre_ids, genre_ids, overwrite);
+    let countries = country_codes(&tv_show_details.production_countries).or_else(|| tmdb_tv_show.origin_country.clone());
+    fill_if_some(&mut show.countries, countries, overwrite);
+    let creators = tv_show_details.created_by.as_ref()
+        .map(|creators| creators.iter().filter_map(|creator| creator.name.clone()).collect());
+    fill_if_some(&mut show.creators, creators, overwrite);
 
-    video_element.title = Some(combined_title.clone());
-    video_element.original_title = Some(combined_title);
-
-    // Set show-level metadata
-    video_element.tmdb_language = tv_show_details.tmdb_tv_show.original_language.clone();
-    video_element.genre_ids = tv_show_details.tmdb_tv_show.genre_ids.clone();
-    video_element.tagline = tv_show_details.tagline.clone();
-
-    // Set countries from the show
-    if let Some(production_countries) = &tv_show_details.production_countries {
-        let country_codes: Vec<String> = production_countries
-            .iter()
-            .filter_map(|country| country.iso_3166_1.clone())
-            .collect();
-
-        if !country_codes.is_empty() {
-            video_element.countries = Some(country_codes);
-        }
-    }
-
-    // Set poster and backdrop from show
-    if let Some(poster_path) = &tv_show_details.tmdb_tv_show.poster_path {
-        video_element.poster_path = Some(format!("{}{}", TMDB_IMAGE_URL, poster_path));
-    }
-    if let Some(backdrop_path) = &tv_show_details.tmdb_tv_show.backdrop_path {
-        video_element.backdrop_path = Some(format!("{}{}", TMDB_IMAGE_URL, backdrop_path));
-    }
-
-    println!("  Partial update (no episode details): {} S{:02}E{:02}",
-        tv_show_details.tmdb_tv_show.name.as_ref().unwrap_or(&"!MISSING!".to_string()),
-        season_number,
-        episode_number);
-
-    // tmdb_language is now known; recompute audio/subtitle selection.
-    video_element.playback_selection = Some(compute_selection(video_element));
-}
-
-/// Fill video element with TV episode details
-/// Title format: "(Series Name) SxxExx (Episode Name)"
-///
-/// parsed_season and parsed_episode are the values extracted from the filename,
-/// used as fallback when TMDB returns None values
-fn fill_video_element_with_tv_episode(
-    video_element: &mut VideoElement,
-    tv_show_details: &TMDBTVShowDetails,
-    episode_details: &TMDBEpisodeDetails,
-    parsed_season: i32,
-    parsed_episode: i32,
-    overwrite: Option<bool>
-)
-{
-    let overwrite = overwrite.unwrap_or(false);
-
-    // Set TMDB ID to the show ID (not episode ID)
-    video_element.tmdb_id = tv_show_details.tmdb_tv_show.id;
-
-    // Set season and episode numbers, preferring TMDB data but falling back to parsed values
-    if overwrite || video_element.season.is_none() {
-        video_element.season = Some(episode_details.season_number.unwrap_or(parsed_season));
-    }
-    if overwrite || video_element.episode.is_none() {
-        video_element.episode = Some(episode_details.episode_number.unwrap_or(parsed_episode));
-    }
-
-    // Build combined title: "(Series Name) SxxExx (Episode Name)"
-    let combined_title = {
-        let show_name = tv_show_details.tmdb_tv_show.name.as_deref().unwrap_or("Unknown Show");
-        let season_num = episode_details.season_number.unwrap_or(parsed_season);
-        let episode_num = episode_details.episode_number.unwrap_or(parsed_episode);
-        let episode_name = episode_details.name.as_deref().unwrap_or("Unknown Episode");
-
-        format!("{} S{:02}E{:02} {}", show_name, season_num, episode_num, episode_name)
-    };
-
-    if overwrite || video_element.title.is_none() {
-        video_element.title = Some(combined_title.clone());
-    }
-
-    // Set original_title to the same combined format
-    if overwrite || video_element.original_title.is_none() {
-        video_element.original_title = Some(combined_title);
-    }
-
-    // Set release_date to episode air_date
-    if overwrite || video_element.release_date.is_none() {
-        video_element.release_date = episode_details.air_date.clone();
-    }
-
-    // Set language
-    if overwrite || video_element.tmdb_language.is_none() {
-        video_element.tmdb_language = tv_show_details.tmdb_tv_show.original_language.clone();
-    }
-
-    // Set genre_ids from the show
-    if overwrite || video_element.genre_ids.is_none() {
-        video_element.genre_ids = tv_show_details.tmdb_tv_show.genre_ids.clone();
-    }
-
-    // Set overview to episode overview
-    if overwrite || video_element.overview.is_none() {
-        video_element.overview = episode_details.overview.clone();
-    }
-
-    // Set tagline from the show
-    if overwrite || video_element.tagline.is_none() {
-        video_element.tagline = tv_show_details.tagline.clone();
-    }
-
-    // Set countries from the show
-    if overwrite || video_element.countries.is_none() {
-        if let Some(production_countries) = &tv_show_details.production_countries {
-            let country_codes: Vec<String> = production_countries
-                .iter()
-                .filter_map(|country| country.iso_3166_1.clone())
+    if let Some(seasons) = &tv_show_details.seasons {
+        if overwrite || show.seasons.is_empty() {
+            show.seasons = seasons.iter()
+                .filter_map(|season| Some(TvSeason {
+                    season_number: season.season_number?,
+                    name: season.name.clone(),
+                    overview: season.overview.clone(),
+                    poster_path: image_url(&season.poster_path),
+                    air_date: season.air_date.clone(),
+                    episode_count: season.episode_count,
+                }))
                 .collect();
-
-            if !country_codes.is_empty() {
-                video_element.countries = Some(country_codes);
-            }
         }
     }
+}
 
-    // Set poster_path - use episode still if available, otherwise show poster
-    if overwrite || video_element.poster_path.is_none() {
-        if let Some(still_path) = &episode_details.still_path {
-            video_element.poster_path = Some(format!("{}{}", TMDB_IMAGE_URL, still_path));
-        } else if let Some(poster_path) = &tv_show_details.tmdb_tv_show.poster_path {
-            video_element.poster_path = Some(format!("{}{}", TMDB_IMAGE_URL, poster_path));
-        }
-    }
-
-    // Set backdrop_path from show
-    if overwrite || video_element.backdrop_path.is_none() {
-        video_element.backdrop_path = tv_show_details.tmdb_tv_show.backdrop_path.as_ref()
-            .map(|path| format!("{}{}", TMDB_IMAGE_URL, path));
-    }
-
-    // Set director from episode crew (look for "Director" job)
-    if let Some(crew) = &episode_details.crew {
-        for crew_member in crew {
-            if let Some(job) = &crew_member.job {
-                if job == "Director" {
-                    video_element.director = crew_member.tmdb_person.name.clone();
-                    break;
-                }
-            }
-        }
-    }
-
-    // tmdb_language is now known; recompute audio/subtitle selection.
-    video_element.playback_selection = Some(compute_selection(video_element));
+/// `show_id` and the parsed season/episode numbers are set by the caller
+fn fill_episode_with_details(episode_meta: &mut EpisodeMeta, episode_details: &TMDBEpisodeDetails, overwrite: bool)
+{
+    episode_meta.tmdb_id = episode_details.id;
+    fill_if_some(&mut episode_meta.season, episode_details.season_number, overwrite);
+    fill_if_some(&mut episode_meta.episode, episode_details.episode_number, overwrite);
+    fill(&mut episode_meta.name, &episode_details.name, overwrite);
+    fill(&mut episode_meta.overview, &episode_details.overview, overwrite);
+    fill(&mut episode_meta.air_date, &episode_details.air_date, overwrite);
+    fill(&mut episode_meta.still_path, &image_url(&episode_details.still_path), overwrite);
+    fill_if_some(&mut episode_meta.director, director(&episode_details.crew), true);
 }
 
 

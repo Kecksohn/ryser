@@ -33,6 +33,7 @@ pub fn run() {
                 // Library View
                 get_library_name,
                 get_library_videos,
+                get_library_shows,
                 get_library_sort_preference,
                 set_library_sort_preference,
                 get_library_filter_preferences,
@@ -42,7 +43,8 @@ pub fn run() {
                 rescan_library_by_id_gui,
                 reparse_all_libraries_preserve_covers_gui,
                 // Library Update
-                update_library_entry_from_gui,
+                set_watched,
+                set_media,
                 refresh_library_entry,
                 search_tmdb_from_gui,
                 get_covers_from_tmdb,

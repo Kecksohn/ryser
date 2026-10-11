@@ -33,7 +33,7 @@ export const video_element_context_menu_options = ({
       label: "Edit",
       action: () => {
         if (set_selected_element) set_selected_element(context);
-        navigate(`edit_element/${context.year}`); // TODO: Change to ID
+        navigate(`edit_element/${context.media?.tmdb_id}`); // TODO: Change to ID
       },
       close_after: true,
     },
