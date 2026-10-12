@@ -815,3 +815,270 @@ fn extract_season_from_folder(folder_name: &str) -> Option<i32>
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // A folder of empty files below the system temp dir, removed on drop.
+    // `folder` is the name the parser sees as the parent folder.
+    struct TestFolder {
+        root: PathBuf,
+        folder: PathBuf,
+    }
+
+    impl TestFolder {
+        fn new(unique_name: &str, folder: &str, files: &[&str]) -> Self
+        {
+            let root = std::env::temp_dir()
+                .join(format!("ryser_parser_{}_{}", std::process::id(), unique_name));
+            let folder = root.join(folder);
+            fs::create_dir_all(&folder).unwrap();
+            for file in files {
+                fs::write(folder.join(file), "").unwrap();
+            }
+            TestFolder { root, folder }
+        }
+
+        fn path(&self, file: &str) -> String
+        {
+            self.folder.join(file).to_str().unwrap().to_owned()
+        }
+    }
+
+    impl Drop for TestFolder {
+        fn drop(&mut self)
+        {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn tv_info(filepath: &str) -> (String, Option<i32>, Option<i32>)
+    {
+        get_tv_show_info_from_filename(filepath)
+    }
+
+    // The title is trimmed here because the parser leaves that to the caller.
+    fn movie(filepath: &str) -> (String, Option<i32>)
+    {
+        let (title, year) = get_movie_title_and_year_from_filename(filepath);
+        (title.trim().to_owned(), year)
+    }
+
+    #[test]
+    fn tv_show_info_from_filename()
+    {
+        let cases: &[(&str, &str, Option<i32>, Option<i32>)] = &[
+            // S01E02
+            ("Breaking.Bad.S01E02.720p.mkv", "Breaking Bad", Some(1), Some(2)),
+            ("the.wire.s2e10.mkv", "the wire", Some(2), Some(10)),
+            // 1x05
+            ("Seinfeld 1x05 The Stock Tip.avi", "Seinfeld", Some(1), Some(5)),
+            ("Show 12x03.mkv", "Show", Some(12), Some(3)),
+            // E05, season from the folder
+            ("Show/Season 2/Show E05.mkv", "Show", Some(2), Some(5)),
+            ("Show/S03/Show e7 Title.mkv", "Show", Some(3), Some(7)),
+            ("Show/Show E05.mkv", "Show", None, Some(5)),
+            // " - 01 "
+            ("Monster - 12 - Title.mkv", "Monster", None, Some(12)),
+            ("Monster - 001.mkv", "Monster", None, Some(1)),
+            ("Monster/Season 1/Monster - 01.mkv", "Monster", Some(1), Some(1)),
+            // [01]
+            ("[Grp] Show [01].mkv", "Show", None, Some(1)),
+            ("[Grp] Show [CM02].mkv", "Show", None, Some(2)),
+            // Ep. 01
+            ("Show Ep. 01.mkv", "Show", None, Some(1)),
+            ("Show ep03.mkv", "Show", None, Some(3)),
+            ("Show/Season 4/Show Ep 7.mkv", "Show", Some(4), Some(7)),
+            // No pattern
+            ("Some Movie.mkv", "Some Movie", None, None),
+        ];
+
+        for (filepath, name, season, episode) in cases {
+            assert_eq!(tv_info(filepath), (name.to_string(), *season, *episode), "{}", filepath);
+        }
+    }
+
+    // The ignored tests below fail because the parser is wrong, not the test.
+
+    #[test]
+    #[ignore = "parser bug: SEASON_EPISODE_X_FORMAT_REGEX matches inside 1920x1080, gives season 20 episode 1080"]
+    fn tv_show_info_resolution_is_not_season_x_episode()
+    {
+        assert_eq!(tv_info("Show - 01 [1920x1080].mkv"), ("Show".to_owned(), None, Some(1)));
+    }
+
+    #[test]
+    #[ignore = "parser bug: EP_PREFIX_REGEX does not match 'Episode 5', although its comments say so"]
+    fn tv_show_info_episode_spelled_out()
+    {
+        assert_eq!(tv_info("Show Episode 5.mkv"), ("Show".to_owned(), None, Some(5)));
+    }
+
+    #[test]
+    fn is_tv_episode_by_filename_alone()
+    {
+        for filepath in [
+            "shows/Breaking.Bad.S01E02.720p.mkv",
+            "shows/the.wire.s2e10.mkv",
+            "shows/Seinfeld 1x05 The Stock Tip.avi",
+            "shows/Show Ep. 01.mkv",
+        ] {
+            assert!(is_tv_episode(filepath), "{}", filepath);
+        }
+    }
+
+    #[test]
+    fn is_tv_episode_false_for_movies()
+    {
+        for filepath in [
+            "movies/Persona (1966).mkv",
+            "movies/Se7en.1995.1080p.BluRay.x264.mkv",
+            "movies/2001 - A Space Odyssey 1968.mkv",
+            "movies/Ocean's Eleven (2001).mkv",
+            "movies/S1m0ne (2002).mkv",
+            "movies/Apollo 13 (1995).mkv",
+            "movies/District 9.mkv",
+            "movies/E.T. the Extra-Terrestrial (1982).mkv",
+            "movies/[Commie] Neon Genesis Evangelion - The End of Evangelion [BD 1080p AAC] [9EF369E6].mkv",
+        ] {
+            assert!(!is_tv_episode(filepath), "{}", filepath);
+        }
+    }
+
+    #[test]
+    fn is_tv_episode_e_number_needs_sibling_or_season_folder()
+    {
+        let siblings = TestFolder::new("e_siblings", "Show", &["Show E01.mkv", "Show E02.mkv"]);
+        assert!(is_tv_episode(&siblings.path("Show E01.mkv")));
+
+        let season = TestFolder::new("e_season", "Season 1", &["Show E05.mkv"]);
+        assert!(is_tv_episode(&season.path("Show E05.mkv")));
+
+        let alone = TestFolder::new("e_alone", "Show", &["Show E05.mkv"]);
+        assert!(!is_tv_episode(&alone.path("Show E05.mkv")));
+    }
+
+    #[test]
+    fn is_tv_episode_season_folder_needs_several_videos()
+    {
+        let several = TestFolder::new("season_several", "Season 1", &["Pilot.mkv", "The Second One.mkv"]);
+        assert!(is_tv_episode(&several.path("Pilot.mkv")));
+
+        let single = TestFolder::new("season_single", "Season 1", &["Pilot.mkv", "Pilot.srt"]);
+        assert!(!is_tv_episode(&single.path("Pilot.mkv")));
+    }
+
+    #[test]
+    fn is_tv_episode_dash_number_needs_three_siblings()
+    {
+        let show = TestFolder::new("dash_show", "Monster", &[
+            "Monster - 01.mkv", "Monster - 02.mkv", "Monster - 03.mkv", "Monster - 04.mkv",
+        ]);
+        assert!(is_tv_episode(&show.path("Monster - 01.mkv")));
+
+        let trilogy = TestFolder::new("dash_trilogy", "Mad Max", &[
+            "Mad Max - 1.mkv", "Mad Max - 2.mkv", "Mad Max - 3.mkv",
+        ]);
+        assert!(!is_tv_episode(&trilogy.path("Mad Max - 1.mkv")));
+    }
+
+    #[test]
+    fn is_tv_episode_bracketed_number_needs_sibling()
+    {
+        let show = TestFolder::new("bracket_show", "Show", &["[Grp] Show [01].mkv", "[Grp] Show [02].mkv"]);
+        assert!(is_tv_episode(&show.path("[Grp] Show [01].mkv")));
+
+        let alone = TestFolder::new("bracket_alone", "Show", &["[Grp] Show [01].mkv"]);
+        assert!(!is_tv_episode(&alone.path("[Grp] Show [01].mkv")));
+    }
+
+    #[test]
+    fn is_tv_episode_special_needs_sibling()
+    {
+        let show = TestFolder::new("special_show", "Show", &["Show Special.mkv", "Show S01E01.mkv"]);
+        assert!(is_tv_episode(&show.path("Show Special.mkv")));
+
+        let alone = TestFolder::new("special_alone", "Show", &["Show Special.mkv"]);
+        assert!(!is_tv_episode(&alone.path("Show Special.mkv")));
+    }
+
+    #[test]
+    #[ignore = "parser bug: SEASON_EPISODE_X_FORMAT_REGEX matches inside 1920x1080"]
+    fn is_tv_episode_false_for_resolution()
+    {
+        assert!(!is_tv_episode("movies/Movie.1920x1080.mkv"));
+    }
+
+    #[test]
+    #[ignore = "parser bug: EP_PREFIX_REGEX is not anchored, matches 'ep 1946' in 'Sleep 1946'"]
+    fn is_tv_episode_false_for_title_ending_in_ep_before_year()
+    {
+        assert!(!is_tv_episode("movies/The Big Sleep 1946.mkv"));
+        assert!(!is_tv_episode("movies/Black.Sheep.2006.mkv"));
+    }
+
+    #[test]
+    #[ignore = "parser bug: FOLDER_SEASON_REGEX matches any s<digit>, so a folder 'films2' with two videos counts as a season"]
+    fn is_tv_episode_false_for_movies_in_folder_ending_in_s_digit()
+    {
+        let films = TestFolder::new("folder_s_digit", "films2", &["Alien (1979).mkv", "Heat (1995).mkv"]);
+        assert!(!is_tv_episode(&films.path("Alien (1979).mkv")));
+    }
+
+    #[test]
+    fn movie_title_and_year_from_filename()
+    {
+        let cases: &[(&str, &str, Option<i32>)] = &[
+            ("Persona (1966).mkv", "Persona", Some(1966)),
+            ("C:/films/Persona (1966).mkv", "Persona", Some(1966)),
+            ("Ran [1985].mkv", "Ran", Some(1985)),
+            ("Caché 2005.mkv", "Caché", Some(2005)),
+            ("2001 - A Space Odyssey 1968.mkv", "2001 A Space Odyssey", Some(1968)),
+            ("1917 (2019).mkv", "1917", Some(2019)),
+            ("Blade Runner 2049 (2017).mkv", "Blade Runner 2049", Some(2017)),
+            (
+                "I.Do.Not.Care.If.We.Go.Down.In.History.As.Barbarians.2018.1080p.BluRay.x264.AAC5.1-[YTS.MX].mkv",
+                "I Do Not Care If We Go Down In History As Barbarians",
+                Some(2018),
+            ),
+            (
+                "[Commie] Neon Genesis Evangelion - The End of Evangelion [BD 1080p AAC] [9EF369E6].mkv",
+                "Neon Genesis Evangelion The End of Evangelion",
+                None,
+            ),
+            // Resolutions are not years
+            ("Movie.1920x1080.mkv", "Movie", None),
+            ("Movie 2160p.mkv", "Movie", None),
+            // No year: cut at the first noise pattern
+            ("Stalker.720p.BluRay.x264.mkv", "Stalker", None),
+            ("Stalker.mkv", "Stalker", None),
+        ];
+
+        for (filepath, title, year) in cases {
+            assert_eq!(movie(filepath), (title.to_string(), *year), "{}", filepath);
+        }
+    }
+
+    #[test]
+    #[ignore = "parser bug: YEAR_REGEX match starts one character before the year, title loses its last letter"]
+    fn movie_year_directly_after_title()
+    {
+        assert_eq!(movie("Nostalghia1983.mkv"), ("Nostalghia".to_owned(), Some(1983)));
+    }
+
+    #[test]
+    #[ignore = "parser bug: the first year's match consumes the separator, so the second year is not found"]
+    fn movie_two_adjacent_years_picks_the_last()
+    {
+        assert_eq!(movie("Death.Race.2000.1975.mkv"), ("Death Race 2000".to_owned(), Some(1975)));
+    }
+
+    #[test]
+    #[ignore = "parser bug: a title that is itself a valid year comes back empty"]
+    fn movie_title_that_is_a_year()
+    {
+        assert_eq!(movie("1917.1080p.BluRay.mkv").0, "1917");
+    }
+}
