@@ -17,9 +17,24 @@
       "WebFetch(domain:www.babelstone.co.uk)",
       "WebFetch(domain:flagpedia.net)",
       "Bash(cargo:*)",
+      "Bash(yarn test)",
       "Read(//c/Users/~/AppData/Local/ryser/data/film/**)"
     ],
     "deny": [],
     "ask": []
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "prompt": "Verify that the test suites of this repository pass. Run exactly these two commands from the project root with the Bash tool, one call each, unchanged (no cd, no pipes, no redirects):\n1. yarn test\n2. cargo test --manifest-path src-tauri/Cargo.toml\nDo not edit any file and do not run anything else. The check passes only if both commands exit with code 0. If one fails, fail the check and give as the reason: which command failed, the names of the failing tests, and the first error message of each, copied from the output. If a command could not be run at all (tool missing, blocked, timed out), fail the check and say exactly that; do not report it as a test failure. Hook input: $ARGUMENTS",
+            "timeout": 300,
+            "statusMessage": "Running yarn test and cargo test"
+          }
+        ]
+      }
+    ]
   }
 }
