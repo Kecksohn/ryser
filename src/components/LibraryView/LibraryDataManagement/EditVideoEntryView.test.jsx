@@ -84,6 +84,35 @@ describe("EditVideoEntryView", () => {
     });
   });
 
+  it("offers to save only while an input differs from the entry", () => {
+    for (const entry of [
+      film_entry(),
+      episode_entry(),
+      { ...film_entry(), media: { kind: "unmatched" } },
+    ]) {
+      const { container } = render_view(entry);
+      const title_input = container.querySelector("#en_title_input");
+      const before = title_input.value;
+      expect(screen.queryByText("Save Changes")).toBeNull();
+
+      fireEvent.change(title_input, { target: { value: "Other" } });
+      expect(screen.getByText("Save Changes")).toBeTruthy();
+      expect(screen.getByText("Discard Changes")).toBeTruthy();
+
+      fireEvent.change(title_input, { target: { value: before } });
+      expect(screen.queryByText("Save Changes")).toBeNull();
+      cleanup();
+    }
+  });
+
+  it("does not count an empty country entry as a change", () => {
+    const { container } = render_view(film_entry());
+    fireEvent.change(container.querySelector("#country_input"), {
+      target: { value: "US, " },
+    });
+    expect(screen.queryByText("Save Changes")).toBeNull();
+  });
+
   it("shows the show's name instead of the film inputs for an episode", () => {
     const { container } = render_view(episode_entry());
 

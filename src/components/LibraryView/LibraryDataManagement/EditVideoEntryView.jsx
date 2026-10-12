@@ -41,16 +41,17 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
   );
 
   function was_changed() {
+    const listed = (countries) => countries.filter(Boolean).join();
     return (
-      media.original_title !== original_title_input ||
-      media[title_field] !== english_title_input ||
-      media.countries !== countries_input ||
+      (media.original_title ?? "") !== original_title_input ||
+      (media[title_field] ?? "") !== english_title_input ||
+      listed(media.countries ?? []) !== listed(countries_input) ||
       media[image_field] !== new_poster_url_or_path
     );
   }
 
   function commit_changes() {
-    if (!was_changed) {
+    if (!was_changed()) {
       console.log("No changes found.");
       return;
     }
@@ -191,7 +192,7 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
           )}
           <div>Watched: {video_entry.watched}</div>
           <br />
-          {was_changed && (
+          {was_changed() && (
             <>
               <div
                 style={{ cursor: "pointer" }}

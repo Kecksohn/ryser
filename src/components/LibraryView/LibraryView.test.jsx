@@ -75,11 +75,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  // React's dev build assigns window.event while dispatching, and vitest's
-  // global keeps that event after the dispatch. React then schedules later
-  // updates as if a click were still running, and the sort preference effect
-  // loops. A browser clears window.event itself.
-  window.event = undefined;
 });
 
 describe("LibraryView", () => {

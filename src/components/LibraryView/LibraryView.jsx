@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -211,13 +211,14 @@ export const LibraryView = () => {
     { label: "Filepath", onClick: () => sort_library_elements("filepath") },
   ];
   const [last_sort_order, set_last_sort_order] = useState("filepath");
-  const [sort_preference_loaded, set_sort_preference_loaded] = useState(false);
+  // A ref, not state: the guard has to hold before the next render
+  const sort_preference_loaded = useRef(false);
   const [saved_sort_preference, set_saved_sort_preference] = useState("title");
 
   // Load sort preference when library is loaded
   useEffect(() => {
-    if (library_elements_loaded && !sort_preference_loaded && library_elements.length > 0) {
-      set_sort_preference_loaded(true);
+    if (library_elements_loaded && !sort_preference_loaded.current && library_elements.length > 0) {
+      sort_preference_loaded.current = true;
       invoke("get_library_sort_preference", { library_id: library_id })
         .then((preference) => {
           // Apply the loaded sort preference immediately
@@ -247,7 +248,7 @@ export const LibraryView = () => {
           set_saved_sort_preference("title");
         });
     }
-  }, [library_elements_loaded, sort_preference_loaded, library_elements]);
+  }, [library_elements_loaded, library_elements]);
 
   // Load filter preferences when library is loaded
   useEffect(() => {
