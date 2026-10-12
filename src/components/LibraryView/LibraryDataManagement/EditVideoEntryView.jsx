@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { CoverPickerTooltip } from "./CoverPickerTooltip.jsx";
 import { display } from "../Utils/displayElement.js";
+import { build_media } from "../Utils/buildMedia.js";
 
 import editVideoStyles from "./EditVideoEntry.module.css";
 import tmdbResultsStyles from "./TMDBResults.module.css";
@@ -53,19 +54,15 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
       console.log("No changes found.");
       return;
     }
-    const new_media = {
-      ...media,
-      [title_field]: english_title_input || null,
-      [image_field]: new_poster_url_or_path ?? null,
-    };
-    if (!is_episode) {
-      // Saving an unmatched file makes it a film titled by the user
-      new_media.kind = "film";
-      new_media.original_title = original_title_input || null;
-      const countries = countries_input.filter(Boolean);
-      new_media.countries = countries.length > 0 ? countries : null;
-    }
-    save_media(video_entry, new_media);
+    save_media(
+      video_entry,
+      build_media(media, {
+        title: english_title_input,
+        original_title: original_title_input,
+        countries: countries_input,
+        image: new_poster_url_or_path,
+      })
+    );
   }
 
   function update_element_with_tmdb(tmdb_result) {

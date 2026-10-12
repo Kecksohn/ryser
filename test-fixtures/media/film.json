@@ -1,0 +1,14 @@
+{
+  "kind": "film",
+  "tmdb_id": 348,
+  "title": "Alien",
+  "original_title": "Alien",
+  "release_date": "1979-05-25",
+  "director": "Ridley Scott",
+  "countries": ["US", "GB"],
+  "genre_ids": [27, 878],
+  "overview": "A commercial crew is woken by a distress call.",
+  "tagline": "In space no one can hear you scream.",
+  "poster_path": "/alien-poster.jpg",
+  "backdrop_path": "/alien-backdrop.jpg"
+}

@@ -228,4 +228,38 @@ mod tests {
         assert!(reloaded.tmdb_searched && reloaded.watched);
         assert_eq!(reloaded.timestamp_modified, ve.timestamp_modified);
     }
+
+    /// A `media` object as the edit view sends it to `set_media`.
+    /// `buildMedia.test.js` asserts the frontend produces exactly these files.
+    macro_rules! sent_media {
+        ($name:literal) => {
+            sent_media(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test-fixtures/media/", $name)))
+        };
+    }
+
+    fn sent_media(json: &str) -> Media {
+        let sent: serde_json::Value = serde_json::from_str(json).unwrap();
+        let media: Media = serde_json::from_value(sent.clone()).unwrap();
+        // Unknown fields are dropped silently, so check that every sent field arrived
+        let stored = serde_json::to_value(&media).unwrap();
+        for (field, value) in sent.as_object().unwrap() {
+            assert_eq!(stored.get(field), Some(value), "field '{}'", field);
+        }
+        media
+    }
+
+    #[test]
+    fn media_sent_by_the_edit_view_deserializes() {
+        let Media::Film(film) = sent_media!("film.json") else { panic!("expected a film") };
+        assert_eq!(film.tmdb_id, Some(348));
+        assert_eq!(film.countries, Some(vec!["US".to_owned(), "GB".to_owned()]));
+
+        let Media::Film(user_film) = sent_media!("user_film.json") else { panic!("expected a film") };
+        assert_eq!(user_film.tmdb_id, None);
+        assert_eq!(user_film.title.as_deref(), Some("Holiday 2019"));
+
+        let Media::Episode(episode) = sent_media!("episode.json") else { panic!("expected an episode") };
+        assert_eq!((episode.show_id, episode.season, episode.episode), (3, Some(1), Some(2)));
+        assert_eq!(episode.name.as_deref(), Some("Die Mitte der Welt"));
+    }
 }
