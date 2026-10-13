@@ -13,13 +13,13 @@ static YEAR_IN_BRACKETS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:[\(\[\
 static YEAR_IN_SPACES_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\s)(\d{4})(?:$|\s)").unwrap());
 static YEAR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\D)(\d{4})(?:$|[^pPxX\d])").unwrap()); // Exactly 4 digits, no trailing p/x (resolution)
 // Or TV Show name
-static SEASON_EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)s\d{1,2}(?i)e\d+").unwrap());
+static SEASON_EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)s(\d{1,2})[ ._-]?e(\d+)").unwrap()); // Matches: S01E05, s2e10, S01 E05, S01.E05
 static EPISODE_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"($|\s)(?i)e\d+($|\s)").unwrap());
 static SEASON_EPISODE_X_FORMAT_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\d{1,2}x\d+").unwrap()); // Matches: 1x05, 12x3
 static FOLDER_SEASON_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)season\s*\d+|(?i)s\d{1,2}").unwrap()); // Matches: Season 1, season 01, S01, s1
 static DASH_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+-\s+0?\d{1,3}(?:\s+|$)").unwrap()); // Matches: " - 01 ", " - 1 ", " - 001"
 static BRACKETED_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(?:CM)?\d{1,3}\]").unwrap()); // Matches: [01], [CM01]
-static EP_PREFIX_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)ep\.?\s*\d+").unwrap()); // Matches: Ep. 01, Ep 01, ep.01
+static EP_PREFIX_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:^|[^a-z0-9])ep\.?\s*\d+").unwrap()); // Matches: Ep. 01, Ep 01, ep.01 - but not the "ep 1946" in "Sleep 1946"
 static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)special").unwrap()); // Matches: SPECIAL, Special, special
 
 // If those fail, we try to find other patterns and take the left-most to find end of movie name
@@ -415,8 +415,8 @@ fn similarity(s1: &str, s2: &str) -> f32
         return 1.0;
     }
 
-    let len1 = s1.len();
-    let len2 = s2.len();
+    let len1 = s1.chars().count();
+    let len2 = s2.chars().count();
 
     if len1 == 0 || len2 == 0 {
         return 0.0;
@@ -431,8 +431,9 @@ fn similarity(s1: &str, s2: &str) -> f32
 // Calculates Levenshtein distance between two strings
 fn levenshtein_distance(s1: &str, s2: &str) -> usize
 {
-    let len1 = s1.len();
-    let len2 = s2.len();
+    // Lengths in characters, the matrix below is filled per character
+    let len1 = s1.chars().count();
+    let len2 = s2.chars().count();
 
     if len1 == 0 {
         return len2;
@@ -644,7 +645,8 @@ fn normalize_spaces(s: &str) -> String {
 
 // Extracts TV show name, season number, and episode number from filename
 // Returns: (show_name, season_number, episode_number)
-// Returns None for season/episode if not found
+// Returns None for season/episode if no episode number is found
+// With an episode number but no season in filename or folder, the season is 1
 pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<i32>, Option<i32>)
 {
     let filename = remove_extension_and_path(filepath);
@@ -654,27 +656,12 @@ pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<
 
     // Try to find S01E05 format (highest confidence)
     if let Some(capture) = SEASON_EPISODE_NUMBER_REGEX.captures(&filename) {
-        if let Some(matched) = capture.get(0) {
-            let matched_str = matched.as_str();
+        // Format is like "S01E05", "s2e10" or "S01 E05"
+        season = capture[1].parse::<i32>().ok();
+        episode = capture[2].parse::<i32>().ok();
 
-            // Extract season and episode numbers from the match
-            // Format is like "S01E05" or "s2e10"
-            let upper = matched_str.to_uppercase();
-            if let Some(s_pos) = upper.find('S') {
-                if let Some(e_pos) = upper.find('E') {
-                    // Extract season number between 'S' and 'E'
-                    let season_str = &upper[s_pos + 1..e_pos];
-                    season = season_str.parse::<i32>().ok();
-
-                    // Extract episode number after 'E'
-                    let episode_str = &upper[e_pos + 1..];
-                    episode = episode_str.parse::<i32>().ok();
-                }
-            }
-
-            // Extract show name (everything before the match)
-            show_name = filename[..matched.start()].to_string();
-        }
+        // Extract show name (everything before the match)
+        show_name = filename[..capture.get(0).unwrap().start()].to_string();
     }
     // Try 1x05 format
     else if let Some(capture) = SEASON_EPISODE_X_FORMAT_REGEX.captures(&filename) {
@@ -786,6 +773,11 @@ pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<
         }
     }
 
+    // An episode number without any season marker: most likely a show with a single season
+    if episode.is_some() && season.is_none() {
+        season = Some(1);
+    }
+
     // Clean up show name
     show_name = show_name.trim().to_string();
     // Remove square brackets content from show name
@@ -820,6 +812,7 @@ fn extract_season_from_folder(folder_name: &str) -> Option<i32>
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use crate::library_manager::file_manager::is_video_file;
 
     // A folder of empty files below the system temp dir, removed on drop.
     // `folder` is the name the parser sees as the parent folder.
@@ -873,23 +866,26 @@ mod tests {
             // S01E02
             ("Breaking.Bad.S01E02.720p.mkv", "Breaking Bad", Some(1), Some(2)),
             ("the.wire.s2e10.mkv", "the wire", Some(2), Some(10)),
+            ("Brass Eye S01 E02 x264 DVDRip - Drugs.mkv", "Brass Eye", Some(1), Some(2)),
+            ("Show.S02.E03.mkv", "Show", Some(2), Some(3)),
             // 1x05
             ("Seinfeld 1x05 The Stock Tip.avi", "Seinfeld", Some(1), Some(5)),
             ("Show 12x03.mkv", "Show", Some(12), Some(3)),
             // E05, season from the folder
             ("Show/Season 2/Show E05.mkv", "Show", Some(2), Some(5)),
             ("Show/S03/Show e7 Title.mkv", "Show", Some(3), Some(7)),
-            ("Show/Show E05.mkv", "Show", None, Some(5)),
+            // No season in filename or folder: season 1
+            ("Show/Show E05.mkv", "Show", Some(1), Some(5)),
             // " - 01 "
-            ("Monster - 12 - Title.mkv", "Monster", None, Some(12)),
-            ("Monster - 001.mkv", "Monster", None, Some(1)),
-            ("Monster/Season 1/Monster - 01.mkv", "Monster", Some(1), Some(1)),
+            ("Monster - 12 - Title.mkv", "Monster", Some(1), Some(12)),
+            ("Monster - 001.mkv", "Monster", Some(1), Some(1)),
+            ("Monster/Season 2/Monster - 01.mkv", "Monster", Some(2), Some(1)),
             // [01]
-            ("[Grp] Show [01].mkv", "Show", None, Some(1)),
-            ("[Grp] Show [CM02].mkv", "Show", None, Some(2)),
+            ("[Grp] Show [01].mkv", "Show", Some(1), Some(1)),
+            ("[Grp] Show [CM02].mkv", "Show", Some(1), Some(2)),
             // Ep. 01
-            ("Show Ep. 01.mkv", "Show", None, Some(1)),
-            ("Show ep03.mkv", "Show", None, Some(3)),
+            ("Show Ep. 01.mkv", "Show", Some(1), Some(1)),
+            ("Show ep03.mkv", "Show", Some(1), Some(3)),
             ("Show/Season 4/Show Ep 7.mkv", "Show", Some(4), Some(7)),
             // No pattern
             ("Some Movie.mkv", "Some Movie", None, None),
@@ -898,6 +894,26 @@ mod tests {
         for (filepath, name, season, episode) in cases {
             assert_eq!(tv_info(filepath), (name.to_string(), *season, *episode), "{}", filepath);
         }
+    }
+
+    #[test]
+    fn similarity_counts_characters_not_bytes()
+    {
+        assert_eq!(levenshtein_distance("Städte", "Stadte"), 1);
+        assert_eq!(levenshtein_distance("Caché", "Caché"), 0);
+        assert_eq!(levenshtein_distance("ä", ""), 1);
+        assert!(similarity("Star Wars", "Aufzeichnungen zu Kleidern und Städten 1989") < 0.5);
+        // One of six characters differs
+        assert!((similarity("Städte", "Stadte") - 5.0 / 6.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn is_tv_episode_special_ignores_unrelated_non_ascii_sibling()
+    {
+        let films = TestFolder::new("special_non_ascii", "films", &[
+            "Nothing Special 2022.mkv", "Aufzeichnungen zu Kleidern und Städten 1989.mkv",
+        ]);
+        assert!(!is_tv_episode(&films.path("Nothing Special 2022.mkv")));
     }
 
     // The ignored tests below fail because the parser is wrong, not the test.
@@ -1012,7 +1028,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "parser bug: EP_PREFIX_REGEX is not anchored, matches 'ep 1946' in 'Sleep 1946'"]
     fn is_tv_episode_false_for_title_ending_in_ep_before_year()
     {
         assert!(!is_tv_episode("movies/The Big Sleep 1946.mkv"));
@@ -1080,5 +1095,118 @@ mod tests {
     fn movie_title_that_is_a_year()
     {
         assert_eq!(movie("1917.1080p.BluRay.mkv").0, "1917");
+    }
+
+    // Corpus tests: run the parser over the real media folders of this machine.
+    // Ignored because they need those folders. They only list directories.
+    // Run by name:
+    //   cargo test --manifest-path src-tauri/Cargo.toml corpus_ -- --ignored
+    // Each writes a report to .claude/scratch/ to diff before and after a parser change.
+    const MOVIE_FOLDER: &str = "F:/mov";
+    const TV_FOLDER: &str = "T:/tv";
+
+    fn video_files_below(folder: &Path) -> Vec<PathBuf>
+    {
+        let mut found = Vec::new();
+        let mut pending = vec![folder.to_path_buf()];
+        while let Some(dir) = pending.pop() {
+            for entry in fs::read_dir(&dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else if is_video_file(&path) {
+                    found.push(path);
+                }
+            }
+        }
+        found.sort();
+        found
+    }
+
+    fn write_report(name: &str, lines: &[String])
+    {
+        let scratch = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.claude/scratch");
+        fs::create_dir_all(&scratch).unwrap();
+        fs::write(scratch.join(name), lines.join("\n") + "\n").unwrap();
+    }
+
+    #[test]
+    #[ignore = "needs the movie folder of this machine"]
+    fn corpus_movies_are_not_tv_episodes()
+    {
+        let folder = Path::new(MOVIE_FOLDER);
+        if !folder.is_dir() {
+            println!("skipped: {} not found", MOVIE_FOLDER);
+            return;
+        }
+
+        let mut report = Vec::new();
+        let mut seen_as_tv = Vec::new();
+        for path in video_files_below(folder) {
+            let filepath = path.to_string_lossy().into_owned();
+            let is_tv = is_tv_episode(&filepath);
+            let (title, year) = movie(&filepath);
+            report.push(format!("{}\t{}\t{}\t{:?}", filepath, if is_tv { "TV" } else { "movie" }, title, year));
+            if is_tv {
+                seen_as_tv.push(filepath);
+            }
+        }
+        write_report("parser-corpus-movies.txt", &report);
+
+        assert!(
+            seen_as_tv.is_empty(),
+            "{} of {} movies seen as TV episode:\n{}",
+            seen_as_tv.len(), report.len(), seen_as_tv.join("\n")
+        );
+    }
+
+    // Bonus material is not expected to parse as an episode. The show folder itself is not
+    // checked, there is a show called "Extras".
+    fn is_in_extras_folder(path: &Path, root: &Path) -> bool
+    {
+        let folders: Vec<String> = path.parent().unwrap().strip_prefix(root).unwrap()
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .collect();
+        folders.iter().skip(1).any(|f| {
+            matches!(f.as_str(), "extras" | "extra" | "bonus" | "featurettes" | "deleted scenes")
+        })
+    }
+
+    // The app needs season and episode to fetch an episode, so a missing one counts as a failure.
+    #[test]
+    #[ignore = "needs the TV folder of this machine"]
+    fn corpus_tv_files_are_tv_episodes()
+    {
+        let folder = Path::new(TV_FOLDER);
+        if !folder.is_dir() {
+            println!("skipped: {} not found", TV_FOLDER);
+            return;
+        }
+
+        let mut report = Vec::new();
+        let mut not_ok = 0;
+        for path in video_files_below(folder) {
+            let filepath = path.to_string_lossy().into_owned();
+            let (show, season, episode) = tv_info(&filepath);
+            let status = if is_in_extras_folder(&path, folder) {
+                "extra"
+            } else if !is_tv_episode(&filepath) {
+                "NOT_TV"
+            } else if episode.is_none() {
+                "NO_EPISODE"
+            } else if season.is_none() {
+                "NO_SEASON"
+            } else {
+                "ok"
+            };
+            if status != "ok" && status != "extra" {
+                not_ok += 1;
+            }
+            report.push(format!("{}\t{}\t{}\t{:?}\t{:?}", filepath, status, show, season, episode));
+        }
+        write_report("parser-corpus-tv.txt", &report);
+
+        assert!(not_ok == 0, "{} of {} TV files not parsed, see parser-corpus-tv.txt", not_ok, report.len());
     }
 }
