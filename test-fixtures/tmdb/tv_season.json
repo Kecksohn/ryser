@@ -1,0 +1,416 @@
+{
+  "id": 53141,
+  "_id": "52596617760ee346619b54ac",
+  "air_date": "2012-09-18",
+  "episodes": [
+    {
+      "air_date": "2012-09-18",
+      "episode_number": 1,
+      "episode_type": "standard",
+      "id": 890562,
+      "name": "Ein heiliges Wunder",
+      "overview": "",
+      "production_code": "",
+      "runtime": 42,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/iEsyCwZ9Dy8UP010y6wA728jIC7.jpg",
+      "vote_average": 7.5,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "6788245f5e0fbbe3e9ad00fd",
+          "adult": false,
+          "gender": 1,
+          "id": 65386,
+          "known_for_department": "Editing",
+          "name": "Evi Romen",
+          "original_name": "Evi Romen",
+          "popularity": 0.5198,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": []
+    },
+    {
+      "air_date": "2012-09-18",
+      "episode_number": 2,
+      "episode_type": "standard",
+      "id": 890563,
+      "name": "Das Wirtschaftswunder",
+      "overview": "",
+      "production_code": "",
+      "runtime": 43,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/sHFfoxM4RBHloBVO1JsyzCOgx9O.jpg",
+      "vote_average": 8.25,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "6788245f5e0fbbe3e9ad00fd",
+          "adult": false,
+          "gender": 1,
+          "id": 65386,
+          "known_for_department": "Editing",
+          "name": "Evi Romen",
+          "original_name": "Evi Romen",
+          "popularity": 0.5198,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": [
+        {
+          "character": "Stefan Apfelthaler",
+          "credit_id": "611c2c38e375c0005c1ab8a1",
+          "order": 500,
+          "adult": false,
+          "gender": 2,
+          "id": 144342,
+          "known_for_department": "Acting",
+          "name": "Michael Fuith",
+          "original_name": "Michael Fuith",
+          "popularity": 0.525,
+          "profile_path": "/nl1b1IXrVoAsJM7pQE4Yyai35u7.jpg"
+        },
+        {
+          "character": "",
+          "credit_id": "611c2c45ac4161002c30ef68",
+          "order": 501,
+          "adult": false,
+          "gender": 2,
+          "id": 1175692,
+          "known_for_department": "Acting",
+          "name": "André Pohl",
+          "original_name": "André Pohl",
+          "popularity": 0.3573,
+          "profile_path": null
+        }
+      ]
+    },
+    {
+      "air_date": "2012-09-25",
+      "episode_number": 3,
+      "episode_type": "standard",
+      "id": 890561,
+      "name": "Der Fluch",
+      "overview": "",
+      "production_code": "",
+      "runtime": 45,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/u3XLHtWEpwBQofBFXq0GksFE8sK.jpg",
+      "vote_average": 7.5,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "6788245f5e0fbbe3e9ad00fd",
+          "adult": false,
+          "gender": 1,
+          "id": 65386,
+          "known_for_department": "Editing",
+          "name": "Evi Romen",
+          "original_name": "Evi Romen",
+          "popularity": 0.5198,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": [
+        {
+          "character": "Kortner",
+          "credit_id": "611c2c64151c5c3f9ec70d27",
+          "order": 502,
+          "adult": false,
+          "gender": 2,
+          "id": 16797,
+          "known_for_department": "Acting",
+          "name": "Karl Fischer",
+          "original_name": "Karl Fischer",
+          "popularity": 0.8657,
+          "profile_path": "/qoJYuCv9SNNUiPGYtD14SZirHBV.jpg"
+        },
+        {
+          "character": "",
+          "credit_id": "611c2c6fe375c0002b1f842c",
+          "order": 503,
+          "adult": false,
+          "gender": 2,
+          "id": 1912267,
+          "known_for_department": "Acting",
+          "name": "Roland Trnka",
+          "original_name": "Roland Trnka",
+          "popularity": 0.3787,
+          "profile_path": null
+        }
+      ]
+    },
+    {
+      "air_date": "2012-10-02",
+      "episode_number": 4,
+      "episode_type": "standard",
+      "id": 890565,
+      "name": "Der Überfall",
+      "overview": "",
+      "production_code": "",
+      "runtime": 43,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/waVpL9RCgeZXXWEjdnjgx8HX0S9.jpg",
+      "vote_average": 8.25,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "6788245f5e0fbbe3e9ad00fd",
+          "adult": false,
+          "gender": 1,
+          "id": 65386,
+          "known_for_department": "Editing",
+          "name": "Evi Romen",
+          "original_name": "Evi Romen",
+          "popularity": 0.5198,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": [
+        {
+          "character": "Schweizer Pilger",
+          "credit_id": "611c2c86ac41610073d8c17d",
+          "order": 504,
+          "adult": false,
+          "gender": 2,
+          "id": 1886718,
+          "known_for_department": "Directing",
+          "name": "Florian Engelhardt",
+          "original_name": "Florian Engelhardt",
+          "popularity": 0.6232,
+          "profile_path": null
+        },
+        {
+          "character": "Schweizer Pilgerin",
+          "credit_id": "611c2c94ac4161002c30eff4",
+          "order": 505,
+          "adult": false,
+          "gender": 1,
+          "id": 1886719,
+          "known_for_department": "Directing",
+          "name": "Sonja Levy",
+          "original_name": "Sonja Levy",
+          "popularity": 0.3458,
+          "profile_path": null
+        }
+      ]
+    },
+    {
+      "air_date": "2012-10-09",
+      "episode_number": 5,
+      "episode_type": "standard",
+      "id": 890564,
+      "name": "Bauxi",
+      "overview": "",
+      "production_code": "",
+      "runtime": 44,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/kx4ONAs0hR5WWLnalbOqsx83pRh.jpg",
+      "vote_average": 7.75,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "678825279de8a2d83497634c",
+          "adult": false,
+          "gender": 2,
+          "id": 1396296,
+          "known_for_department": "Editing",
+          "name": "Alarich Lenz",
+          "original_name": "Alarich Lenz",
+          "popularity": 0.6883,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": []
+    },
+    {
+      "air_date": "2012-10-23",
+      "episode_number": 6,
+      "episode_type": "standard",
+      "id": 890566,
+      "name": "Der neue Bürgermeister",
+      "overview": "",
+      "production_code": "",
+      "runtime": 39,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/t14rdFudZqkyCl1mmvoaOdEgkWm.jpg",
+      "vote_average": 7.25,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "678825279de8a2d83497634c",
+          "adult": false,
+          "gender": 2,
+          "id": 1396296,
+          "known_for_department": "Editing",
+          "name": "Alarich Lenz",
+          "original_name": "Alarich Lenz",
+          "popularity": 0.6883,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": [
+        {
+          "character": "Herr Berner",
+          "credit_id": "611c2cb69a9e20007245e465",
+          "order": 506,
+          "adult": false,
+          "gender": 2,
+          "id": 38740,
+          "known_for_department": "Acting",
+          "name": "Karlheinz Hackl",
+          "original_name": "Karlheinz Hackl",
+          "popularity": 0.8219,
+          "profile_path": "/aqqDUEEiCr88VCtixRjJaHMFOmg.jpg"
+        },
+        {
+          "character": "Praschak",
+          "credit_id": "611c2cc63a4a120046dc7c77",
+          "order": 507,
+          "adult": false,
+          "gender": 2,
+          "id": 78231,
+          "known_for_department": "Acting",
+          "name": "Johannes Krisch",
+          "original_name": "Johannes Krisch",
+          "popularity": 0.7343,
+          "profile_path": "/aFkyjPD8n1xGDFYUafeqMciWQyC.jpg"
+        },
+        {
+          "character": "Gitti Kainz",
+          "credit_id": "611c2cd91bf8766eafa4c26c",
+          "order": 508,
+          "adult": false,
+          "gender": 1,
+          "id": 42422,
+          "known_for_department": "Acting",
+          "name": "Doris Schretzmayer",
+          "original_name": "Doris Schretzmayer",
+          "popularity": 0.6772,
+          "profile_path": "/7B4ROL95v6RYViYlC6vkkeW6dZd.jpg"
+        }
+      ]
+    },
+    {
+      "air_date": "2012-10-30",
+      "episode_number": 7,
+      "episode_type": "standard",
+      "id": 890568,
+      "name": "Im Keller",
+      "overview": "",
+      "production_code": "",
+      "runtime": 46,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/9KBvcpIVX7Nls6XF3Kzwhy4qHQu.jpg",
+      "vote_average": 7,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "678825279de8a2d83497634c",
+          "adult": false,
+          "gender": 2,
+          "id": 1396296,
+          "known_for_department": "Editing",
+          "name": "Alarich Lenz",
+          "original_name": "Alarich Lenz",
+          "popularity": 0.6883,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": []
+    },
+    {
+      "air_date": "2012-11-06",
+      "episode_number": 8,
+      "episode_type": "finale",
+      "id": 890567,
+      "name": "Freunde fürs Leben",
+      "overview": "",
+      "production_code": "",
+      "runtime": 46,
+      "season_number": 1,
+      "show_id": 43879,
+      "still_path": "/2d9yDs0W76UM5AULvDp8EEkw3nD.jpg",
+      "vote_average": 8,
+      "vote_count": 4,
+      "crew": [
+        {
+          "job": "Editor",
+          "department": "Editing",
+          "credit_id": "678825279de8a2d83497634c",
+          "adult": false,
+          "gender": 2,
+          "id": 1396296,
+          "known_for_department": "Editing",
+          "name": "Alarich Lenz",
+          "original_name": "Alarich Lenz",
+          "popularity": 0.6883,
+          "profile_path": null
+        }
+      ],
+      "guest_stars": [
+        {
+          "character": "Tante Cornelia",
+          "credit_id": "611c30a2514c4a00299db237",
+          "order": 509,
+          "adult": false,
+          "gender": 1,
+          "id": 238093,
+          "known_for_department": "Acting",
+          "name": "Bibiana Zeller",
+          "original_name": "Bibiane Zeller",
+          "popularity": 0.5147,
+          "profile_path": "/ziH9WcIkDOQ9XLcffKzqa4mTd6n.jpg"
+        },
+        {
+          "character": "Sanitäter",
+          "credit_id": "611c30afe54d5d005d91f4c5",
+          "order": 510,
+          "adult": false,
+          "gender": 2,
+          "id": 1882546,
+          "known_for_department": "Acting",
+          "name": "Patrick Seletzky",
+          "original_name": "Patrick Seletzky",
+          "popularity": 0.6881,
+          "profile_path": "/89NS4Alm1c4ukXPlGTWOKyBeLyR.jpg"
+        }
+      ]
+    }
+  ],
+  "name": "Miniseries",
+  "networks": [
+    {
+      "id": 189,
+      "logo_path": "/k1poBlW9HGDnIyZU67BtH3BXQuz.png",
+      "name": "ORF 1",
+      "origin_country": "AT"
+    }
+  ],
+  "overview": "",
+  "poster_path": "/jre6pjAGc10l1r5ORUhN1akKZA2.jpg",
+  "season_number": 1,
+  "vote_average": 7.7
+}

@@ -229,6 +229,16 @@ pub(super) struct TMDBSeason {
 }
 
 #[derive(Deserialize, Debug)]
+pub(super) struct TMDBSeasonDetails {
+    #[serde(flatten)]
+    pub tmdb_season: TMDBSeason,
+
+    // Missing in the error object TMDB sends for an unknown season
+    #[serde(default)]
+    pub episodes: Vec<TMDBEpisodeDetails>,
+}
+
+#[derive(Deserialize, Debug)]
 pub(super) struct TMDBEpisodeDetails {
     pub air_date: Option<String>,
     pub episode_number: Option<i32>,
