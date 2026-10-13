@@ -645,8 +645,8 @@ fn normalize_spaces(s: &str) -> String {
 
 // Extracts TV show name, season number, and episode number from filename
 // Returns: (show_name, season_number, episode_number)
-// Returns None for season/episode if no episode number is found
 // With an episode number but no season in filename or folder, the season is 1
+// Without an episode number the season is the one of the season folder, 0 for a special, else None
 pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<i32>, Option<i32>)
 {
     let filename = remove_extension_and_path(filepath);
@@ -778,6 +778,15 @@ pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<
         season = Some(1);
     }
 
+    // No number at all: the season folder wins, a special without one goes to season 0
+    if episode.is_none() && season.is_none() {
+        season = Path::new(filepath).parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|folder_name| folder_name.to_str())
+            .and_then(extract_season_from_folder)
+            .or_else(|| SPECIAL_REGEX.is_match(&filename).then_some(0));
+    }
+
     // Clean up show name
     show_name = show_name.trim().to_string();
     // Remove square brackets content from show name
@@ -889,6 +898,12 @@ mod tests {
             ("Show/Season 4/Show Ep 7.mkv", "Show", Some(4), Some(7)),
             // No pattern
             ("Some Movie.mkv", "Some Movie", None, None),
+            // No episode number: season from the folder
+            ("Show/Season 2/Pilot.mkv", "Pilot", Some(2), None),
+            ("Show/S02/Pilot.mkv", "Pilot", Some(2), None),
+            // A special without number is season 0, unless a season folder says otherwise
+            ("Show/Show Special.mkv", "Show Special", Some(0), None),
+            ("Show/S24-Specials/Show Special.mkv", "Show Special", Some(24), None),
         ];
 
         for (filepath, name, season, episode) in cases {

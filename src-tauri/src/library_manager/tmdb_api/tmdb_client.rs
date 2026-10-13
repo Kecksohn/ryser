@@ -364,13 +364,6 @@ async fn parse_episode(
 
     let (show_name, season, episode) = get_tv_show_info_from_filename(filename);
 
-    // Need both season and episode to pick the episode from its season
-    let (Some(season), Some(episode)) = (season, episode) else {
-        println!("  Could not extract season/episode from filename: {} (Season: {:?}, Episode: {:?})",
-            filename, season, episode);
-        return;
-    };
-
     let retry_unmatched = reparse_all && !resolved_show_names.contains(&show_name);
     let show_id = match find_or_create_show(api, tv_shows, &show_name, retry_unmatched).await {
         Ok(show_id) => show_id,
@@ -387,11 +380,12 @@ async fn parse_episode(
         Media::Episode(existing) if existing.show_id == show_id => existing.clone(),
         _ => EpisodeMeta { show_id, ..Default::default() },
     };
-    let season = *episode_meta.season.get_or_insert(season);
-    let episode = *episode_meta.episode.get_or_insert(episode);
+    episode_meta.season = episode_meta.season.or(season);
+    episode_meta.episode = episode_meta.episode.or(episode);
 
+    // Without both numbers there is nothing to ask TMDB: the file stays an episode of its show without details
     let mut definite_result = true;
-    if let Some(show_tmdb_id) = show.tmdb_id {
+    if let (Some(show_tmdb_id), Some(season), Some(episode)) = (show.tmdb_id, episode_meta.season, episode_meta.episode) {
         match get_season(api, seasons, show_id, show_tmdb_id, season).await {
             Ok(season_details) => {
                 fill_show_season(show, season_details);
@@ -1005,5 +999,34 @@ mod tests {
         // Everything has a definite result, so the next run asks nothing
         tauri::async_runtime::block_on(parse_video_files(&api, &mut video_files, &mut tv_shows, false)).unwrap();
         assert_eq!(api.requests(), (1, 1, 1));
+    }
+
+    #[test]
+    fn an_episode_without_numbers_is_kept() {
+        let api = FakeTmdb::default();
+        let mut tv_shows = BTreeMap::new();
+        let mut parse = |filepath: &str| {
+            let mut video_element = VideoElement { filepath: filepath.to_owned(), ..Default::default() };
+            tauri::async_runtime::block_on(parse_episode(
+                &api, &mut tv_shows, &mut HashSet::new(), &mut SeasonCache::new(), &mut video_element, false,
+            ));
+            assert!(video_element.tmdb_searched, "{}", filepath);
+            let Media::Episode(episode_meta) = video_element.media else { panic!("expected an episode: {}", filepath) };
+            episode_meta
+        };
+
+        let season_only = parse("T:/tv/Braunschlag/Season 2/Pilot.mkv");
+        let no_number = parse("T:/tv/Braunschlag/Braunschlag Making Of.mkv");
+        let special = parse("T:/tv/Braunschlag/Braunschlag Special.mkv");
+
+        assert_eq!((season_only.season, season_only.episode, season_only.tmdb_id), (Some(2), None, None));
+        assert_eq!((no_number.season, no_number.episode, no_number.tmdb_id), (None, None, None));
+        assert_eq!((special.season, special.episode, special.tmdb_id), (Some(0), None, None));
+
+        // The fake finds the same show for every name, so all three end up in it
+        assert_eq!(tv_shows.len(), 1);
+        assert_eq!([season_only.show_id, no_number.show_id, special.show_id], [1, 1, 1]);
+        // No season is fetched for a file without episode number
+        assert_eq!(api.requests(), (3, 3, 0));
     }
 }
