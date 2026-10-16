@@ -7,11 +7,15 @@ use tauri_plugin_http::reqwest::header::USER_AGENT;
 use tauri_plugin_http::reqwest::{self, Client, Response};
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::Path;
 
 use super::super::{compute_selection, EpisodeMeta, FilmMeta, Library, Media, TvSeason, TvShow, VideoElement};
 use super::api_token::get_api_token;
 use super::json_structs::*;
-use super::search_name_creator::{get_movie_title_and_year_from_filename, get_tv_show_info_from_filename, is_tv_episode};
+use super::search_name_creator::{
+    get_movie_title_and_year_from_filename, get_show_name_and_year, get_tv_show_info_from_filename, is_tv_episode,
+    show_name_similarity,
+};
 
 static TMDB_API_MOVIE_URL: &str = "https://api.themoviedb.org/3/movie/";
 static TMDB_API_TV_URL: &str = "https://api.themoviedb.org/3/tv/";
@@ -215,7 +219,7 @@ async fn get_tv_season_details(client: &Client, tv_id: usize, season_number: i32
 trait TmdbApi {
     async fn search_movie(&self, title: &str, year: Option<i32>) -> Result<TMDBSearchMovieResult, Error>;
     async fn get_movie_details(&self, movie_id: usize) -> Result<TMDBMovieDetails, Error>;
-    async fn search_tv_show(&self, show_name: &str) -> Result<TMDBSearchTVResult, Error>;
+    async fn search_tv_show(&self, show_name: &str, first_air_date_year: Option<i32>) -> Result<TMDBSearchTVResult, Error>;
     async fn get_tv_show_details(&self, tv_id: usize) -> Result<TMDBTVShowDetails, Error>;
     async fn get_tv_season_details(&self, tv_id: usize, season_number: i32) -> Result<TMDBSeasonDetails, Error>;
 }
@@ -242,8 +246,8 @@ impl TmdbApi for TmdbClient {
         get_movie_details(&self.client, movie_id, &self.api_token).await
     }
 
-    async fn search_tv_show(&self, show_name: &str) -> Result<TMDBSearchTVResult, Error> {
-        search_tv_show(&self.client, &self.api_token, show_name, None, None, None, None).await
+    async fn search_tv_show(&self, show_name: &str, first_air_date_year: Option<i32>) -> Result<TMDBSearchTVResult, Error> {
+        search_tv_show(&self.client, &self.api_token, show_name, first_air_date_year, None, None, None).await
     }
 
     async fn get_tv_show_details(&self, tv_id: usize) -> Result<TMDBTVShowDetails, Error> {
@@ -281,25 +285,82 @@ fn find_episode(season_details: &TMDBSeasonDetails, episode: i32) -> Option<&TMD
 pub async fn parse_library_tmdb(library: &mut Library, reparse_all: Option<bool>) -> Result<(), Error>
 {
     let api = TmdbClient::connect().await?;
-    parse_video_files(&api, &mut library.video_files, &mut library.tv_shows, reparse_all.unwrap_or(false)).await
+    let library_roots: Vec<&str> = library.library_paths.iter().map(|library_path| library_path.path.as_str()).collect();
+    parse_video_files(&api, &library_roots, &mut library.video_files, &mut library.tv_shows, reparse_all.unwrap_or(false)).await
+}
+
+/// The episode files of one show that a run has to match
+#[derive(Default)]
+struct ShowFiles {
+    /// Names to search the show with: name, year, number of files the name comes from
+    names: Vec<(String, Option<i32>, usize)>,
+    /// Index into the video files, season, episode
+    episodes: Vec<(usize, Option<i32>, Option<i32>)>,
+}
+
+impl ShowFiles {
+    fn add_name(&mut self, name: &str, year: Option<i32>, files: usize) {
+        if name.is_empty() {
+            return;
+        }
+        match self.names.iter_mut().find(|(known_name, known_year, _)| known_name.eq_ignore_ascii_case(name) && *known_year == year) {
+            Some((_, _, known_files)) => *known_files = known_files.saturating_add(files),
+            None => self.names.push((name.to_owned(), year, files)),
+        }
+    }
+
+    /// The name used by the most files first
+    fn search_names(&self) -> Vec<(String, Option<i32>)> {
+        let mut names = self.names.clone();
+        names.sort_by_key(|(_, _, files)| std::cmp::Reverse(*files));
+        names.into_iter().map(|(name, year, _)| (name, year)).collect()
+    }
+
+    fn owned_episodes(&self) -> HashSet<(i32, i32)> {
+        self.episodes.iter()
+            .filter_map(|(_, season, episode)| Some(((*season)?, (*episode)?)))
+            .collect()
+    }
+}
+
+/// The folder directly below a library root that `filepath` is in. None for a file in the root itself.
+fn show_folder<'a>(library_roots: &[&str], filepath: &'a str) -> Option<&'a str> {
+    let below_root = library_roots.iter().find_map(|root| Path::new(filepath).strip_prefix(root).ok())?;
+    below_root.parent()?.components().next()?.as_os_str().to_str()
 }
 
 async fn parse_video_files(
     api: &impl TmdbApi,
+    library_roots: &[&str],
     video_files: &mut [VideoElement],
     tv_shows: &mut BTreeMap<u32, TvShow>,
     reparse_all: bool,
 ) -> Result<(), Error>
 {
-    // A reparse searches for an unmatched show again, but once per run and not once per episode
-    let mut resolved_show_names: HashSet<String> = HashSet::new();
     let mut seasons = SeasonCache::new();
+    // Episode files are collected first: a show is matched once, with all its files.
+    // One folder below a library root is one show, whatever its files are called.
+    let mut shows_to_match: BTreeMap<String, ShowFiles> = BTreeMap::new();
 
-    for video_element in video_files.iter_mut() {
+    for (index, video_element) in video_files.iter_mut().enumerate() {
         if reparse_all || !video_element.tmdb_searched {
             // Check if filename hints at this being a TV episode
             if is_tv_episode(&video_element.filepath) {
-                parse_episode(api, tv_shows, &mut resolved_show_names, &mut seasons, video_element, reparse_all).await;
+                let (parsed_name, season, episode) = get_tv_show_info_from_filename(&video_element.filepath);
+                let (name, year) = get_show_name_and_year(&parsed_name);
+                let folder = show_folder(library_roots, &video_element.filepath)
+                    .map(get_show_name_and_year)
+                    .filter(|(folder_name, _)| !folder_name.is_empty());
+
+                // A file directly in the library root goes by its own name
+                let show_key = folder.as_ref().map_or(&name, |(folder_name, _)| folder_name).clone();
+                let show_files = shows_to_match.entry(show_key).or_default();
+                if let Some((folder_name, folder_year)) = &folder {
+                    // No fixed precedence over the filename names, but it is always among the searched ones
+                    show_files.add_name(folder_name, *folder_year, usize::MAX);
+                }
+                show_files.add_name(&name, year, 1);
+                show_files.episodes.push((index, season, episode));
                 continue;
             }
 
@@ -347,33 +408,36 @@ async fn parse_video_files(
         }
     }
 
+    for (show_name, show_files) in &shows_to_match {
+        // A reparse matches an unmatched show again
+        let show_id = match find_or_create_show(api, tv_shows, show_name, show_files, reparse_all).await {
+            Ok(show_id) => show_id,
+            Err(e) => {
+                println!("  Error searching for TV show '{}': {}", show_name, e);
+                continue;
+            }
+        };
+        let Some(show) = tv_shows.get_mut(&show_id) else { continue };
+
+        for &(index, season, episode) in &show_files.episodes {
+            parse_episode(api, show, &mut seasons, &mut video_files[index], season, episode).await;
+        }
+    }
+
     Ok(())
 }
 
-/// Matches one episode file. Uses nothing of the movie branch, so it can run in a pass of its own.
+/// Fills one episode file of `show`, `season` and `episode` are the numbers parsed from its path.
 async fn parse_episode(
     api: &impl TmdbApi,
-    tv_shows: &mut BTreeMap<u32, TvShow>,
-    resolved_show_names: &mut HashSet<String>,
+    show: &mut TvShow,
     seasons: &mut SeasonCache,
     video_element: &mut VideoElement,
-    reparse_all: bool,
+    season: Option<i32>,
+    episode: Option<i32>,
 ) {
-    let filename = &video_element.filepath;
-    println!("[TV SHOW] {}", filename);
-
-    let (show_name, season, episode) = get_tv_show_info_from_filename(filename);
-
-    let retry_unmatched = reparse_all && !resolved_show_names.contains(&show_name);
-    let show_id = match find_or_create_show(api, tv_shows, &show_name, retry_unmatched).await {
-        Ok(show_id) => show_id,
-        Err(e) => {
-            println!("  Error searching for TV show '{}': {}", show_name, e);
-            return;
-        }
-    };
-    resolved_show_names.insert(show_name);
-    let Some(show) = tv_shows.get_mut(&show_id) else { return };
+    println!("[TV SHOW] {}", video_element.filepath);
+    let show_id = show.id;
 
     // Keep what an earlier parse or the user filled in
     let mut episode_meta = match &video_element.media {
@@ -423,15 +487,17 @@ fn show_name_of(show: &TvShow) -> &str {
     show.name.as_deref().unwrap_or("!MISSING!")
 }
 
-/// ID of the show that `show_name` (as parsed from a filename) belongs to.
-/// A name not seen before is searched on TMDB once and the show is added to
-/// `tv_shows`, without a `tmdb_id` when TMDB has no result.
-/// `retry_unmatched` searches again for a known show that has no `tmdb_id`.
+/// ID of the show that `show_name` (its folder, or the name parsed from the filename of a
+/// file without show folder) belongs to.
+/// A name not seen before is matched on TMDB once and the show is added to
+/// `tv_shows`, without a `tmdb_id` when no search result fits.
+/// `retry_unmatched` matches again for a known show that has no `tmdb_id`.
 /// Fails without changing `tv_shows` when TMDB cannot be reached.
 async fn find_or_create_show(
     api: &impl TmdbApi,
     tv_shows: &mut BTreeMap<u32, TvShow>,
     show_name: &str,
+    show_files: &ShowFiles,
     retry_unmatched: bool,
 ) -> Result<u32, Error> {
     if let Some(id) = known_show_id(tv_shows, show_name) {
@@ -440,16 +506,97 @@ async fn find_or_create_show(
         }
     }
 
-    let search_result = api.search_tv_show(show_name).await?;
-    let tv_show_details = match search_result.results.first().and_then(|best_match| best_match.id) {
-        Some(tmdb_id) => Some(api.get_tv_show_details(tmdb_id).await?),
-        None => {
-            println!("  No TV show found for: {}", show_name);
-            None
-        }
-    };
+    let tv_show_details = match_show(api, &show_files.search_names(), &show_files.owned_episodes()).await?;
+    if tv_show_details.is_none() {
+        println!("  No TV show found for: {}", show_name);
+    }
 
     Ok(upsert_show(tv_shows, show_name, tv_show_details.as_ref()))
+}
+
+/// Name similarity a search result needs to count as the searched show
+const MIN_SHOW_NAME_SIMILARITY: f32 = 0.6;
+const SHOW_YEAR_BONUS: f32 = 0.1;
+/// Smaller than the distance between an equal name and one that only starts with the searched name
+const EPISODE_FIT_BONUS: f32 = 0.15;
+const MAX_SHOW_SEARCHES: usize = 3;
+const MAX_RESULTS_PER_SEARCH: usize = 5;
+const MAX_SHOW_DETAILS_REQUESTS: usize = 3;
+
+/// Details of the show on TMDB that fits the names and the owned (season, episode) pairs best.
+/// None when no search result passes the name check.
+async fn match_show(
+    api: &impl TmdbApi,
+    names: &[(String, Option<i32>)],
+    owned_episodes: &HashSet<(i32, i32)>,
+) -> Result<Option<TMDBTVShowDetails>, Error> {
+    let mut search_results = Vec::new();
+    for (name, year) in names.iter().take(MAX_SHOW_SEARCHES) {
+        let search_result = api.search_tv_show(name, *year).await?;
+        search_results.extend(search_result.results.into_iter().take(MAX_RESULTS_PER_SEARCH));
+    }
+
+    let candidates = rank_show_candidates(names, &search_results);
+    let Some(&(top_score, _)) = candidates.first() else { return Ok(None) };
+
+    // The episode fit is a tie-break: details are only requested for candidates it can still bring to the top
+    let mut best: Option<(f32, TMDBTVShowDetails)> = None;
+    for &(score, show) in candidates.iter().take(MAX_SHOW_DETAILS_REQUESTS).filter(|(score, _)| top_score - score < EPISODE_FIT_BONUS) {
+        let Some(tmdb_id) = show.id else { continue };
+        let tv_show_details = api.get_tv_show_details(tmdb_id).await?;
+        let score = score + EPISODE_FIT_BONUS * episode_fit(owned_episodes, &tv_show_details);
+        if best.as_ref().map_or(true, |(best_score, _)| score > *best_score) {
+            best = Some((score, tv_show_details));
+        }
+    }
+
+    Ok(best.map(|(_, tv_show_details)| tv_show_details))
+}
+
+/// The search results that pass the name check with their score, best first. TMDB's order decides a tie.
+/// The score is the best similarity of the show's names to one of `names`, plus a bonus when
+/// one of `names` has the year the show first aired. A differing year does not count against
+/// a show: the year in a filename is often the one of the episode.
+fn rank_show_candidates<'a>(names: &[(String, Option<i32>)], search_results: &'a [TMDBTVShow]) -> Vec<(f32, &'a TMDBTVShow)> {
+    let mut candidates: Vec<(f32, &TMDBTVShow)> = Vec::new();
+
+    for show in search_results {
+        if show.id.is_none() || candidates.iter().any(|(_, candidate)| candidate.id == show.id) {
+            continue;
+        }
+
+        let name_score = names.iter()
+            .flat_map(|(name, _)| [&show.name, &show.original_name].into_iter().flatten().map(move |found| show_name_similarity(name, found)))
+            .fold(0.0, f32::max);
+        if name_score < MIN_SHOW_NAME_SIMILARITY {
+            continue;
+        }
+
+        let first_air_year: Option<i32> = show.first_air_date.as_ref().and_then(|date| date.get(..4)?.parse().ok());
+        let has_year = first_air_year.is_some() && names.iter().any(|(_, year)| *year == first_air_year);
+        candidates.push((name_score + if has_year { SHOW_YEAR_BONUS } else { 0.0 }, show));
+    }
+
+    candidates.sort_by(|a, b| b.0.total_cmp(&a.0));
+    candidates
+}
+
+/// Share of the owned (season, episode) pairs that the season list of the show holds.
+/// Only ever added to a score: absolute numbering (episode 201 of season 1) fits no show.
+fn episode_fit(owned_episodes: &HashSet<(i32, i32)>, tv_show_details: &TMDBTVShowDetails) -> f32 {
+    if owned_episodes.is_empty() {
+        return 0.0;
+    }
+
+    let seasons = tv_show_details.seasons.as_deref().unwrap_or_default();
+    let fitting = owned_episodes.iter()
+        .filter(|(owned_season, owned_episode)| seasons.iter().any(|season| {
+            season.season_number == Some(*owned_season)
+                && season.episode_count.is_some_and(|episode_count| (1..=episode_count).contains(owned_episode))
+        }))
+        .count();
+
+    fitting as f32 / owned_episodes.len() as f32
 }
 
 fn known_show_id(tv_shows: &BTreeMap<u32, TvShow>, show_name: &str) -> Option<u32> {
@@ -924,15 +1071,25 @@ mod tests {
         assert_eq!(show.seasons[0].name.as_deref(), Some("Edited"));
     }
 
-    /// Knows one show with one season of 24 episodes and counts the requests
+    /// Knows the shows it is given and finds one only by its exact name, so a name that is off
+    /// finds nothing. Every season has 24 episodes. Counts the requests.
     #[derive(Default)]
     struct FakeTmdb {
+        shows: Vec<serde_json::Value>,
         searches: Cell<u32>,
         show_details: Cell<u32>,
         seasons: Cell<u32>,
     }
 
     impl FakeTmdb {
+        fn with_shows(shows: Vec<serde_json::Value>) -> Self {
+            FakeTmdb { shows, ..Default::default() }
+        }
+
+        fn braunschlag() -> Self {
+            Self::with_shows(vec![json!({ "id": 43879, "name": "Braunschlag", "original_language": "de" })])
+        }
+
         fn requests(&self) -> (u32, u32, u32) {
             (self.searches.get(), self.show_details.get(), self.seasons.get())
         }
@@ -947,14 +1104,21 @@ mod tests {
             panic!("unexpected movie details request for {}", movie_id)
         }
 
-        async fn search_tv_show(&self, _show_name: &str) -> Result<TMDBSearchTVResult, Error> {
+        async fn search_tv_show(&self, show_name: &str, first_air_date_year: Option<i32>) -> Result<TMDBSearchTVResult, Error> {
             self.searches.set(self.searches.get() + 1);
-            Ok(serde_json::from_value(json!({ "page": 1, "results": [{ "id": 43879 }], "total_pages": 1, "total_results": 1 })).unwrap())
+            let results: Vec<_> = self.shows.iter()
+                .filter(|show| show["name"].as_str().unwrap().eq_ignore_ascii_case(show_name))
+                .filter(|show| first_air_date_year.map_or(true, |year| {
+                    show["first_air_date"].as_str().is_some_and(|date| date.starts_with(&year.to_string()))
+                }))
+                .collect();
+            Ok(serde_json::from_value(json!({ "page": 1, "results": results, "total_pages": 1, "total_results": results.len() })).unwrap())
         }
 
         async fn get_tv_show_details(&self, tv_id: usize) -> Result<TMDBTVShowDetails, Error> {
             self.show_details.set(self.show_details.get() + 1);
-            Ok(show_details(tv_id, "Braunschlag"))
+            let show = self.shows.iter().find(|show| show["id"] == tv_id).unwrap();
+            Ok(serde_json::from_value(show.clone()).unwrap())
         }
 
         async fn get_tv_season_details(&self, _tv_id: usize, season_number: i32) -> Result<TMDBSeasonDetails, Error> {
@@ -966,19 +1130,179 @@ mod tests {
         }
     }
 
+    const LIBRARY_ROOTS: &[&str] = &["F:/mov", "T:/tv"];
+
+    /// A file below the TV root
+    fn show_file(path: &str) -> VideoElement {
+        VideoElement { filepath: format!("T:/tv/{}", path), ..Default::default() }
+    }
+
     fn episode_file(episode: i32) -> VideoElement {
-        VideoElement { filepath: format!("T:/tv/Braunschlag/Braunschlag S01E{:02}.mkv", episode), ..Default::default() }
+        show_file(&format!("Braunschlag/Braunschlag S01E{:02}.mkv", episode))
+    }
+
+    fn episode_meta(video_element: &VideoElement) -> &EpisodeMeta {
+        let Media::Episode(episode_meta) = &video_element.media else { panic!("expected an episode: {}", video_element.filepath) };
+        episode_meta
+    }
+
+    fn candidate_ids(names: &[(&str, Option<i32>)], search_reply: &TMDBSearchTVResult) -> Vec<usize> {
+        let names: Vec<(String, Option<i32>)> = names.iter().map(|(name, year)| (name.to_string(), *year)).collect();
+        rank_show_candidates(&names, &search_reply.results).iter().filter_map(|(_, show)| show.id).collect()
+    }
+
+    #[test]
+    fn show_candidates_from_real_search_replies() {
+        let braunschlag: TMDBSearchTVResult = fixture!("tv_search_braunschlag.json");
+        // The 2012 series has the name of the folder, "Braunschlag 1986" only starts with it
+        assert_eq!(candidate_ids(&[("Braunschlag", None), ("tv4a braunschlag", None)], &braunschlag), [43879, 316811]);
+
+        let the_office: TMDBSearchTVResult = fixture!("tv_search_the_office.json");
+        // Same-named shows stay in TMDB's order, a year decides between them
+        assert_eq!(candidate_ids(&[("The Office", None)], &the_office)[..2], [2316, 2996]);
+        assert_eq!(candidate_ids(&[("The Office", Some(2001))], &the_office)[0], 2996);
+        // A year no show has changes nothing
+        assert_eq!(candidate_ids(&[("The Office", Some(1950))], &the_office)[0], 2316);
+        // "Phantom of the Office"
+        assert!(!candidate_ids(&[("The Office", None)], &the_office).contains(&249145));
+
+        // A weak name match is no candidate
+        assert!(candidate_ids(&[("MDE tv", None)], &the_office).is_empty());
+        assert!(candidate_ids(&[("tv4a", None)], &braunschlag).is_empty());
+        assert!(candidate_ids(&[], &braunschlag).is_empty());
+    }
+
+    #[test]
+    fn owned_episodes_decide_between_equal_names() {
+        let api = FakeTmdb::with_shows(vec![
+            json!({ "id": 1, "name": "Nirvanna the Band the Show", "seasons": [{ "season_number": 1, "episode_count": 10 }] }),
+            json!({ "id": 2, "name": "Nirvanna the Band the Show", "seasons": [
+                { "season_number": 1, "episode_count": 6 },
+                { "season_number": 2, "episode_count": 6 },
+            ] }),
+        ]);
+        let names = [("Nirvanna the Band the Show".to_owned(), None)];
+        let matched = |owned_episodes: &[(i32, i32)]| {
+            tauri::async_runtime::block_on(match_show(&api, &names, &owned_episodes.iter().copied().collect()))
+                .unwrap()
+                .and_then(|tv_show_details| tv_show_details.tmdb_tv_show.id)
+        };
+
+        assert_eq!(matched(&[(1, 1), (2, 1)]), Some(2));
+        assert_eq!(matched(&[(1, 8)]), Some(1));
+        // Both hold the episodes: TMDB's order
+        assert_eq!(matched(&[(1, 1), (1, 2)]), Some(1));
+        // Absolute numbering is in no season list, which does not reject the show
+        assert_eq!(matched(&[(1, 201)]), Some(1));
+        assert_eq!(matched(&[]), Some(1));
+    }
+
+    #[test]
+    fn show_folder_is_the_first_folder_below_a_root() {
+        assert_eq!(show_folder(LIBRARY_ROOTS, "T:/tv/Stromberg/Staffel 1/a.mkv"), Some("Stromberg"));
+        assert_eq!(show_folder(LIBRARY_ROOTS, "T:/tv/Stromberg/a.mkv"), Some("Stromberg"));
+        assert_eq!(show_folder(LIBRARY_ROOTS, "T:/tv/a.mkv"), None);
+        assert_eq!(show_folder(LIBRARY_ROOTS, "D:/other/Stromberg/a.mkv"), None);
+    }
+
+    #[test]
+    fn a_folder_is_one_show() {
+        // Four release groups, four names parsed from the filenames
+        let stromberg_files = || -> Vec<VideoElement> {
+            ["cfd-strombergdxvid", "exp-strombergxvid", "itg-stromberg", "utopia-stromberg"].iter().enumerate()
+                .flat_map(|(group, name)| (1..=2).map(move |episode| {
+                    show_file(&format!("Stromberg/Staffel 1/{}.s01e{:02}.mkv", name, group * 2 + episode))
+                }))
+                .collect()
+        };
+
+        // Only the folder name finds the show: the folder and two of the filename names are searched
+        let api = FakeTmdb::with_shows(vec![json!({ "id": 6202, "name": "Stromberg", "original_language": "de" })]);
+        let mut video_files = stromberg_files();
+        let mut tv_shows = BTreeMap::new();
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
+
+        assert_eq!(api.requests(), (3, 1, 1));
+        assert_eq!(tv_shows.len(), 1);
+        assert_eq!(tv_shows[&1].tmdb_id, Some(6202));
+        assert_eq!(tv_shows[&1].parsed_names, ["Stromberg"]);
+        for (video_element, episode) in video_files.iter().zip(1..) {
+            let episode_meta = episode_meta(video_element);
+            assert_eq!((episode_meta.show_id, episode_meta.episode), (1, Some(episode)));
+            assert!(episode_meta.tmdb_id.is_some());
+        }
+
+        // Not on TMDB: still one show, named after the folder
+        let api = FakeTmdb::default();
+        let mut video_files = stromberg_files();
+        let mut tv_shows = BTreeMap::new();
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
+
+        assert_eq!(api.requests(), (3, 0, 0));
+        assert_eq!(tv_shows.len(), 1);
+        assert_eq!((tv_shows[&1].tmdb_id, tv_shows[&1].name.as_deref()), (None, Some("Stromberg")));
+        for video_element in &video_files {
+            assert_eq!(episode_meta(video_element).show_id, 1);
+            assert!(video_element.tmdb_searched);
+        }
+
+        // Nothing is asked again, except by a reparse, and that once per show
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
+        assert_eq!(api.requests(), (3, 0, 0));
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, true)).unwrap();
+        assert_eq!(api.requests(), (6, 0, 0));
+        assert_eq!(tv_shows.len(), 1);
+    }
+
+    #[test]
+    fn show_names_come_from_folder_and_filename() {
+        let api = FakeTmdb::with_shows(vec![
+            json!({ "id": 43879, "name": "Braunschlag" }),
+            json!({ "id": 69900, "name": "Nirvanna the Band the Show" }),
+            json!({ "id": 156861, "name": "The Curse", "first_air_date": "2022-02-06" }),
+            json!({ "id": 114655, "name": "The Curse", "first_air_date": "2023-11-12" }),
+            json!({ "id": 1667, "name": "Saturday Night Live" }),
+            json!({ "id": 1400, "name": "Seinfeld" }),
+        ]);
+        let mut video_files = vec![
+            // Release group in the filename
+            show_file("Braunschlag/tv4a-braunschlag.s01e01-1080p.mkv"),
+            // Abbreviation in the filename
+            show_file("Nirvanna the Band the Show/NTBTS S1 E1.mp4"),
+            // The year is no part of the name, and picks the show
+            show_file("The Curse/The.Curse.2023.S01E01.1080p.mkv"),
+            // Abbreviation in the folder name
+            show_file("SNL/Saturday.Night.Live.S01E01.mkv"),
+            // No show folder
+            show_file("Seinfeld.S01E01.mkv"),
+            show_file("Unknown.Show.S01E01.mkv"),
+        ];
+        let mut tv_shows = BTreeMap::new();
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
+
+        let matched: Vec<(&str, Option<usize>)> = video_files.iter()
+            .map(|video_element| &tv_shows[&episode_meta(video_element).show_id])
+            .map(|show| (show.parsed_names[0].as_str(), show.tmdb_id))
+            .collect();
+        assert_eq!(matched, [
+            ("Braunschlag", Some(43879)),
+            ("Nirvanna the Band the Show", Some(69900)),
+            ("The Curse", Some(114655)),
+            ("SNL", Some(1667)),
+            ("Seinfeld", Some(1400)),
+            ("Unknown Show", None),
+        ]);
     }
 
     #[test]
     fn a_season_costs_three_requests() {
-        let api = FakeTmdb::default();
+        let api = FakeTmdb::braunschlag();
         let mut video_files: Vec<VideoElement> = (1..=24).map(episode_file).collect();
         // Not part of the season on TMDB
         video_files.push(episode_file(25));
         let mut tv_shows = BTreeMap::new();
 
-        tauri::async_runtime::block_on(parse_video_files(&api, &mut video_files, &mut tv_shows, false)).unwrap();
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
 
         assert_eq!(api.requests(), (1, 1, 1));
         assert_eq!(tv_shows.len(), 1);
@@ -997,18 +1321,19 @@ mod tests {
         assert!(video_files[24].tmdb_searched);
 
         // Everything has a definite result, so the next run asks nothing
-        tauri::async_runtime::block_on(parse_video_files(&api, &mut video_files, &mut tv_shows, false)).unwrap();
+        tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
         assert_eq!(api.requests(), (1, 1, 1));
     }
 
     #[test]
     fn an_episode_without_numbers_is_kept() {
-        let api = FakeTmdb::default();
-        let mut tv_shows = BTreeMap::new();
+        let api = FakeTmdb::braunschlag();
+        let mut show = TvShow { id: 1, tmdb_id: Some(43879), ..Default::default() };
         let mut parse = |filepath: &str| {
             let mut video_element = VideoElement { filepath: filepath.to_owned(), ..Default::default() };
+            let (_, season, episode) = get_tv_show_info_from_filename(filepath);
             tauri::async_runtime::block_on(parse_episode(
-                &api, &mut tv_shows, &mut HashSet::new(), &mut SeasonCache::new(), &mut video_element, false,
+                &api, &mut show, &mut SeasonCache::new(), &mut video_element, season, episode,
             ));
             assert!(video_element.tmdb_searched, "{}", filepath);
             let Media::Episode(episode_meta) = video_element.media else { panic!("expected an episode: {}", filepath) };
@@ -1023,10 +1348,8 @@ mod tests {
         assert_eq!((no_number.season, no_number.episode, no_number.tmdb_id), (None, None, None));
         assert_eq!((special.season, special.episode, special.tmdb_id), (Some(0), None, None));
 
-        // The fake finds the same show for every name, so all three end up in it
-        assert_eq!(tv_shows.len(), 1);
         assert_eq!([season_only.show_id, no_number.show_id, special.show_id], [1, 1, 1]);
         // No season is fetched for a file without episode number
-        assert_eq!(api.requests(), (3, 3, 0));
+        assert_eq!(api.requests(), (0, 0, 0));
     }
 }

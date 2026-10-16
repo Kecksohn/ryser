@@ -21,6 +21,7 @@ static DASH_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+-\s+0?\d{1,
 static BRACKETED_NUMBER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(?:CM)?\d{1,3}\]").unwrap()); // Matches: [01], [CM01]
 static EP_PREFIX_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:^|[^a-z0-9])ep\.?\s*\d+").unwrap()); // Matches: Ep. 01, Ep 01, ep.01 - but not the "ep 1946" in "Sleep 1946"
 static SPECIAL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)special").unwrap()); // Matches: SPECIAL, Special, special
+static SEASON_MARKER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\b(?:s\d{1,2}|season\s*\d+)\b").unwrap()); // Matches: S01, Season 1 - but not the "s1" in "Class1"
 
 // If those fail, we try to find other patterns and take the left-most to find end of movie name
 static FILENAME_NOISE_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
@@ -91,7 +92,11 @@ static CURRENT_YEAR: Lazy<i32> = Lazy::new(|| chrono::Utc::now().year());
 // *1888 - CURRENT_YEAR
 pub(super) fn get_movie_title_and_year_from_filename(filename_or_path: &str) -> (String, Option<i32>)
 {
-    let mut filename = remove_extension_and_path(filename_or_path);
+    get_title_and_year(remove_extension_and_path(filename_or_path))
+}
+
+fn get_title_and_year(mut filename: String) -> (String, Option<i32>)
+{
     let mut title_start_index = 0;
     let mut title_end_index = filename.len();
     let mut year: Option<i32> = Option::None;
@@ -426,6 +431,30 @@ fn similarity(s1: &str, s2: &str) -> f32
     let max_len = len1.max(len2);
 
     1.0 - (distance as f32 / max_len as f32)
+}
+
+// How well the name of a show on TMDB fits a searched show name, between 0.0 and 1.0
+// Case, punctuation and "&" for "and" do not count
+// A name that is the leading words of the other one is at least 0.8: "Heimat" for "Heimat A Chronicle of Germany"
+pub(super) fn show_name_similarity(searched: &str, found: &str) -> f32
+{
+    let normalize = |name: &str| {
+        make_alphanumeric_with_spaces(&name.to_lowercase().replace('&', " and ").replace(['\'', '’'], ""))
+    };
+    let (searched, found) = (normalize(searched), normalize(found));
+    if searched.is_empty() || found.is_empty() {
+        return 0.0;
+    }
+
+    let is_leading_words = |short: &str, long: &str| {
+        long.strip_prefix(short).is_some_and(|rest| rest.starts_with(' '))
+    };
+    let score = similarity(&searched, &found);
+    if is_leading_words(&found, &searched) || is_leading_words(&searched, &found) {
+        score.max(0.8)
+    } else {
+        score
+    }
 }
 
 // Calculates Levenshtein distance between two strings
@@ -798,6 +827,28 @@ pub(super) fn get_tv_show_info_from_filename(filepath: &str) -> (String, Option<
     (show_name, season, episode)
 }
 
+// Splits the name of a show folder, or a show name parsed from a filename, into name and year
+// "The Curse 2023" -> ("The Curse", 2023)
+// "Planet.Earth.II.S01.EP01-EP06.2016.2160p.BluRay" -> ("Planet Earth II", 2016)
+// The name is empty when nothing but a season marker is left ("Season 1")
+pub(super) fn get_show_name_and_year(name: &str) -> (String, Option<i32>)
+{
+    let (mut title, mut year) = get_title_and_year(name.to_owned());
+    title = make_alphanumeric_with_spaces(&remove_square_bracket_text(&title));
+
+    // The name is a year itself ("1899")
+    if title.is_empty() && year.is_some() {
+        title = make_alphanumeric_with_spaces(name);
+        year = None;
+    }
+
+    if let Some(season_marker) = SEASON_MARKER_REGEX.find(&title) {
+        title.truncate(season_marker.start());
+    }
+
+    (title.trim().to_owned(), year)
+}
+
 // Helper function to extract season number from folder name
 // Handles formats like: "Season 1", "Season 01", "S01", "s1"
 fn extract_season_from_folder(folder_name: &str) -> Option<i32>
@@ -909,6 +960,59 @@ mod tests {
         for (filepath, name, season, episode) in cases {
             assert_eq!(tv_info(filepath), (name.to_string(), *season, *episode), "{}", filepath);
         }
+    }
+
+    #[test]
+    fn show_name_and_year()
+    {
+        let cases: &[(&str, &str, Option<i32>)] = &[
+            // Names parsed from filenames
+            ("tv4a braunschlag", "tv4a braunschlag", None),
+            ("NTBTS", "NTBTS", None),
+            ("The Curse 2023", "The Curse", Some(2023)),
+            ("Planet Earth II S01", "Planet Earth II", None),
+            ("South Park 2021 Post COVID 2160p WEB DL x265", "South Park", Some(2021)),
+            ("", "", None),
+            // Folder names
+            ("Braunschlag", "Braunschlag", None),
+            ("Nirvanna the Band the Show", "Nirvanna the Band the Show", None),
+            ("Heimat - A Chronicle of Germany (1984)", "Heimat A Chronicle of Germany", Some(1984)),
+            ("Sifl and Olly [season 1]", "Sifl and Olly", None),
+            ("Peep Show (2003) Season 1-9 S01-S09 + Extras (576p-1080p DVD-AMZN WEB-DL x265 HEVC 10bit AAC 2.0 Ghost)", "Peep Show", Some(2003)),
+            ("Planet.Earth.II.S01.EP01-EP06.2016.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.5.1-TAG", "Planet Earth II", Some(2016)),
+            ("Frozen.Planet.II.S01.2160p.BluRay.REMUX.HEVC.DTS-HD.MA.TrueHD.7.1.Atmos-FGT", "Frozen Planet II", None),
+            ("Mr. Robot", "Mr Robot", None),
+            // A season folder is no show name, a year alone is one
+            ("Season 1", "", None),
+            ("S02", "", None),
+            ("1899", "1899", None),
+        ];
+
+        for (name, show_name, year) in cases {
+            assert_eq!(get_show_name_and_year(name), (show_name.to_string(), *year), "{}", name);
+        }
+    }
+
+    #[test]
+    fn show_name_similarity_ignores_spelling_details()
+    {
+        assert_eq!(show_name_similarity("Key and Peele", "Key & Peele"), 1.0);
+        assert!(show_name_similarity("Whitest Kids U Know", "The Whitest Kids U' Know") > 0.8);
+        assert_eq!(show_name_similarity("Malcolm in the Middle Lifes Still Unfair", "Malcolm in the Middle: Life's Still Unfair"), 1.0);
+        assert_eq!(show_name_similarity("norm macdonald live", "Norm Macdonald Live"), 1.0);
+
+        // Leading words of the other name
+        assert_eq!(show_name_similarity("Heimat A Chronicle of Germany", "Heimat"), 0.8);
+        assert_eq!(show_name_similarity("The Office UK", "The Office"), 0.8);
+        assert_eq!(show_name_similarity("Jackass", "jackass the podcast"), 0.8);
+        // Not whole words
+        assert!(show_name_similarity("Heimatfilm", "Heimat") < 0.8);
+
+        assert!(show_name_similarity("MDE tv", "Kickstarter TV") < 0.5);
+        assert!(show_name_similarity("tv4a braunschlag", "Braunschlag") < 0.8);
+        assert!(show_name_similarity("Braunschlag", "Braunschlag 1986") >= 0.8);
+        assert_eq!(show_name_similarity("", ""), 0.0);
+        assert_eq!(show_name_similarity("Riget", "!!!"), 0.0);
     }
 
     #[test]
@@ -1223,5 +1327,39 @@ mod tests {
         write_report("parser-corpus-tv.txt", &report);
 
         assert!(not_ok == 0, "{} of {} TV files not parsed, see parser-corpus-tv.txt", not_ok, report.len());
+    }
+
+    // Per show folder: the cleaned folder name and the names parsed from its episode files,
+    // each with year and number of files. These are the names a show is searched with.
+    #[test]
+    #[ignore = "needs the TV folder of this machine"]
+    fn corpus_tv_show_name_candidates()
+    {
+        let folder = Path::new(TV_FOLDER);
+        if !folder.is_dir() {
+            println!("skipped: {} not found", TV_FOLDER);
+            return;
+        }
+
+        let mut shows: std::collections::BTreeMap<String, std::collections::BTreeMap<(String, Option<i32>), usize>> = Default::default();
+        for path in video_files_below(folder) {
+            let filepath = path.to_string_lossy().into_owned();
+            let Some(show_folder) = path.parent().unwrap().strip_prefix(folder).unwrap().components().next() else { continue };
+            if !is_tv_episode(&filepath) {
+                continue;
+            }
+            let names = shows.entry(show_folder.as_os_str().to_string_lossy().into_owned()).or_default();
+            *names.entry(get_show_name_and_year(&tv_info(&filepath).0)).or_default() += 1;
+        }
+
+        let report: Vec<String> = shows.iter()
+            .map(|(show_folder, names)| {
+                let names: Vec<String> = names.iter()
+                    .map(|((name, year), files)| format!("{} {:?} x{}", name, year, files))
+                    .collect();
+                format!("{}\t{:?}\t{}", show_folder, get_show_name_and_year(show_folder), names.join(" | "))
+            })
+            .collect();
+        write_report("show-names-tv.txt", &report);
     }
 }

@@ -1,0 +1,51 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/jMY485DXRj1f45gXKBN9DleJSTn.jpg",
+      "first_air_date": "2012-09-18",
+      "genre_ids": [
+        18,
+        35
+      ],
+      "id": 43879,
+      "name": "Braunschlag",
+      "origin_country": [
+        "AT"
+      ],
+      "original_language": "de",
+      "original_name": "Braunschlag",
+      "overview": "To save his town Braunschlag from bankruptcy, the mayor decides to fake a Marian apparition. This black-humored farce revolves around greed, corruption, churchianity and alcohol.",
+      "popularity": 2.9881,
+      "poster_path": "/jre6pjAGc10l1r5ORUhN1akKZA2.jpg",
+      "softcore": false,
+      "vote_average": 7.566,
+      "vote_count": 38
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/92HvRPb1h8DuWi88V9S3Pnwx9d5.jpg",
+      "first_air_date": "2026-03-19",
+      "genre_ids": [
+        35,
+        18
+      ],
+      "id": 316811,
+      "name": "Braunschlag 1986",
+      "origin_country": [
+        "AT"
+      ],
+      "original_language": "de",
+      "original_name": "Braunschlag 1986",
+      "overview": "14 years after the events that led to a mass exodus of its residents which left the town of Braunschlag deserted, its mayor comes up with a cunning plan - from now on, within the towns borders the year is 1986, a return to times long gone.",
+      "popularity": 2.9713,
+      "poster_path": "/9SARRr31MlneMtH1IWDvRx3B7FB.jpg",
+      "softcore": false,
+      "vote_average": 7.0,
+      "vote_count": 7
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 2
+}
