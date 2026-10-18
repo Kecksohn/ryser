@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "touch \"$CLAUDE_PROJECT_DIR/.claude/scratch/.prompt-stamp\""
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.claude/scratch\" && touch \"$CLAUDE_PROJECT_DIR/.claude/scratch/.prompt-stamp\""
           }
         ]
       }
