@@ -1,14 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { CoverPickerTooltip } from "./CoverPickerTooltip.jsx";
+import { TmdbSearch } from "./TmdbSearch.jsx";
 import { display } from "../Utils/displayElement.js";
 import { build_media } from "../Utils/buildMedia.js";
 
 import editVideoStyles from "./EditVideoEntry.module.css";
-import tmdbResultsStyles from "./TMDBResults.module.css";
 import { useNavigate } from "react-router-dom";
 
+// Number input value: "" = no number
+const to_number = (text) => (text === "" ? null : Number(text));
+const to_text = (number) => (number == null ? "" : String(number));
+
+// save_media(entry, media, new_show_tmdb_id): with new_show_tmdb_id the show is added
+// to the library first and media.show_id set to it
 export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
   if (!video_entry) {
     // TODO: Get from Backend
@@ -21,11 +27,18 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
   const media = video_entry.media ?? { kind: "unmatched" };
   // An episode has its own name and image. Original title and countries
   // belong to its show and are not edited here.
-  const is_episode = media.kind === "episode";
-  const show = is_episode ? shows?.[media.show_id] : null;
-  const title_field = is_episode ? "name" : "title";
-  const image_field = is_episode ? "still_path" : "poster_path";
+  const was_episode = media.kind === "episode";
+  const title_field = was_episode ? "name" : "title";
+  const image_field = was_episode ? "still_path" : "poster_path";
   const shown = display(video_entry, shows);
+
+  const [kind_input, set_kind_input] = useState(was_episode ? "episode" : "film");
+  const is_episode = kind_input === "episode";
+  // A show ID of the library, or "new" for new_show
+  const [show_input, set_show_input] = useState(to_text(media.show_id));
+  const [new_show, set_new_show] = useState(null);
+  const [season_input, set_season_input] = useState(to_text(media.season));
+  const [episode_input, set_episode_input] = useState(to_text(media.episode));
 
   const [original_title_input, set_original_title_input] = useState(
     media.original_title ? media.original_title : ""
@@ -40,9 +53,17 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     media[image_field]
   );
 
+  const show =
+    show_input === "new" ? new_show : is_episode ? shows?.[show_input] : null;
+
   function was_changed() {
     const listed = (countries) => countries.filter(Boolean).join();
     return (
+      kind_input !== (was_episode ? "episode" : "film") ||
+      (is_episode &&
+        (show_input !== to_text(media.show_id) ||
+          season_input !== to_text(media.season) ||
+          episode_input !== to_text(media.episode))) ||
       (media.original_title ?? "") !== original_title_input ||
       (media[title_field] ?? "") !== english_title_input ||
       listed(media.countries ?? []) !== listed(countries_input) ||
@@ -50,19 +71,30 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     );
   }
 
+  // An episode needs a show
+  const can_save = was_changed() && (!is_episode || show_input !== "");
+
   function commit_changes() {
-    if (!was_changed()) {
+    if (!can_save) {
       console.log("No changes found.");
       return;
     }
+    const media_to_save = build_media(media, {
+      kind: kind_input,
+      title: english_title_input,
+      original_title: original_title_input,
+      countries: countries_input,
+      image: new_poster_url_or_path,
+      ...(is_episode && {
+        show_id: show_input === "new" ? null : Number(show_input),
+        season: to_number(season_input),
+        episode: to_number(episode_input),
+      }),
+    });
     save_media(
       video_entry,
-      build_media(media, {
-        title: english_title_input,
-        original_title: original_title_input,
-        countries: countries_input,
-        image: new_poster_url_or_path,
-      })
+      media_to_save,
+      is_episode && show_input === "new" ? new_show.tmdb_id : undefined
     );
   }
 
@@ -72,17 +104,13 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     set_new_poster_url_or_path(tmdb_result.poster_path);
   }
 
-  const [tmdb_searchfield, set_tmdb_searchfield] = useState("");
-  const [tmdb_results, set_tmdb_results] = useState([]);
-
-  async function get_tmdb_entries(search_string) {
-    await invoke("search_tmdb_from_gui", { search_title: search_string })
-      .then((res) => {
-        set_tmdb_results(res);
-      })
-      .catch((e) => {
-        console.log("Error when searching TMDB: " + e);
-      });
+  // A show the library has already is picked from the library
+  function pick_show(tmdb_show) {
+    const known = Object.entries(shows ?? {}).find(
+      ([, library_show]) => library_show.tmdb_id === tmdb_show.tmdb_id
+    );
+    set_new_show(known ? null : tmdb_show);
+    set_show_input(known ? known[0] : "new");
   }
 
   const [is_cover_picker_open, set_is_cover_picker_open] = useState(false);
@@ -90,7 +118,11 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
 
   async function get_tmdb_covers() {
     // An episode's own tmdb_id has no posters, its show's has
-    const tmdb_id = is_episode ? show?.tmdb_id : media.tmdb_id;
+    const tmdb_id = is_episode
+      ? show?.tmdb_id
+      : media.kind === "film"
+        ? media.tmdb_id
+        : null;
     if (tmdb_cover_results.length === 0 && tmdb_id != null) {
       // TODO: Also send language sort order when they're in video_element
       await invoke("get_covers_from_tmdb", {
@@ -106,13 +138,18 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     }
   }
 
+  // [show_id, show], by name
+  const sorted_shows = Object.entries(shows ?? {}).sort(([, a], [, b]) =>
+    (a.name ?? "").localeCompare(b.name ?? "")
+  );
+
   return (
     <div>
       {/* Back Button */}
       <div
         style={{ cursor: "pointer" }}
         onClick={() => {
-          navigate("../");
+          navigate(-1);
         }}
       >
         <i
@@ -147,7 +184,61 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
         {/* Edit Info Box */}
         <div className={editVideoStyles.containerBox}>
           Filepath: {video_entry.filepath}
-          {is_episode && <div>Show: {show?.name}</div>}
+          <div>
+            Kind:{" "}
+            <select
+              id="kind_input"
+              value={kind_input}
+              onChange={(e) => set_kind_input(e.target.value)}
+            >
+              <option value="film">Film</option>
+              <option value="episode">Episode</option>
+            </select>
+          </div>
+          {is_episode && (
+            <>
+              <div>
+                Show:{" "}
+                <select
+                  id="show_input"
+                  value={show_input}
+                  onChange={(e) => set_show_input(e.target.value)}
+                >
+                  <option value="">(pick a show)</option>
+                  {sorted_shows.map(([id, library_show]) => (
+                    <option key={id} value={id}>
+                      {library_show.name}
+                    </option>
+                  ))}
+                  {new_show && (
+                    <option value="new">
+                      {new_show.name} (new from TMDB)
+                    </option>
+                  )}
+                </select>
+              </div>
+              <div>
+                Season:{" "}
+                <input
+                  id="season_input"
+                  type="number"
+                  min="0"
+                  className={editVideoStyles.inputField}
+                  value={season_input}
+                  onChange={(e) => set_season_input(e.target.value)}
+                />{" "}
+                Episode:{" "}
+                <input
+                  id="episode_input"
+                  type="number"
+                  min="0"
+                  className={editVideoStyles.inputField}
+                  value={episode_input}
+                  onChange={(e) => set_episode_input(e.target.value)}
+                />
+              </div>
+            </>
+          )}
           {!is_episode && (
             <div>
               Original Title:{" "}
@@ -192,13 +283,13 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
           )}
           <div>Watched: {video_entry.watched}</div>
           <br />
-          {was_changed() && (
+          {can_save && (
             <>
               <div
                 style={{ cursor: "pointer" }}
                 onClick={() => {
                   commit_changes();
-                  navigate("../");
+                  navigate(-1);
                 }}
               >
                 Save Changes
@@ -206,7 +297,7 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
               <div
                 style={{ cursor: "pointer" }}
                 onClick={() => {
-                  navigate("../");
+                  navigate(-1);
                 }}
               >
                 Discard Changes
@@ -216,52 +307,12 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
         </div>
       </div>
       <br />
-      Search Input:{" "}
-      <input
-        id="searchinput"
-        type="text"
-        className={editVideoStyles.inputField}
-        value={tmdb_searchfield}
-        onChange={(e) => {
-          set_tmdb_searchfield(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            get_tmdb_entries(tmdb_searchfield);
-          }
-        }}
+      {/* Remounted per kind: film results are no show results */}
+      <TmdbSearch
+        key={kind_input}
+        tv={is_episode}
+        on_pick={is_episode ? pick_show : update_element_with_tmdb}
       />
-      <span
-        style={{ cursor: "pointer" }}
-        onClick={() => {
-          get_tmdb_entries(tmdb_searchfield);
-        }}
-      >
-        {" "}
-        (Search TMDB Icon)
-      </span>
-      <br />
-      {tmdb_results.map((result, index) => {
-        return (
-          <div
-            className={tmdbResultsStyles.tmdbresult}
-            key={index}
-            onClick={() => {
-              update_element_with_tmdb(result);
-            }}
-          >
-            <div className={tmdbResultsStyles.tmdbresultSplitter}>
-              <div className={tmdbResultsStyles.tmdbresultImg}>
-                <img src={result.poster_path} alt={result.title} />
-              </div>
-              <div className={tmdbResultsStyles.tmdbresultInfo}>
-                <div>{result.title}</div>
-                <div>{result.release_date?.substring(0, 4)}</div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 };

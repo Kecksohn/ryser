@@ -252,6 +252,112 @@ describe("LibraryView", () => {
     ]);
   });
 
+  describe("editing", () => {
+    const calls_of = (command) =>
+      invoke.mock.calls.filter(([called]) => called === command);
+    const change = (selector, value) =>
+      fireEvent.change(document.querySelector(selector), {
+        target: { value },
+      });
+    async function search_tv(text) {
+      change("#searchinput", text);
+      await act(async () => {
+        fireEvent.keyDown(document.querySelector("#searchinput"), {
+          key: "Enter",
+        });
+      });
+    }
+    const with_responses = (extra) => {
+      const responses = { ...backend(), ...extra };
+      invoke.mockImplementation(async (command) => responses[command]);
+    };
+
+    it("files a film under a new show from TMDB through set_media, then reloads", async () => {
+      with_responses({
+        search_tv_from_gui: [{ tmdb_id: 1400, name: "Seinfeld" }],
+        add_show_from_tmdb: 9,
+      });
+      await render_library();
+      fireEvent.contextMenu(film_tile());
+      fireEvent.click(screen.getByText("Edit"));
+
+      change("#kind_input", "episode");
+      await search_tv("Seinfeld");
+      fireEvent.click(screen.getByAltText("Seinfeld"));
+      change("#season_input", "1");
+      change("#episode_input", "2");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Save Changes"));
+      });
+
+      expect(calls_of("add_show_from_tmdb")).toEqual([
+        ["add_show_from_tmdb", { library_id: "7", tmdb_id: 1400 }],
+      ]);
+      expect(calls_of("set_media")).toEqual([
+        [
+          "set_media",
+          {
+            library_id: "7",
+            filepath: FILM_PATH,
+            media: { kind: "episode", show_id: 9, season: 1, episode: 2 },
+          },
+        ],
+      ]);
+      // The backend looked the episode up and may have moved it to another tile
+      expect(calls_of("get_library_videos")).toHaveLength(2);
+      expect(calls_of("get_library_shows")).toHaveLength(2);
+    });
+
+    it("edits a show's name from its tile's context menu", async () => {
+      await render_library();
+      fireEvent.contextMenu(show_tile());
+      fireEvent.click(screen.getByText("Edit show"));
+
+      change("#show_name_input", "Heimat – Eine deutsche Chronik");
+      await act(async () => {
+        fireEvent.click(screen.getByText("Save Changes"));
+      });
+
+      expect(calls_of("update_show")).toEqual([
+        [
+          "update_show",
+          {
+            library_id: "7",
+            show_id: 3,
+            name: "Heimat – Eine deutsche Chronik",
+            poster_path: "/heimat.jpg",
+          },
+        ],
+      ]);
+      expect(calls_of("get_library_shows")).toHaveLength(2);
+    });
+
+    it("rematches a show from the show view", async () => {
+      with_responses({
+        search_tv_from_gui: [
+          { tmdb_id: 4613, name: "Heimat", first_air_date: "1984-09-16" },
+        ],
+        rematch_show: 3,
+      });
+      await render_library();
+      fireEvent.click(show_tile());
+      fireEvent.click(await screen.findByText("Edit show"));
+
+      await search_tv("Heimat");
+      fireEvent.click(screen.getByAltText("Heimat"));
+      await act(async () => {
+        fireEvent.click(screen.getByText("Rematch to Heimat (1984)"));
+      });
+
+      expect(calls_of("rematch_show")).toEqual([
+        ["rematch_show", { library_id: "7", show_id: 3, tmdb_id: 4613 }],
+      ]);
+      expect(calls_of("get_library_videos")).toHaveLength(2);
+      // Back on the show
+      expect(await screen.findByText("Edit show")).toBeTruthy();
+    });
+  });
+
   it("starts with the saved watched filter", async () => {
     const responses = {
       ...backend(),

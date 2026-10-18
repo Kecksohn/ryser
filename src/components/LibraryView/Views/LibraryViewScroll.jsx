@@ -66,7 +66,7 @@ export const LibraryViewScroll = ({
         className={tmdbResultsStyles.tmdbresult}
         style={{ cursor: "pointer" }}
         onClick={() => (is_show ? open_show(element) : launch_video(element))}
-        {...(!is_show && useContextMenuOn(element, get_context_menu_options))}
+        {...useContextMenuOn(element, get_context_menu_options)}
       >
         <div className={tmdbResultsStyles.tmdbresultSplitter}>
           <div className={tmdbResultsStyles.tmdbresultImg}>

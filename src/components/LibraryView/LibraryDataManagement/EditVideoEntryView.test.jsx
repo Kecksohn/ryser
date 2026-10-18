@@ -7,7 +7,10 @@ import { EditVideoEntryView } from "./EditVideoEntryView.jsx";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 
-const shows = { 3: { name: "Heimat", tmdb_id: 4613 } };
+const shows = {
+  3: { id: 3, name: "Heimat", tmdb_id: 4613 },
+  4: { id: 4, name: "Braunschlag", tmdb_id: 43879 },
+};
 
 const film_entry = () => ({
   filepath: "D:\\films\\alien.mkv",
@@ -51,6 +54,17 @@ function render_view(video_entry) {
   return { container, save_media };
 }
 
+function change(container, selector, value) {
+  fireEvent.change(container.querySelector(selector), { target: { value } });
+}
+
+async function search(container, text) {
+  change(container, "#searchinput", text);
+  await act(async () => {
+    fireEvent.keyDown(container.querySelector("#searchinput"), { key: "Enter" });
+  });
+}
+
 // The cover is the first image as long as no TMDB results are listed
 async function hover_cover(container) {
   await act(async () => {
@@ -81,7 +95,7 @@ describe("EditVideoEntryView", () => {
       ...film_entry().media,
       title: "Alien 1",
       countries: ["US", "GB"],
-    });
+    }, undefined);
   });
 
   it("offers to save only while an input differs from the entry", () => {
@@ -116,7 +130,9 @@ describe("EditVideoEntryView", () => {
   it("shows the show's name instead of the film inputs for an episode", () => {
     const { container } = render_view(episode_entry());
 
-    expect(screen.getByText("Show: Heimat")).toBeTruthy();
+    expect(container.querySelector("#show_input").value).toBe("3");
+    expect(container.querySelector("#season_input").value).toBe("1");
+    expect(container.querySelector("#episode_input").value).toBe("2");
     expect(container.querySelector("#og_title_input")).toBeNull();
     expect(container.querySelector("#country_input")).toBeNull();
     expect(container.querySelector("#en_title_input").value).toBe(
@@ -136,6 +152,100 @@ describe("EditVideoEntryView", () => {
     expect(save_media).toHaveBeenCalledWith(entry, {
       ...episode_entry().media,
       name: "Fernweh",
+    }, undefined);
+  });
+
+  it("saves show, season and episode; details of the old episode are dropped", () => {
+    const entry = episode_entry();
+    const { container, save_media } = render_view(entry);
+    change(container, "#show_input", "4");
+    change(container, "#season_input", "0");
+    change(container, "#episode_input", "");
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    expect(save_media).toHaveBeenCalledWith(
+      entry,
+      { kind: "episode", show_id: 4, season: 0, episode: null },
+      undefined
+    );
+  });
+
+  it("switches a film to an episode of a library show", () => {
+    const entry = film_entry();
+    const { container, save_media } = render_view(entry);
+    change(container, "#kind_input", "episode");
+    expect(container.querySelector("#country_input")).toBeNull();
+    // An episode needs a show
+    expect(screen.queryByText("Save Changes")).toBeNull();
+
+    change(container, "#show_input", "3");
+    change(container, "#season_input", "1");
+    change(container, "#episode_input", "2");
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    expect(save_media).toHaveBeenCalledWith(
+      entry,
+      { kind: "episode", show_id: 3, season: 1, episode: 2 },
+      undefined
+    );
+  });
+
+  it("switches an episode to a film", () => {
+    const entry = episode_entry();
+    const { container, save_media } = render_view(entry);
+    change(container, "#kind_input", "film");
+    change(container, "#og_title_input", "Heimat");
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    expect(save_media).toHaveBeenCalledWith(
+      entry,
+      {
+        kind: "film",
+        title: "Die Mitte der Welt",
+        original_title: "Heimat",
+        countries: null,
+        poster_path: "/still.jpg",
+      },
+      undefined
+    );
+  });
+
+  it("picks the show of an episode from a TV search", async () => {
+    invoke.mockImplementation(async (command) =>
+      command === "search_tv_from_gui"
+        ? [
+            { tmdb_id: 1400, name: "Seinfeld", poster_path: "/seinfeld.jpg" },
+            { tmdb_id: 43879, name: "Braunschlag", poster_path: "/b.jpg" },
+          ]
+        : []
+    );
+    const entry = episode_entry();
+    const { container, save_media } = render_view(entry);
+    await search(container, "Seinfeld");
+    expect(invoke).toHaveBeenCalledWith("search_tv_from_gui", {
+      search_title: "Seinfeld",
+    });
+
+    // A show the library has is picked from the library
+    fireEvent.click(screen.getByAltText("Braunschlag"));
+    expect(container.querySelector("#show_input").value).toBe("4");
+
+    // A new one is added on save
+    fireEvent.click(screen.getByAltText("Seinfeld"));
+    expect(container.querySelector("#show_input").value).toBe("new");
+    fireEvent.click(screen.getByText("Save Changes"));
+    expect(save_media).toHaveBeenCalledWith(
+      entry,
+      { kind: "episode", show_id: null, season: 1, episode: 2 },
+      1400
+    );
+  });
+
+  it("searches films for a film", async () => {
+    const { container } = render_view(film_entry());
+    await search(container, "Alien");
+    expect(invoke).toHaveBeenCalledWith("search_tmdb_from_gui", {
+      search_title: "Alien",
     });
   });
 

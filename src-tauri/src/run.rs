@@ -47,6 +47,10 @@ pub fn run() {
                 set_media,
                 refresh_library_entry,
                 search_tmdb_from_gui,
+                search_tv_from_gui,
+                update_show,
+                add_show_from_tmdb,
+                rematch_show,
                 get_covers_from_tmdb,
                 // File Management
                 show_in_explorer,

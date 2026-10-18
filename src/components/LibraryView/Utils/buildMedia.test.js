@@ -6,6 +6,16 @@ import { build_media } from "./buildMedia.js";
 import film from "../../../../test-fixtures/media/film.json";
 import user_film from "../../../../test-fixtures/media/user_film.json";
 import episode from "../../../../test-fixtures/media/episode.json";
+import episode_moved from "../../../../test-fixtures/media/episode_moved.json";
+import episode_from_film from "../../../../test-fixtures/media/episode_from_film.json";
+import film_from_episode from "../../../../test-fixtures/media/film_from_episode.json";
+
+// What the episode form shows for the fixture episode
+const episode_inputs = {
+  title: "Die Mitte der Welt",
+  image: "/heimat-s01e02.jpg",
+  countries: [""],
+};
 
 const film_inputs = {
   title: "Alien",
@@ -80,6 +90,55 @@ describe("build_media", () => {
     ).toBeNull();
   });
 
+  it("keeps an episode's details while show and numbers stay", () => {
+    expect(
+      build_media(episode, { ...episode_inputs, show_id: 3, season: 1, episode: 2 })
+    ).toEqual(episode);
+  });
+
+  it("drops an episode's TMDB details once show or numbers change", () => {
+    for (const change of [{ show_id: 4 }, { season: 2 }, { episode: null }]) {
+      const new_media = build_media(episode, { ...episode_inputs, ...change });
+      expect(new_media).toEqual({
+        kind: "episode",
+        show_id: 3,
+        season: 1,
+        episode: 2,
+        ...change,
+      });
+    }
+  });
+
+  it("keeps a name or image the user entered on a moved episode", () => {
+    expect(
+      build_media(episode, { ...episode_inputs, title: "Mine", season: 2 })
+    ).toEqual({ kind: "episode", show_id: 3, season: 2, episode: 2, name: "Mine" });
+    expect(
+      build_media(episode, { ...episode_inputs, image: "/mine.jpg", season: 2 })
+        .still_path
+    ).toBe("/mine.jpg");
+  });
+
+  it("drops film fields when a film becomes an episode", () => {
+    const new_media = build_media(film, {
+      ...film_inputs,
+      kind: "episode",
+      show_id: 3,
+      season: 1,
+      episode: 2,
+    });
+    expect(new_media).toEqual(episode_from_film);
+  });
+
+  it("drops episode fields when an episode becomes a film", () => {
+    const new_media = build_media(episode, {
+      ...episode_inputs,
+      kind: "film",
+      original_title: "",
+    });
+    expect(new_media).toEqual(film_from_episode);
+  });
+
   it("drops empty country entries", () => {
     const countries = (input) =>
       build_media(film, { ...film_inputs, countries: input }).countries;
@@ -114,5 +173,35 @@ describe("build_media output the backend has to accept", () => {
         image: "/heimat-s01e02.jpg",
       })
     ).toEqual(episode);
+  });
+
+  it("episode moved to another show and season, named by the user", () => {
+    expect(
+      build_media(episode, {
+        ...episode_inputs,
+        title: "Christmas Special",
+        show_id: 4,
+        season: 0,
+        episode: 5,
+      })
+    ).toEqual(episode_moved);
+  });
+
+  it("film switched to an episode", () => {
+    expect(
+      build_media(film, {
+        ...film_inputs,
+        kind: "episode",
+        show_id: 3,
+        season: 1,
+        episode: 2,
+      })
+    ).toEqual(episode_from_film);
+  });
+
+  it("episode switched to a film", () => {
+    expect(
+      build_media(episode, { ...episode_inputs, kind: "film", original_title: "" })
+    ).toEqual(film_from_episode);
   });
 });

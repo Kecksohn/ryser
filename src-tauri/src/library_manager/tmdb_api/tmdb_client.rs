@@ -617,7 +617,7 @@ fn upsert_show(tv_shows: &mut BTreeMap<u32, TvShow>, show_name: &str, tv_show_de
         tv_shows.values().find(|show| show.tmdb_id == Some(tmdb_id)).map(|show| show.id)
     });
     let id = known_show_id(tv_shows, show_name).or(same_tmdb_show_id)
-        .unwrap_or_else(|| tv_shows.keys().next_back().map_or(1, |highest_id| highest_id + 1));
+        .unwrap_or_else(|| next_show_id(tv_shows));
 
     let show = tv_shows.entry(id).or_insert_with(|| TvShow { id, ..Default::default() });
     if !show.parsed_names.iter().any(|name| name == show_name) {
@@ -632,6 +632,165 @@ fn upsert_show(tv_shows: &mut BTreeMap<u32, TvShow>, show_name: &str, tv_show_de
     }
 
     id
+}
+
+fn next_show_id(tv_shows: &BTreeMap<u32, TvShow>) -> u32 {
+    tv_shows.keys().next_back().map_or(1, |highest_id| highest_id + 1)
+}
+
+fn show_from_details(id: u32, tv_show_details: &TMDBTVShowDetails) -> TvShow {
+    let mut show = TvShow { id, tmdb_id: tv_show_details.tmdb_tv_show.id, ..Default::default() };
+    fill_show_with_details(&mut show, tv_show_details, true);
+    show
+}
+
+async fn tv_show_details_of(api: &impl TmdbApi, tmdb_id: usize) -> Result<TMDBTVShowDetails, Error> {
+    let tv_show_details = api.get_tv_show_details(tmdb_id).await?;
+    if tv_show_details.tmdb_tv_show.id.is_none() {
+        return Err(anyhow!("TV show {} is not on TMDB", tmdb_id));
+    }
+    Ok(tv_show_details)
+}
+
+/// ID of the library's show with `tmdb_id`, added from TMDB when there is none
+async fn find_or_add_tmdb_show(api: &impl TmdbApi, tv_shows: &mut BTreeMap<u32, TvShow>, tmdb_id: usize) -> Result<u32, Error> {
+    if let Some(show) = tv_shows.values().find(|show| show.tmdb_id == Some(tmdb_id)) {
+        return Ok(show.id);
+    }
+    let tv_show_details = tv_show_details_of(api, tmdb_id).await?;
+    let id = next_show_id(tv_shows);
+    tv_shows.insert(id, show_from_details(id, &tv_show_details));
+    Ok(id)
+}
+
+/// Puts show `show_id` on the TMDB show `tmdb_id` and refills its episodes from it, keeping
+/// their numbers. When another show of the library already has `tmdb_id`, the episodes and
+/// parsed names move to that show and `show_id` is dropped.
+/// Returns the ID of the show the episodes belong to now.
+async fn rematch_show_with(
+    api: &impl TmdbApi,
+    video_files: &mut [VideoElement],
+    tv_shows: &mut BTreeMap<u32, TvShow>,
+    show_id: u32,
+    tmdb_id: usize,
+) -> Result<u32, Error> {
+    let Some(old_show) = tv_shows.get(&show_id) else { return Err(anyhow!("Show {} not found", show_id)) };
+    let parsed_names = old_show.parsed_names.clone();
+
+    let merge_into = tv_shows.values().find(|show| show.id != show_id && show.tmdb_id == Some(tmdb_id)).map(|show| show.id);
+    let target_id = match merge_into {
+        Some(target_id) => {
+            tv_shows.remove(&show_id);
+            target_id
+        }
+        None => {
+            let tv_show_details = tv_show_details_of(api, tmdb_id).await?;
+            tv_shows.insert(show_id, show_from_details(show_id, &tv_show_details));
+            show_id
+        }
+    };
+
+    let show = tv_shows.get_mut(&target_id).unwrap();
+    for name in parsed_names {
+        if !show.parsed_names.contains(&name) {
+            show.parsed_names.push(name);
+        }
+    }
+
+    let mut seasons = SeasonCache::new();
+    for video_element in video_files.iter_mut() {
+        let Media::Episode(episode_meta) = &video_element.media else { continue };
+        if episode_meta.show_id != show_id {
+            continue;
+        }
+        // What TMDB said about the episode belonged to the old show
+        let (season, episode) = (episode_meta.season, episode_meta.episode);
+        video_element.media = Media::Episode(EpisodeMeta { show_id: target_id, season, episode, ..Default::default() });
+        parse_episode(api, show, &mut seasons, video_element, None, None).await;
+    }
+
+    Ok(target_id)
+}
+
+/// Stores the media the user chose for one file. An episode without TMDB details is looked
+/// up with its show and numbers when `api` is given.
+async fn apply_media(
+    api: Option<&impl TmdbApi>,
+    video_element: &mut VideoElement,
+    tv_shows: &mut BTreeMap<u32, TvShow>,
+    media: Media,
+) -> Result<(), Error> {
+    match &media {
+        Media::Episode(episode_meta) => {
+            let Some(show) = tv_shows.get_mut(&episode_meta.show_id) else {
+                return Err(anyhow!("Show {} not found", episode_meta.show_id));
+            };
+            let lookup = episode_meta.tmdb_id.is_none();
+            video_element.tmdb_language = show.tmdb_language.clone();
+            video_element.media = media;
+            if let (Some(api), true) = (api, lookup) {
+                parse_episode(api, show, &mut SeasonCache::new(), video_element, None, None).await;
+            }
+        }
+        _ => {
+            // The show's language does not apply to a film, and a film's is only known from TMDB
+            if matches!(video_element.media, Media::Episode(_)) {
+                video_element.tmdb_language = None;
+            }
+            video_element.media = media;
+        }
+    }
+
+    // The user decided, automatic matching must not fill in something else
+    video_element.tmdb_searched = true;
+    video_element.playback_selection = Some(compute_selection(video_element));
+    Ok(())
+}
+
+/// Same condition as the season request in `parse_episode`
+fn needs_episode_lookup(tv_shows: &BTreeMap<u32, TvShow>, media: &Media) -> bool {
+    matches!(media, Media::Episode(episode_meta)
+        if episode_meta.tmdb_id.is_none() && episode_meta.season.is_some() && episode_meta.episode.is_some()
+            && tv_shows.get(&episode_meta.show_id).is_some_and(|show| show.tmdb_id.is_some()))
+}
+
+fn show_from_search_result(search_result: &TMDBTVShow) -> TvShow {
+    TvShow {
+        tmdb_id: search_result.id,
+        name: search_result.name.clone(),
+        original_name: search_result.original_name.clone(),
+        overview: search_result.overview.clone(),
+        first_air_date: search_result.first_air_date.clone(),
+        poster_path: image_url(&search_result.poster_path),
+        ..Default::default()
+    }
+}
+
+async fn search_shows(api: &impl TmdbApi, search_title: &str) -> Result<Vec<TvShow>, Error> {
+    Ok(api.search_tv_show(search_title, None).await?.results.iter().map(show_from_search_result).collect())
+}
+
+pub(crate) async fn get_tmdb_search_as_shows(search_title: &str) -> Result<Vec<TvShow>, Error> {
+    search_shows(&TmdbClient::connect().await?, search_title).await
+}
+
+pub(crate) async fn add_tmdb_show(tv_shows: &mut BTreeMap<u32, TvShow>, tmdb_id: usize) -> Result<u32, Error> {
+    find_or_add_tmdb_show(&TmdbClient::connect().await?, tv_shows, tmdb_id).await
+}
+
+pub(crate) async fn rematch_show(video_files: &mut [VideoElement], tv_shows: &mut BTreeMap<u32, TvShow>, show_id: u32, tmdb_id: usize) -> Result<u32, Error> {
+    rematch_show_with(&TmdbClient::connect().await?, video_files, tv_shows, show_id, tmdb_id).await
+}
+
+/// Connects to TMDB only when the episode has to be looked up. Without a connection the
+/// media is stored without details.
+pub(crate) async fn set_media_with_lookup(video_element: &mut VideoElement, tv_shows: &mut BTreeMap<u32, TvShow>, media: Media) -> Result<(), Error> {
+    let api = if needs_episode_lookup(tv_shows, &media) {
+        TmdbClient::connect().await.map_err(|e| println!("Episode not looked up: {}", e)).ok()
+    } else {
+        None
+    };
+    apply_media(api.as_ref(), video_element, tv_shows, media).await
 }
 
 /// Reparse library TMDB data, updating all metadata but preserving existing covers
@@ -1323,6 +1482,163 @@ mod tests {
         // Everything has a definite result, so the next run asks nothing
         tauri::async_runtime::block_on(parse_video_files(&api, LIBRARY_ROOTS, &mut video_files, &mut tv_shows, false)).unwrap();
         assert_eq!(api.requests(), (1, 1, 1));
+    }
+
+    fn episode_of(show_id: u32, episode: i32) -> VideoElement {
+        VideoElement {
+            filepath: format!("T:/tv/Show {}/S01E{:02}.mkv", show_id, episode),
+            tmdb_language: Some("de".to_owned()),
+            tmdb_searched: true,
+            media: Media::Episode(EpisodeMeta {
+                show_id, season: Some(1), episode: Some(episode), tmdb_id: Some(5),
+                name: Some("Old".to_owned()), still_path: Some("/old.jpg".to_owned()), ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn film_file() -> VideoElement {
+        VideoElement {
+            filepath: "F:/mov/film.mkv".to_owned(),
+            tmdb_language: Some("fr".to_owned()),
+            media: Media::Film(FilmMeta { tmdb_id: Some(1), title: Some("F".to_owned()), ..Default::default() }),
+            ..Default::default()
+        }
+    }
+
+    fn matched_show(id: u32, tmdb_id: usize, name: &str) -> TvShow {
+        TvShow { id, tmdb_id: Some(tmdb_id), parsed_names: vec![name.to_owned()], name: Some(name.to_owned()), tmdb_language: Some("de".to_owned()), ..Default::default() }
+    }
+
+    fn seinfeld() -> FakeTmdb {
+        FakeTmdb::with_shows(vec![json!({ "id": 1400, "name": "Seinfeld", "original_language": "en" })])
+    }
+
+    #[test]
+    fn rematch_show_replaces_the_show_and_refills_its_episodes() {
+        let api = seinfeld();
+        let mut tv_shows = BTreeMap::from([(1, matched_show(1, 43879, "Braunschlag")), (2, matched_show(2, 7, "Other"))]);
+        let mut video_files = vec![episode_of(1, 1), episode_of(1, 2), film_file(), episode_of(2, 1)];
+        let (film_before, other_before) = (video_files[2].clone(), video_files[3].clone());
+
+        let show_id = tauri::async_runtime::block_on(rematch_show_with(&api, &mut video_files, &mut tv_shows, 1, 1400)).unwrap();
+
+        assert_eq!(show_id, 1);
+        assert_eq!(api.requests(), (0, 1, 1));
+        let show = &tv_shows[&1];
+        assert_eq!((show.tmdb_id, show.name.as_deref(), show.tmdb_language.as_deref()), (Some(1400), Some("Seinfeld"), Some("en")));
+        assert_eq!(show.parsed_names, ["Braunschlag"]);
+        for (video_element, episode) in video_files[..2].iter().zip(1..) {
+            let episode_meta = episode_meta(video_element);
+            assert_eq!((episode_meta.show_id, episode_meta.season, episode_meta.episode), (1, Some(1), Some(episode)));
+            assert_eq!(episode_meta.tmdb_id, Some(1000 + episode as usize));
+            // The fake's episodes have no name or still: the old ones must be gone
+            assert_eq!((episode_meta.name.as_deref(), episode_meta.still_path.as_deref()), (None, None));
+            assert_eq!(video_element.tmdb_language.as_deref(), Some("en"));
+            assert!(video_element.playback_selection.is_some());
+        }
+
+        // Other shows and films are untouched
+        assert_eq!(tv_shows[&2], matched_show(2, 7, "Other"));
+        assert_eq!((video_files[2].media.clone(), video_files[2].tmdb_language.clone()), (film_before.media, film_before.tmdb_language));
+        assert_eq!(video_files[3].media, other_before.media);
+
+        assert!(tauri::async_runtime::block_on(rematch_show_with(&api, &mut video_files, &mut tv_shows, 9, 1400)).is_err());
+    }
+
+    #[test]
+    fn rematch_onto_a_show_of_the_library_merges() {
+        let api = seinfeld();
+        let mut tv_shows = BTreeMap::from([(1, matched_show(1, 43879, "Braunschlag")), (2, matched_show(2, 1400, "Seinfeld"))]);
+        let mut video_files = vec![episode_of(1, 1), episode_of(2, 2)];
+        let kept_episode = video_files[1].clone();
+
+        let show_id = tauri::async_runtime::block_on(rematch_show_with(&api, &mut video_files, &mut tv_shows, 1, 1400)).unwrap();
+
+        assert_eq!(show_id, 2);
+        // The library's show is kept as it is, no show details needed
+        assert_eq!(api.requests(), (0, 0, 1));
+        assert_eq!(tv_shows.keys().collect::<Vec<_>>(), [&2]);
+        assert_eq!(tv_shows[&2].parsed_names, ["Seinfeld", "Braunschlag"]);
+        assert_eq!(episode_meta(&video_files[0]).show_id, 2);
+        assert_eq!(episode_meta(&video_files[0]).tmdb_id, Some(1001));
+        assert_eq!(video_files[1].media, kept_episode.media);
+    }
+
+    #[test]
+    fn a_show_is_added_from_tmdb_once() {
+        let api = seinfeld();
+        let mut tv_shows = BTreeMap::from([(4, matched_show(4, 43879, "Braunschlag"))]);
+        let add = |tv_shows: &mut BTreeMap<u32, TvShow>, tmdb_id| tauri::async_runtime::block_on(find_or_add_tmdb_show(&api, tv_shows, tmdb_id)).unwrap();
+
+        assert_eq!(add(&mut tv_shows, 43879), 4);
+        assert_eq!(api.requests(), (0, 0, 0));
+        assert_eq!(add(&mut tv_shows, 1400), 5);
+        assert_eq!((tv_shows[&5].tmdb_id, tv_shows[&5].name.as_deref()), (Some(1400), Some("Seinfeld")));
+        assert!(tv_shows[&5].parsed_names.is_empty());
+        assert_eq!(add(&mut tv_shows, 1400), 5);
+        assert_eq!(api.requests(), (0, 1, 0));
+    }
+
+    #[test]
+    fn media_set_by_the_user() {
+        let api = FakeTmdb::default();
+        let mut tv_shows = BTreeMap::from([(1, matched_show(1, 43879, "Braunschlag")), (2, TvShow { id: 2, ..Default::default() })]);
+        let apply = |video_element: &mut VideoElement, tv_shows: &mut BTreeMap<u32, TvShow>, media: Media| {
+            tauri::async_runtime::block_on(apply_media(Some(&api), video_element, tv_shows, media))
+        };
+        let new_episode = |show_id, episode| Media::Episode(EpisodeMeta { show_id, season: Some(1), episode, ..Default::default() });
+
+        // A film becomes an episode: looked up with its show and numbers, the show's language applies
+        let mut video_element = film_file();
+        video_element.tmdb_searched = false;
+        assert!(needs_episode_lookup(&tv_shows, &new_episode(1, Some(3))));
+        apply(&mut video_element, &mut tv_shows, new_episode(1, Some(3))).unwrap();
+        assert_eq!(episode_meta(&video_element).tmdb_id, Some(1003));
+        assert_eq!(video_element.tmdb_language.as_deref(), Some("de"));
+        assert!(video_element.tmdb_searched && video_element.playback_selection.is_some());
+        assert_eq!(api.requests(), (0, 0, 1));
+
+        // An episode that has its details, one without episode number and one of an unmatched show are not looked up
+        let edited = Media::Episode(EpisodeMeta { name: Some("Mine".to_owned()), ..episode_meta(&video_element).clone() });
+        apply(&mut video_element, &mut tv_shows, edited.clone()).unwrap();
+        assert_eq!(video_element.media, edited);
+        for media in [new_episode(1, None), new_episode(2, Some(3))] {
+            assert!(!needs_episode_lookup(&tv_shows, &media));
+            apply(&mut video_element, &mut tv_shows, media).unwrap();
+        }
+        assert_eq!(api.requests(), (0, 0, 1));
+        // An unmatched show has no language
+        assert_eq!(video_element.tmdb_language, None);
+
+        // Back to a film: the show's language goes
+        video_element.tmdb_language = Some("de".to_owned());
+        apply(&mut video_element, &mut tv_shows, Media::Film(FilmMeta::default())).unwrap();
+        assert_eq!(video_element.tmdb_language, None);
+        // A film stays a film: its language stays
+        video_element.tmdb_language = Some("fr".to_owned());
+        apply(&mut video_element, &mut tv_shows, Media::Film(FilmMeta { title: Some("T".to_owned()), ..Default::default() })).unwrap();
+        assert_eq!(video_element.tmdb_language.as_deref(), Some("fr"));
+
+        // Unknown show: nothing changes
+        let before = video_element.clone();
+        assert!(apply(&mut video_element, &mut tv_shows, new_episode(9, Some(1))).is_err());
+        assert_eq!(video_element.media, before.media);
+    }
+
+    #[test]
+    fn tv_search_returns_shows() {
+        let reply: TMDBSearchTVResult = fixture!("tv_search_braunschlag.json");
+        let shows: Vec<TvShow> = reply.results.iter().map(show_from_search_result).collect();
+        assert_eq!(shows.iter().map(|show| show.tmdb_id).take(2).collect::<Vec<_>>(), [Some(43879), Some(316811)]);
+        assert_eq!((shows[0].name.as_deref(), shows[0].first_air_date.as_deref()), (Some("Braunschlag"), Some("2012-09-18")));
+        assert!(shows[0].poster_path.as_ref().unwrap().starts_with(TMDB_IMAGE_URL));
+        // Not part of the library
+        assert_eq!(shows[0].id, 0);
+
+        let api = seinfeld();
+        let found = tauri::async_runtime::block_on(search_shows(&api, "Seinfeld")).unwrap();
+        assert_eq!(found.iter().map(|show| show.tmdb_id).collect::<Vec<_>>(), [Some(1400)]);
     }
 
     #[test]

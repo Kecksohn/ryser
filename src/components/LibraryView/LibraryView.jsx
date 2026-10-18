@@ -10,6 +10,7 @@ import { LibraryViewScroll } from "./Views/LibraryViewScroll.jsx";
 import { ShowView, SeasonView } from "./Views/ShowView.jsx";
 
 import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
+import { EditShowView } from "./LibraryDataManagement/EditShowView.jsx";
 
 import { sort_video_elements } from "./Utils/sortVideoElements.js";
 import { group_library, is_watched } from "./Utils/groupShows.js";
@@ -70,20 +71,27 @@ export const LibraryView = () => {
     }));
   }
 
+  // Also after an edit that changes more than one element (show edit, rematch, new show)
+  async function load_library() {
+    const [shows_res, videos_res] = await Promise.all([
+      invoke("get_library_shows", { library_id: library_id }),
+      invoke("get_library_videos", { library_id: library_id }),
+    ]);
+    set_shows(shows_res);
+    // Keep the current order: "title_reverse" = sort by title, then reverse
+    const [order, reversed] = last_sort_order.split("_");
+    const sorted =
+      sort_video_elements(group_library(videos_res), order, null, () => {}, shows_res) ?? [];
+    set_library_elements(reversed ? sorted.reverse() : sorted);
+  }
+
   useEffect(() => {
     if (!library_elements_loaded) {
       set_library_elements_loaded(true);
 
       invoke("get_library_name", { library_id: library_id }).then((res) => {
         set_library_name(res);
-
-        Promise.all([
-          invoke("get_library_shows", { library_id: library_id }),
-          invoke("get_library_videos", { library_id: library_id }),
-        ]).then(([shows_res, videos_res]) => {
-          set_shows(shows_res);
-          set_library_elements(group_library(videos_res));
-        });
+        load_library();
       });
     }
   }, [library_elements_loaded]);
@@ -152,14 +160,26 @@ export const LibraryView = () => {
     }
   }
 
-  async function save_media(element, media) {
-    element.media = media;
-    forceRerender((prev) => prev + 1);
-    await invoke("set_media", {
-      library_id: library_id,
-      filepath: element.filepath,
-      media: media,
-    });
+  // new_show_tmdb_id: add that show to the library first and file the episode under it.
+  // Reloads: the backend may look the episode up, and the element may move between tiles.
+  async function save_media(element, media, new_show_tmdb_id) {
+    try {
+      if (new_show_tmdb_id != null) {
+        const show_id = await invoke("add_show_from_tmdb", {
+          library_id: library_id,
+          tmdb_id: new_show_tmdb_id,
+        });
+        media = { ...media, show_id };
+      }
+      await invoke("set_media", {
+        library_id: library_id,
+        filepath: element.filepath,
+        media: media,
+      });
+    } catch (error) {
+      console.error("Failed to save media:", error);
+    }
+    await load_library();
   }
 
   function set_files_watched(files, watched) {
@@ -425,6 +445,10 @@ export const LibraryView = () => {
         }
       />
       <Route path="/show/:show_id" element={<ShowView {...show_view_props} />} />
+      <Route
+        path="/show/:show_id/edit"
+        element={<EditShowView shows={shows} reload_library={load_library} />}
+      />
       <Route
         path="/show/:show_id/season/:season_number"
         element={<SeasonView {...show_view_props} />}

@@ -4,7 +4,8 @@ use std::{default, fs};
 use super::json_parser::write_library;
 use std::collections::BTreeMap;
 
-use super::tmdb_api::{get_tmdb_search_as_films, get_movie_details_for_film, get_additional_covers};
+use super::tmdb_api::{get_tmdb_search_as_films, get_tmdb_search_as_shows, get_movie_details_for_film, get_additional_covers,
+                      add_tmdb_show, rematch_show as rematch_show_on_tmdb, set_media_with_lookup};
 use super::{Library, LibraryPath, VideoElement, FilterPreferences,
             FilmMeta, Media, TvShow,
             add_library, delete_library, drop_shows_without_episodes,
@@ -160,18 +161,13 @@ pub async fn set_watched(library_id: &str, filepaths: Vec<String>, watched: bool
 pub async fn set_media(library_id: &str, filepath: &str, media: Media) -> Result<(), String> {
     for library in LIBRARIES.lock().await.iter_mut() {
         if library.id == library_id {
-            if let Media::Episode(episode) = &media {
-                if !library.tv_shows.contains_key(&episode.show_id) {
-                    return Err(format!("Show {} not found in '{}'", episode.show_id, library_id));
-                }
-            }
-            let Some(element) = library.video_files.iter_mut().find(|ve| ve.filepath == filepath)
+            let Library { video_files, tv_shows, .. } = &mut *library;
+            let Some(element) = video_files.iter_mut().find(|ve| ve.filepath == filepath)
             else {
                 return Err(format!("Could not find '{}' in '{}'", filepath, library_id));
             };
-            element.media = media;
-            // The user decided, automatic matching must not fill in something else
-            element.tmdb_searched = true;
+            set_media_with_lookup(element, tv_shows, media).await
+                .map_err(|e| format!("{} in '{}'", e, library_id))?;
             drop_shows_without_episodes(library);
             write_library(library);
             return Ok(());
@@ -179,6 +175,60 @@ pub async fn set_media(library_id: &str, filepath: &str, media: Media) -> Result
     }
 
     Err(format!("Library {} not found!", library_id))
+}
+
+fn edit_show(tv_shows: &mut BTreeMap<u32, TvShow>, show_id: u32, name: Option<String>, poster_path: Option<String>) -> Result<(), String> {
+    let show = tv_shows.get_mut(&show_id).ok_or(format!("Show {} not found", show_id))?;
+    show.name = name;
+    show.poster_path = poster_path;
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn update_show(library_id: &str, show_id: u32, name: Option<String>, poster_path: Option<String>) -> Result<(), String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            edit_show(&mut library.tv_shows, show_id, name, poster_path)?;
+            write_library(library);
+            return Ok(());
+        }
+    }
+    Err(format!("Library {} not found!", library_id))
+}
+
+/// The library's show with this TMDB ID, created from TMDB when there is none. Returns its ID.
+#[tauri::command(rename_all = "snake_case")]
+pub async fn add_show_from_tmdb(library_id: &str, tmdb_id: usize) -> Result<u32, String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            let show_id = add_tmdb_show(&mut library.tv_shows, tmdb_id).await
+                .map_err(|e| format!("Could not add TV show {}: {}", tmdb_id, e))?;
+            write_library(library);
+            return Ok(show_id);
+        }
+    }
+    Err(format!("Library {} not found!", library_id))
+}
+
+/// Returns the ID of the show the episodes belong to afterwards (another one when merged).
+#[tauri::command(rename_all = "snake_case")]
+pub async fn rematch_show(library_id: &str, show_id: u32, tmdb_id: usize) -> Result<u32, String> {
+    for library in LIBRARIES.lock().await.iter_mut() {
+        if library.id == library_id {
+            let Library { video_files, tv_shows, .. } = &mut *library;
+            let new_show_id = rematch_show_on_tmdb(video_files, tv_shows, show_id, tmdb_id).await
+                .map_err(|e| format!("Could not rematch show {}: {}", show_id, e))?;
+            write_library(library);
+            return Ok(new_show_id);
+        }
+    }
+    Err(format!("Library {} not found!", library_id))
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn search_tv_from_gui(search_title: &str) -> Result<Vec<TvShow>, String> {
+    get_tmdb_search_as_shows(search_title).await
+        .map_err(|e| format!("Could not get TMDB search results: {}", e))
 }
 
 /// Re-read what is derived from the file's content (duration, tracks) and
@@ -305,4 +355,24 @@ pub async fn set_library_filter_preferences(library_id: &str, filter_preferences
 #[tauri::command(rename_all = "snake_case")]
 pub fn show_in_explorer(filepath: &str) -> Result<(), String> {
     reveal_file_in_file_manager(filepath)
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn update_show_replaces_name_and_poster_only() {
+        let mut tv_shows = BTreeMap::from([
+            (1, TvShow { id: 1, tmdb_id: Some(43879), name: Some("Braunschlag".to_owned()), overview: Some("O".to_owned()), ..Default::default() }),
+            (2, TvShow { id: 2, name: Some("Other".to_owned()), ..Default::default() }),
+        ]);
+
+        edit_show(&mut tv_shows, 1, Some("Braunschlag (2012)".to_owned()), Some("/p.jpg".to_owned())).unwrap();
+        assert_eq!(tv_shows[&1].name.as_deref(), Some("Braunschlag (2012)"));
+        assert_eq!(tv_shows[&1].poster_path.as_deref(), Some("/p.jpg"));
+        assert_eq!((tv_shows[&1].tmdb_id, tv_shows[&1].overview.as_deref()), (Some(43879), Some("O")));
+        assert_eq!(tv_shows[&2].name.as_deref(), Some("Other"));
+
+        assert!(edit_show(&mut tv_shows, 3, None, None).is_err());
+    }
 }

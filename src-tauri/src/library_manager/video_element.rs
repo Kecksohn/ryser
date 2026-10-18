@@ -261,5 +261,15 @@ mod tests {
         let Media::Episode(episode) = sent_media!("episode.json") else { panic!("expected an episode") };
         assert_eq!((episode.show_id, episode.season, episode.episode), (3, Some(1), Some(2)));
         assert_eq!(episode.name.as_deref(), Some("Die Mitte der Welt"));
+
+        // Moved or switched: no TMDB ID, so set_media looks the episode up
+        let Media::Episode(moved) = sent_media!("episode_moved.json") else { panic!("expected an episode") };
+        assert_eq!((moved.show_id, moved.season, moved.episode, moved.tmdb_id), (4, Some(0), Some(5), None));
+        assert_eq!(moved.name.as_deref(), Some("Christmas Special"));
+        let Media::Episode(from_film) = sent_media!("episode_from_film.json") else { panic!("expected an episode") };
+        assert_eq!((from_film.show_id, from_film.tmdb_id, from_film.name), (3, None, None));
+
+        let Media::Film(from_episode) = sent_media!("film_from_episode.json") else { panic!("expected a film") };
+        assert_eq!((from_episode.tmdb_id, from_episode.title.as_deref()), (None, Some("Die Mitte der Welt")));
     }
 }

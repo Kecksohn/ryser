@@ -81,7 +81,13 @@ export const ShowView = ({ tiles, shows, scroll_props, set_files_watched }) => {
         what="show"
         files={episode_files(tile.episodes)}
         set_files_watched={set_files_watched}
-      />
+      />{" "}
+      <span
+        style={{ cursor: "pointer" }}
+        onClick={() => navigate(`${show_link}/edit`)}
+      >
+        Edit show
+      </span>
       <br />
       {seasons.map((season) => (
         <div

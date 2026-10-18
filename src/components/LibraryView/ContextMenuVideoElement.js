@@ -29,7 +29,16 @@ export const video_element_context_menu_options = ({
     }
   }
 
-  return (context) => [
+  const show_options = (show_tile) => [
+    {
+      label: "Edit show",
+      action: () =>
+        navigate(`/library/${library_id}/show/${show_tile.show_id}/edit`),
+      close_after: true,
+    },
+  ];
+
+  return (context) => context.kind === "show" ? show_options(context) : [
     {
       label: "Edit",
       action: () => {
