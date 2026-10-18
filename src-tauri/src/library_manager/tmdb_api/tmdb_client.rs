@@ -367,7 +367,6 @@ async fn parse_video_files(
             let filename = &video_element.filepath;
 
             // Handle as movie
-            println!("[MOVIE] {}", filename);
             let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
 
             match api.search_movie(possible_title.as_str(), year).await {
@@ -413,7 +412,7 @@ async fn parse_video_files(
         let show_id = match find_or_create_show(api, tv_shows, show_name, show_files, reparse_all).await {
             Ok(show_id) => show_id,
             Err(e) => {
-                println!("  Error searching for TV show '{}': {}", show_name, e);
+                println!("Error searching for TV show '{}': {}", show_name, e);
                 continue;
             }
         };
@@ -436,7 +435,6 @@ async fn parse_episode(
     season: Option<i32>,
     episode: Option<i32>,
 ) {
-    println!("[TV SHOW] {}", video_element.filepath);
     let show_id = show.id;
 
     // Keep what an earlier parse or the user filled in
@@ -458,19 +456,19 @@ async fn parse_episode(
                     Some(episode_details) => {
                         fill_episode_with_details(&mut episode_meta, episode_details, false);
 
-                        println!("  Updated: {} S{:02}E{:02} - {}",
+                        println!("Updated: {} S{:02}E{:02} - {}",
                             show_name_of(show),
                             season,
                             episode,
                             episode_meta.name.as_ref().unwrap_or(&"!MISSING!".to_string()));
                     }
                     None => {
-                        println!("  No episode details on TMDB for {} S{:02}E{:02}", show_name_of(show), season, episode);
+                        println!("No episode details on TMDB for {} S{:02}E{:02}", show_name_of(show), season, episode);
                     }
                 }
             }
             Err(e) => {
-                println!("  Error getting season details for {} S{:02}E{:02}: {}",
+                println!("Error getting season details for {} S{:02}E{:02}: {}",
                     show_name_of(show), season, episode, e);
                 definite_result = false;
             }
@@ -508,7 +506,7 @@ async fn find_or_create_show(
 
     let tv_show_details = match_show(api, &show_files.search_names(), &show_files.owned_episodes()).await?;
     if tv_show_details.is_none() {
-        println!("  No TV show found for: {}", show_name);
+        println!("No TV show found for: {}", show_name);
     }
 
     Ok(upsert_show(tv_shows, show_name, tv_show_details.as_ref()))

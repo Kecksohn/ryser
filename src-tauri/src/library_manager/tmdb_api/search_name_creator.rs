@@ -596,8 +596,6 @@ fn verify_special_with_folder_context(filename: &str, folder_path: &Path) -> boo
     let mut base_title = SPECIAL_REGEX.replace(filename, " ").to_string();
     base_title = normalize_spaces(&base_title);
 
-    println!("[DEBUG] Special file base_title: '{}'", base_title);
-
     let Ok(entries) = fs::read_dir(folder_path) else {
         return false;
     };
@@ -645,16 +643,14 @@ fn verify_special_with_folder_context(filename: &str, folder_path: &Path) -> boo
                     // Normalize spaces after all replacements
                     entry_base = normalize_spaces(&entry_base);
 
-                    // Calculate similarity and debug
+                    // Calculate similarity
                     let sim_score = similarity(&base_title, &entry_base);
-                    println!("[DEBUG] Comparing '{}' vs '{}' = {:.3}", base_title, entry_base, sim_score);
 
                     // If base titles are similar, it's likely the same show
                     if sim_score > 0.8 {
                         matching_files += 1;
                         // Found at least one similar file - confirms this is a TV episode
                         if matching_files >= 1 {
-                            println!("[DEBUG] Match found! Confirmed as TV episode.");
                             return true;
                         }
                     }
@@ -663,7 +659,6 @@ fn verify_special_with_folder_context(filename: &str, folder_path: &Path) -> boo
         }
     }
 
-    println!("[DEBUG] No matches found for special file.");
     false
 }
 
