@@ -6,6 +6,7 @@ import { CountryFlags } from "../../UIElements/CountryFlag.jsx";
 import { display } from "../Utils/displayElement.js";
 import { format_duration } from "../Utils/formatDuration.js";
 import { languageName } from "../Utils/languageName.js";
+import { watched_label } from "../Utils/groupShows.js";
 
 import tmdbResultsStyles from "../LibraryDataManagement/TMDBResults.module.css";
 
@@ -43,6 +44,10 @@ export const LibraryViewScroll = ({
   get_track_selection,
   on_audio_change,
   on_subtitle_change,
+  // A show tile opens its show instead of playing
+  open_show,
+  // Replaces display() where the context names the element differently
+  display_element = display,
 }) => {
   const { useContextMenuOn } = useContextMenu();
 
@@ -52,15 +57,16 @@ export const LibraryViewScroll = ({
     const subtitle_languages = element.subtitle_languages ?? [];
     const subtitle_titles = element.subtitle_titles ?? [];
     const selection = get_track_selection(element);
-    const shown = display(element, shows);
+    const shown = display_element(element, shows);
+    const is_show = element.kind === "show";
 
     return (
       <div
-        key={element.filepath}
+        key={is_show ? "show-" + element.show_id : element.filepath}
         className={tmdbResultsStyles.tmdbresult}
         style={{ cursor: "pointer" }}
-        onClick={() => launch_video(element)}
-        {...useContextMenuOn(element, get_context_menu_options)}
+        onClick={() => (is_show ? open_show(element) : launch_video(element))}
+        {...(!is_show && useContextMenuOn(element, get_context_menu_options))}
       >
         <div className={tmdbResultsStyles.tmdbresultSplitter}>
           <div className={tmdbResultsStyles.tmdbresultImg}>
@@ -99,9 +105,10 @@ export const LibraryViewScroll = ({
               </>
             )}
             <br />
-            {format_duration(element.length_in_seconds)}
+            {is_show && <span>{watched_label(element.episodes)}</span>}
+            {!is_show && format_duration(element.length_in_seconds)}
             <br />
-            {audio_languages.length > 0 && (
+            {!is_show && audio_languages.length > 0 && (
               <TrackSelect
                 label="Audio:"
                 value={String(selection.audio_index)}
@@ -116,29 +123,31 @@ export const LibraryViewScroll = ({
                 ))}
               </TrackSelect>
             )}
-            <TrackSelect
-              label="Subtitles:"
-              value={
-                selection.subtitle_index === NO_SUBTITLES
-                  ? NO_SUBTITLES
-                  : String(selection.subtitle_index)
-              }
-              onChange={(e) =>
-                on_subtitle_change(
-                  element,
-                  e.target.value === NO_SUBTITLES
+            {!is_show && (
+              <TrackSelect
+                label="Subtitles:"
+                value={
+                  selection.subtitle_index === NO_SUBTITLES
                     ? NO_SUBTITLES
-                    : Number(e.target.value)
-                )
-              }
-            >
-              {subtitle_languages.map((_, i) => (
-                <option key={i} value={String(i)}>
-                  {track_label(i, subtitle_languages, subtitle_titles)}
-                </option>
-              ))}
-              <option value={NO_SUBTITLES}>No subtitles</option>
-            </TrackSelect>
+                    : String(selection.subtitle_index)
+                }
+                onChange={(e) =>
+                  on_subtitle_change(
+                    element,
+                    e.target.value === NO_SUBTITLES
+                      ? NO_SUBTITLES
+                      : Number(e.target.value)
+                  )
+                }
+              >
+                {subtitle_languages.map((_, i) => (
+                  <option key={i} value={String(i)}>
+                    {track_label(i, subtitle_languages, subtitle_titles)}
+                  </option>
+                ))}
+                <option value={NO_SUBTITLES}>No subtitles</option>
+              </TrackSelect>
+            )}
             {element.watched && <span style={{ color: "green" }}>Watched</span>}
           </div>
         </div>

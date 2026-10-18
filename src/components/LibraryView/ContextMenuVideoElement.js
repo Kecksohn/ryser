@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
 // Get OS-specific label for revealing files based on the user agent
@@ -19,6 +19,7 @@ export const video_element_context_menu_options = ({
   refresh_element,
 }) => {
   const navigate = useNavigate();
+  const { library_id } = useParams();
 
   async function show_in_explorer(filepath) {
     try {
@@ -33,7 +34,8 @@ export const video_element_context_menu_options = ({
       label: "Edit",
       action: () => {
         if (set_selected_element) set_selected_element(context);
-        navigate(`edit_element/${context.media?.tmdb_id}`); // TODO: Change to ID
+        // Absolute: the menu is also open in the show and season views
+        navigate(`/library/${library_id}/edit_element/${context.media?.tmdb_id}`); // TODO: Change to ID
       },
       close_after: true,
     },

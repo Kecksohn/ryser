@@ -7,10 +7,12 @@ import { Dropdown } from "../UIElements/Dropdown.jsx";
 import { useContextMenu } from "../UITools/ContextMenu.jsx";
 
 import { LibraryViewScroll } from "./Views/LibraryViewScroll.jsx";
+import { ShowView, SeasonView } from "./Views/ShowView.jsx";
 
 import { EditVideoEntryView } from "./LibraryDataManagement/EditVideoEntryView.jsx";
 
 import { sort_video_elements } from "./Utils/sortVideoElements.js";
+import { group_library, is_watched } from "./Utils/groupShows.js";
 import { video_element_context_menu_options } from "./ContextMenuVideoElement.js";
 
 import react_icon from "../../assets/react.svg";
@@ -25,6 +27,7 @@ export const LibraryView = () => {
 
   // Load Library
 
+  // Films and unmatched files, plus one tile per show holding its episodes
   const [library_elements, set_library_elements] = useState([]);
   // Show table of the library, keyed by show ID. Episodes point into it.
   const [shows, set_shows] = useState({});
@@ -79,7 +82,7 @@ export const LibraryView = () => {
           invoke("get_library_videos", { library_id: library_id }),
         ]).then(([shows_res, videos_res]) => {
           set_shows(shows_res);
-          set_library_elements(videos_res);
+          set_library_elements(group_library(videos_res));
         });
       });
     }
@@ -92,9 +95,9 @@ export const LibraryView = () => {
   const filtered_library_elements = useMemo(() => {
     return library_elements.filter((element) => {
       return watched_filter === "filter_watched"
-        ? !element.watched
+        ? !is_watched(element)
         : watched_filter === "filter_unwatched"
-          ? element.watched
+          ? is_watched(element)
           : true; // no filter
     });
   }, [library_elements, watched_filter]);
@@ -159,14 +162,17 @@ export const LibraryView = () => {
     });
   }
 
-  function toggle_watched(element) {
-    element.watched = !element.watched;
+  function set_files_watched(files, watched) {
+    for (const file of files) file.watched = watched;
     forceRerender((prev) => prev + 1);
     invoke("set_watched", {
       library_id: library_id,
-      filepaths: [element.filepath],
-      watched: element.watched,
+      filepaths: files.map((file) => file.filepath),
+      watched: watched,
     });
+  }
+  function toggle_watched(element) {
+    set_files_watched([element], !element.watched);
   }
   function set_watched(element) {
     if (!element.watched) toggle_watched(element);
@@ -199,6 +205,20 @@ export const LibraryView = () => {
     toggle_watched,
     refresh_element,
   });
+
+  const scroll_props = {
+    get_context_menu_options,
+    launch_video,
+    get_track_selection,
+    on_audio_change: set_audio_selection,
+    on_subtitle_change: set_subtitle_selection,
+  };
+  const show_view_props = {
+    tiles: library_elements,
+    shows,
+    scroll_props,
+    set_files_watched,
+  };
 
   // Dropdown
   const sort_dropdown_options = () => [
@@ -398,14 +418,16 @@ export const LibraryView = () => {
             <LibraryViewScroll
               library_elements={filtered_library_elements}
               shows={shows}
-              get_context_menu_options={get_context_menu_options}
-              launch_video={launch_video}
-              get_track_selection={get_track_selection}
-              on_audio_change={set_audio_selection}
-              on_subtitle_change={set_subtitle_selection}
+              {...scroll_props}
+              open_show={(tile) => navigate(`show/${tile.show_id}`)}
             />
           </div>
         }
+      />
+      <Route path="/show/:show_id" element={<ShowView {...show_view_props} />} />
+      <Route
+        path="/show/:show_id/season/:season_number"
+        element={<SeasonView {...show_view_props} />}
       />
       <Route
         path="/edit_element/:video_element_id"

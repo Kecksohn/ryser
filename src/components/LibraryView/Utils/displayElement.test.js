@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { display } from "./displayElement.js";
+import { display, episode_title } from "./displayElement.js";
 
 const shows = {
   3: { name: "Heimat", poster_path: "/heimat.jpg", countries: ["DE"] },
@@ -85,6 +85,26 @@ describe("display", () => {
     const shown = display(episode({ show_id: 99 }), shows);
     expect(shown.title).toBe("");
     expect(shown.sort_title).toBe("s01e02.mkv");
+  });
+
+  it("shows a show tile from its show", () => {
+    const tile = { kind: "show", show_id: 3, filepath: "D:/tv/heimat/s01e01.mkv" };
+    expect(display(tile, shows)).toMatchObject({
+      kind: "show",
+      title: "Heimat",
+      original_title: "Heimat",
+      sort_title: "Heimat",
+      image: "/heimat.jpg",
+      countries: ["DE"],
+    });
+    // Show missing from the table: sorted by its first file
+    expect(display(tile, {}).sort_title).toBe("s01e01.mkv");
+  });
+
+  it("titles an episode inside its season", () => {
+    expect(episode_title({ season: 1, episode: 2, name: "N" })).toBe("S01E02 · N");
+    expect(episode_title({ season: 1, episode: 2 })).toBe("S01E02");
+    expect(episode_title({ name: "N" })).toBe("N");
   });
 
   it("shows an unmatched file by its filename", () => {

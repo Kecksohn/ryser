@@ -12,13 +12,20 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const FILM_PATH = "D:\\films\\alien.mkv";
 const EPISODE_PATH = "D:\\tv\\heimat\\s01e02.mkv";
 const FILM_TITLE = "Alien";
-const EPISODE_TITLE = "Heimat S01E02 Die Mitte der Welt";
+const SHOW_NAME = "Heimat";
+const EPISODE_TITLE = "S01E02 · Die Mitte der Welt";
 
 // The film is unwatched, the episode watched. The view changes elements in
 // place, so every test gets its own.
 const backend = () => ({
   get_library_name: "Test library",
-  get_library_shows: { 3: { name: "Heimat", poster_path: "/heimat.jpg" } },
+  get_library_shows: {
+    3: {
+      name: SHOW_NAME,
+      poster_path: "/heimat.jpg",
+      seasons: [{ season_number: 1, name: "Season 1", episode_count: 11 }],
+    },
+  },
   get_library_videos: [
     {
       filepath: FILM_PATH,
@@ -49,7 +56,35 @@ const backend = () => ({
 
 // Tiles are found by their image, whose alt text is the shown title
 const film_tile = () => screen.queryByAltText(FILM_TITLE);
+const show_tile = () => screen.queryByAltText(SHOW_NAME);
 const episode_tile = () => screen.queryByAltText(EPISODE_TITLE);
+
+// An unwatched second episode of season 1 and one of season 2
+const backend_with_more_episodes = () => {
+  const responses = backend();
+  const episode = responses.get_library_videos[1];
+  responses.get_library_videos.push(
+    {
+      ...episode,
+      filepath: "D:\tv\heimat\s01e01.mkv",
+      watched: false,
+      media: { ...episode.media, episode: 1, name: "Fernweh" },
+    },
+    {
+      ...episode,
+      filepath: "D:\tv\heimat\s02e01.mkv",
+      watched: false,
+      media: { ...episode.media, season: 2, episode: 1, name: null },
+    }
+  );
+  return responses;
+};
+
+async function open_season_1() {
+  fireEvent.click(show_tile());
+  fireEvent.click(await screen.findByAltText("Season 1"));
+  await screen.findByAltText(EPISODE_TITLE);
+}
 
 async function render_library() {
   render(
@@ -78,7 +113,7 @@ afterEach(() => {
 });
 
 describe("LibraryView", () => {
-  it("loads the show table and the videos and renders both kinds", async () => {
+  it("loads the show table and the videos and renders a film and a show", async () => {
     await render_library();
 
     expect(invoke).toHaveBeenCalledWith("get_library_shows", {
@@ -88,7 +123,18 @@ describe("LibraryView", () => {
       library_id: "7",
     });
     expect(film_tile()).toBeTruthy();
-    // Composed from the show table; the still falls back to the show's poster
+    // The episode is inside its show's tile, which comes from the show table
+    expect(episode_tile()).toBeNull();
+    expect(show_tile().getAttribute("src")).toBe("/heimat.jpg");
+    expect(screen.getByText("Watched 1/1")).toBeTruthy();
+  });
+
+  it("opens a show's seasons and a season's episodes", async () => {
+    await render_library();
+
+    await open_season_1();
+    expect(screen.getByText("have 1 of 11, Watched 1/1")).toBeTruthy();
+    // The still falls back to the show's poster
     expect(episode_tile().getAttribute("src")).toBe("/heimat.jpg");
   });
 
@@ -108,6 +154,7 @@ describe("LibraryView", () => {
 
   it("marks a file unwatched from the context menu", async () => {
     await render_library();
+    await open_season_1();
 
     fireEvent.contextMenu(episode_tile());
     fireEvent.click(screen.getByText("Mark unwatched"));
@@ -121,18 +168,88 @@ describe("LibraryView", () => {
 
   it("filters by watched state", async () => {
     await render_library();
-    expect(film_tile() && episode_tile()).toBeTruthy();
+    expect(film_tile() && show_tile()).toBeTruthy();
 
     fireEvent.click(screen.getByText("Filter Watched"));
     expect(film_tile()).toBeTruthy();
-    expect(episode_tile()).toBeNull();
+    expect(show_tile()).toBeNull();
 
     fireEvent.click(screen.getByText("Filter Unwatched"));
     expect(film_tile()).toBeNull();
-    expect(episode_tile()).toBeTruthy();
+    expect(show_tile()).toBeTruthy();
 
     fireEvent.click(screen.getByText("Remove Filter"));
-    expect(film_tile() && episode_tile()).toBeTruthy();
+    expect(film_tile() && show_tile()).toBeTruthy();
+  });
+
+  it("counts a show as unwatched while any episode is", async () => {
+    const responses = backend_with_more_episodes();
+    invoke.mockImplementation(async (command) => responses[command]);
+    await render_library();
+    expect(screen.getByText("Watched 1/3")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Filter Watched"));
+    expect(show_tile()).toBeTruthy();
+    fireEvent.click(screen.getByText("Filter Unwatched"));
+    expect(show_tile()).toBeNull();
+  });
+
+  it("marks a whole show watched with one call, extras left alone", async () => {
+    const responses = backend_with_more_episodes();
+    const episode = responses.get_library_videos[1];
+    responses.get_library_videos.push({
+      ...episode,
+      filepath: "D:\\tv\\heimat\\making of.mkv",
+      watched: false,
+      media: { kind: "episode", show_id: 3 },
+    });
+    invoke.mockImplementation(async (command) => responses[command]);
+    await render_library();
+    fireEvent.click(show_tile());
+    fireEvent.click(await screen.findByText("Mark show watched"));
+
+    const set_watched_calls = invoke.mock.calls.filter(
+      ([command]) => command === "set_watched"
+    );
+    expect(set_watched_calls).toEqual([
+      [
+        "set_watched",
+        {
+          library_id: "7",
+          filepaths: [
+            EPISODE_PATH,
+            "D:\tv\heimat\s01e01.mkv",
+            "D:\tv\heimat\s02e01.mkv",
+          ],
+          watched: true,
+        },
+      ],
+    ]);
+    expect(screen.getByText("Watched 3/3, Extras: 0/1")).toBeTruthy();
+    expect(screen.getByText("Mark show unwatched")).toBeTruthy();
+  });
+
+  it("marks a whole season watched with one call", async () => {
+    const responses = backend_with_more_episodes();
+    invoke.mockImplementation(async (command) => responses[command]);
+    await render_library();
+    await open_season_1();
+    fireEvent.click(screen.getByText("Mark season watched"));
+
+    const set_watched_calls = invoke.mock.calls.filter(
+      ([command]) => command === "set_watched"
+    );
+    // Episode order, season 2 is left alone
+    expect(set_watched_calls).toEqual([
+      [
+        "set_watched",
+        {
+          library_id: "7",
+          filepaths: ["D:\tv\heimat\s01e01.mkv", EPISODE_PATH],
+          watched: true,
+        },
+      ],
+    ]);
   });
 
   it("starts with the saved watched filter", async () => {
