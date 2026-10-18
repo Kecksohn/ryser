@@ -223,6 +223,7 @@ export const LibraryView = () => {
   const get_context_menu_options = video_element_context_menu_options({
     set_selected_element,
     toggle_watched,
+    set_files_watched,
     refresh_element,
   });
 

@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 
+import { useContextMenu } from "../../UITools/ContextMenu.jsx";
 import { HeaderBar } from "../../UIElements/HeaderBar.jsx";
 import { LibraryViewScroll } from "./LibraryViewScroll.jsx";
 
@@ -64,6 +65,7 @@ const FilesWithoutNumber = ({ heading, files, shows, scroll_props }) =>
 
 export const ShowView = ({ tiles, shows, scroll_props, set_files_watched }) => {
   const navigate = useNavigate();
+  const { useContextMenuOn } = useContextMenu();
   const { library_id, tile, show, show_link, seasons, unnumbered, extras } =
     useShow(tiles, shows);
   if (!tile) return <div className="container">Loading...</div>;
@@ -94,6 +96,10 @@ export const ShowView = ({ tiles, shows, scroll_props, set_files_watched }) => {
           key={season.season_number}
           className={tmdbResultsStyles.tmdbresult}
           onClick={() => navigate(`${show_link}/season/${season.season_number}`)}
+          {...useContextMenuOn(
+            { kind: "season", show_id: tile.show_id, files: season_files(season) },
+            scroll_props.get_context_menu_options
+          )}
         >
           <div className={tmdbResultsStyles.tmdbresultSplitter}>
             <div className={tmdbResultsStyles.tmdbresultImg}>

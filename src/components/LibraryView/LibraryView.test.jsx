@@ -252,6 +252,40 @@ describe("LibraryView", () => {
     ]);
   });
 
+  it("marks a show or season watched from its tile's context menu, extras optional", async () => {
+    const responses = backend_with_more_episodes();
+    const episode = responses.get_library_videos[1];
+    const EXTRA_PATH = "D:\\tv\\heimat\\s01 making of.mkv";
+    responses.get_library_videos.push({
+      ...episode,
+      filepath: EXTRA_PATH,
+      watched: false,
+      media: { kind: "extra", show_id: 3, season: 1 },
+    });
+    invoke.mockImplementation(async (command) => responses[command]);
+    await render_library();
+    const set_watched_calls = () =>
+      invoke.mock.calls
+        .filter(([command]) => command === "set_watched")
+        .map(([, args]) => args);
+
+    fireEvent.contextMenu(show_tile());
+    fireEvent.click(screen.getByText("Mark watched"));
+    expect(set_watched_calls().pop().filepaths).not.toContain(EXTRA_PATH);
+    expect(screen.getByText("Watched 3/3, Extras: 0/1")).toBeTruthy();
+
+    fireEvent.click(show_tile());
+    fireEvent.contextMenu(await screen.findByAltText("Season 1"));
+    // Episodes are watched, extras are not
+    expect(screen.getByText("Mark unwatched")).toBeTruthy();
+    fireEvent.click(screen.getByText("Mark watched (with Extras)"));
+    expect(set_watched_calls().pop()).toEqual({
+      library_id: "7",
+      filepaths: ["D:\tv\heimat\s01e01.mkv", EPISODE_PATH, EXTRA_PATH],
+      watched: true,
+    });
+  });
+
   describe("editing", () => {
     const calls_of = (command) =>
       invoke.mock.calls.filter(([called]) => called === command);

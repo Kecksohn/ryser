@@ -1,6 +1,8 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 
+import { all_watched, episode_files } from "./Utils/groupShows.js";
+
 // Get OS-specific label for revealing files based on the user agent
 const getRevealLabel = () => {
   const userAgent = window.navigator.userAgent.toLowerCase();
@@ -16,6 +18,7 @@ const getRevealLabel = () => {
 export const video_element_context_menu_options = ({
   set_selected_element,
   toggle_watched,
+  set_files_watched,
   refresh_element,
 }) => {
   const navigate = useNavigate();
@@ -29,16 +32,36 @@ export const video_element_context_menu_options = ({
     }
   }
 
-  const show_options = (show_tile) => [
-    {
-      label: "Edit show",
-      action: () =>
-        navigate(`/library/${library_id}/show/${show_tile.show_id}/edit`),
+  const watched_option = (files, suffix) => {
+    const watched = all_watched(files);
+    return {
+      label: (watched ? "Mark unwatched" : "Mark watched") + suffix,
+      action: () => set_files_watched(files, !watched),
       close_after: true,
-    },
-  ];
+    };
+  };
 
-  return (context) => context.kind === "show" ? show_options(context) : [
+  // Show tile or season tile: files are all its files, extras included
+  const show_options = ({ show_id, files }) => {
+    const episodes = episode_files(files);
+    return [
+      {
+        label: "Edit show",
+        action: () => navigate(`/library/${library_id}/show/${show_id}/edit`),
+        close_after: true,
+      },
+      watched_option(episodes, ""),
+      // Same as the above without extras
+      episodes.length < files.length && watched_option(files, " (with Extras)"),
+    ].filter(Boolean);
+  };
+
+  return (context) =>
+    context.kind === "show"
+      ? show_options({ show_id: context.show_id, files: context.episodes })
+      : context.kind === "season"
+        ? show_options(context)
+        : [
     {
       label: "Edit",
       action: () => {
