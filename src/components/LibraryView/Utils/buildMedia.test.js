@@ -9,6 +9,7 @@ import episode from "../../../../test-fixtures/media/episode.json";
 import episode_moved from "../../../../test-fixtures/media/episode_moved.json";
 import episode_from_film from "../../../../test-fixtures/media/episode_from_film.json";
 import film_from_episode from "../../../../test-fixtures/media/film_from_episode.json";
+import extra from "../../../../test-fixtures/media/extra.json";
 
 // What the episode form shows for the fixture episode
 const episode_inputs = {
@@ -139,6 +140,15 @@ describe("build_media", () => {
     expect(new_media).toEqual(film_from_episode);
   });
 
+  it("gives an extra that becomes an episode only show and numbers", () => {
+    expect(
+      build_media(extra, { title: "", countries: [""], episode: 4 })
+    ).toEqual(extra);
+    expect(
+      build_media(extra, { kind: "episode", title: "", countries: [""], episode: 4 })
+    ).toEqual({ kind: "episode", show_id: 3, season: 1, episode: 4 });
+  });
+
   it("drops empty country entries", () => {
     const countries = (input) =>
       build_media(film, { ...film_inputs, countries: input }).countries;
@@ -197,6 +207,12 @@ describe("build_media output the backend has to accept", () => {
         episode: 2,
       })
     ).toEqual(episode_from_film);
+  });
+
+  it("episode switched to an extra", () => {
+    expect(
+      build_media(episode, { ...episode_inputs, kind: "extra", show_id: 3, season: 1 })
+    ).toEqual(extra);
   });
 
   it("episode switched to a film", () => {

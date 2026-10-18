@@ -190,6 +190,33 @@ describe("EditVideoEntryView", () => {
     );
   });
 
+  it("switches an episode to an extra, which has only show and season", () => {
+    const entry = episode_entry();
+    const { container, save_media } = render_view(entry);
+    change(container, "#kind_input", "extra");
+    expect(container.querySelector("#episode_input")).toBeNull();
+    expect(container.querySelector("#en_title_input")).toBeNull();
+    change(container, "#season_input", "2");
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    expect(save_media).toHaveBeenCalledWith(
+      entry,
+      { kind: "extra", show_id: 3, season: 2 },
+      undefined
+    );
+  });
+
+  it("opens an extra as an extra", () => {
+    const entry = {
+      ...episode_entry(),
+      media: { kind: "extra", show_id: 4, season: null },
+    };
+    const { container } = render_view(entry);
+    expect(container.querySelector("#kind_input").value).toBe("extra");
+    expect(container.querySelector("#show_input").value).toBe("4");
+    expect(screen.queryByText("Save Changes")).toBeNull();
+  });
+
   it("switches an episode to a film", () => {
     const entry = episode_entry();
     const { container, save_media } = render_view(entry);

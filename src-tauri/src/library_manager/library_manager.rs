@@ -403,6 +403,7 @@ pub(crate) fn drop_shows_without_episodes(lib: &mut Library) {
     let used_show_ids: HashSet<u32> = lib.video_files.iter()
         .filter_map(|ve| match &ve.media {
             Media::Episode(episode) => Some(episode.show_id),
+            Media::Extra(extra) => Some(extra.show_id),
             _ => None,
         })
         .collect();

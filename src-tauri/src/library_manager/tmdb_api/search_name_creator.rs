@@ -246,6 +246,12 @@ fn remove_square_bracket_text(filename: &str) -> String
 }
 
 
+/// A folder that holds bonus material when it lies inside a show's folder tree
+pub(super) fn is_extras_folder_name(folder_name: &str) -> bool
+{
+    ["extras", "extra", "bonus", "featurettes", "deleted scenes"].iter().any(|name| folder_name.eq_ignore_ascii_case(name))
+}
+
 // Checks if a file is likely a TV episode based on filename and folder context
 // Returns true if high confidence it's a TV episode, false otherwise
 pub(super) fn is_tv_episode(filepath: &str) -> bool
@@ -1278,13 +1284,10 @@ mod tests {
     // checked, there is a show called "Extras".
     fn is_in_extras_folder(path: &Path, root: &Path) -> bool
     {
-        let folders: Vec<String> = path.parent().unwrap().strip_prefix(root).unwrap()
+        path.parent().unwrap().strip_prefix(root).unwrap()
             .components()
-            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
-            .collect();
-        folders.iter().skip(1).any(|f| {
-            matches!(f.as_str(), "extras" | "extra" | "bonus" | "featurettes" | "deleted scenes")
-        })
+            .skip(1)
+            .any(|c| is_extras_folder_name(&c.as_os_str().to_string_lossy()))
     }
 
     // The app needs season and episode to fetch an episode, so a missing one counts as a failure.

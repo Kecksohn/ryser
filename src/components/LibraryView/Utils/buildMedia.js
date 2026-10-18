@@ -14,11 +14,14 @@ const EPISODE_TMDB_FIELDS = [
 export function build_media(media, inputs) {
   const was_episode = media.kind === "episode";
   const {
-    kind = was_episode ? "episode" : "film",
+    kind = media.kind === "unmatched" ? "film" : media.kind,
     show_id = media.show_id,
     season = media.season,
     episode = media.episode,
   } = inputs;
+
+  // Bonus material of a show: no name, image or TMDB details
+  if (kind === "extra") return { kind, show_id, season };
 
   if (kind === "episode") {
     // Original title and countries belong to the show and are not edited here
@@ -46,7 +49,7 @@ export function build_media(media, inputs) {
     return new_media;
   }
 
-  // Saving an unmatched file or an episode makes it a film titled by the user
+  // Saving an unmatched file, an episode or an extra makes it a film titled by the user
   const countries = inputs.countries.filter(Boolean);
   return {
     ...(media.kind === "film" ? media : {}),

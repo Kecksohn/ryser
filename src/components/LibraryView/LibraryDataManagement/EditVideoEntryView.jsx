@@ -32,8 +32,12 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
   const image_field = was_episode ? "still_path" : "poster_path";
   const shown = display(video_entry, shows);
 
-  const [kind_input, set_kind_input] = useState(was_episode ? "episode" : "film");
+  const initial_kind = media.kind === "unmatched" ? "film" : media.kind;
+  const [kind_input, set_kind_input] = useState(initial_kind);
   const is_episode = kind_input === "episode";
+  // Episodes and extras belong to a show. An extra has nothing but show and season.
+  const is_extra = kind_input === "extra";
+  const has_show = is_episode || is_extra;
   // A show ID of the library, or "new" for new_show
   const [show_input, set_show_input] = useState(to_text(media.show_id));
   const [new_show, set_new_show] = useState(null);
@@ -54,13 +58,13 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
   );
 
   const show =
-    show_input === "new" ? new_show : is_episode ? shows?.[show_input] : null;
+    show_input === "new" ? new_show : has_show ? shows?.[show_input] : null;
 
   function was_changed() {
     const listed = (countries) => countries.filter(Boolean).join();
     return (
-      kind_input !== (was_episode ? "episode" : "film") ||
-      (is_episode &&
+      kind_input !== initial_kind ||
+      (has_show &&
         (show_input !== to_text(media.show_id) ||
           season_input !== to_text(media.season) ||
           episode_input !== to_text(media.episode))) ||
@@ -71,8 +75,8 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     );
   }
 
-  // An episode needs a show
-  const can_save = was_changed() && (!is_episode || show_input !== "");
+  // An episode or extra needs a show
+  const can_save = was_changed() && (!has_show || show_input !== "");
 
   function commit_changes() {
     if (!can_save) {
@@ -85,7 +89,7 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
       original_title: original_title_input,
       countries: countries_input,
       image: new_poster_url_or_path,
-      ...(is_episode && {
+      ...(has_show && {
         show_id: show_input === "new" ? null : Number(show_input),
         season: to_number(season_input),
         episode: to_number(episode_input),
@@ -94,7 +98,7 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
     save_media(
       video_entry,
       media_to_save,
-      is_episode && show_input === "new" ? new_show.tmdb_id : undefined
+      has_show && show_input === "new" ? new_show.tmdb_id : undefined
     );
   }
 
@@ -193,9 +197,10 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
             >
               <option value="film">Film</option>
               <option value="episode">Episode</option>
+              <option value="extra">Extra</option>
             </select>
           </div>
-          {is_episode && (
+          {has_show && (
             <>
               <div>
                 Show:{" "}
@@ -227,19 +232,23 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
                   value={season_input}
                   onChange={(e) => set_season_input(e.target.value)}
                 />{" "}
-                Episode:{" "}
-                <input
-                  id="episode_input"
-                  type="number"
-                  min="0"
-                  className={editVideoStyles.inputField}
-                  value={episode_input}
-                  onChange={(e) => set_episode_input(e.target.value)}
-                />
+                {is_episode && (
+                  <>
+                    Episode:{" "}
+                    <input
+                      id="episode_input"
+                      type="number"
+                      min="0"
+                      className={editVideoStyles.inputField}
+                      value={episode_input}
+                      onChange={(e) => set_episode_input(e.target.value)}
+                    />
+                  </>
+                )}
               </div>
             </>
           )}
-          {!is_episode && (
+          {!has_show && (
             <div>
               Original Title:{" "}
               <input
@@ -253,21 +262,23 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
               />
             </div>
           )}
-          <div>
-            {is_episode ? "Episode Name" : "English Title"}:{" "}
-            <input
-              id="en_title_input"
-              type="text"
-              className={editVideoStyles.inputField}
-              value={english_title_input}
-              onChange={(e) => {
-                set_english_title_input(e.target.value);
-              }}
-            />
-          </div>
+          {!is_extra && (
+            <div>
+              {is_episode ? "Episode Name" : "English Title"}:{" "}
+              <input
+                id="en_title_input"
+                type="text"
+                className={editVideoStyles.inputField}
+                value={english_title_input}
+                onChange={(e) => {
+                  set_english_title_input(e.target.value);
+                }}
+              />
+            </div>
+          )}
           <div>Year: {shown.date?.substring(0, 4)}</div>
           <div>Director: {shown.director}</div>
-          {!is_episode && (
+          {!has_show && (
             <div>
               Countries:{" "}
               <input
@@ -310,8 +321,8 @@ export const EditVideoEntryView = ({ save_media, video_entry, shows }) => {
       {/* Remounted per kind: film results are no show results */}
       <TmdbSearch
         key={kind_input}
-        tv={is_episode}
-        on_pick={is_episode ? pick_show : update_element_with_tmdb}
+        tv={has_show}
+        on_pick={has_show ? pick_show : update_element_with_tmdb}
       />
     </div>
   );

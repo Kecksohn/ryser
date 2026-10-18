@@ -27,7 +27,9 @@ function useShow(tiles, shows) {
     tile,
     show,
     show_link: `/library/${library_id}/show/${show_id}`,
-    ...(tile ? group_seasons(show, tile.episodes) : { seasons: [], extras: [] }),
+    ...(tile
+      ? group_seasons(show, tile.episodes)
+      : { seasons: [], unnumbered: [], extras: [] }),
   };
 }
 
@@ -44,10 +46,10 @@ const WatchedButton = ({ what, files, set_files_watched }) => {
 };
 
 // Files without number are listed by their filename
-const Extras = ({ files, shows, scroll_props }) =>
+const FilesWithoutNumber = ({ heading, files, shows, scroll_props }) =>
   files.length > 0 && (
     <>
-      <h3>Extras</h3>
+      <h3>{heading}</h3>
       <LibraryViewScroll
         library_elements={files}
         shows={shows}
@@ -62,10 +64,8 @@ const Extras = ({ files, shows, scroll_props }) =>
 
 export const ShowView = ({ tiles, shows, scroll_props, set_files_watched }) => {
   const navigate = useNavigate();
-  const { library_id, tile, show, show_link, seasons, extras } = useShow(
-    tiles,
-    shows
-  );
+  const { library_id, tile, show, show_link, seasons, unnumbered, extras } =
+    useShow(tiles, shows);
   if (!tile) return <div className="container">Loading...</div>;
 
   return (
@@ -119,10 +119,22 @@ export const ShowView = ({ tiles, shows, scroll_props, set_files_watched }) => {
           </div>
         </div>
       ))}
-      <Extras files={extras} shows={shows} scroll_props={scroll_props} />
+      <WithoutNumber
+        unnumbered={unnumbered}
+        extras={extras}
+        shows={shows}
+        scroll_props={scroll_props}
+      />
     </div>
   );
 };
+
+const WithoutNumber = ({ unnumbered, extras, ...props }) => (
+  <>
+    <FilesWithoutNumber heading="Unnumbered episodes" files={unnumbered} {...props} />
+    <FilesWithoutNumber heading="Extras" files={extras} {...props} />
+  </>
+);
 
 export const SeasonView = ({ tiles, shows, scroll_props, set_files_watched }) => {
   const { season_number } = useParams();
@@ -164,7 +176,12 @@ export const SeasonView = ({ tiles, shows, scroll_props, set_files_watched }) =>
           return { ...display(file, shows), title, original_title: title };
         }}
       />
-      <Extras files={season.extras} shows={shows} scroll_props={scroll_props} />
+      <WithoutNumber
+        unnumbered={season.unnumbered}
+        extras={season.extras}
+        shows={shows}
+        scroll_props={scroll_props}
+      />
     </div>
   );
 };

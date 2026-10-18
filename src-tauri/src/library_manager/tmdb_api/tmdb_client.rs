@@ -7,14 +7,14 @@ use tauri_plugin_http::reqwest::header::USER_AGENT;
 use tauri_plugin_http::reqwest::{self, Client, Response};
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use super::super::{compute_selection, EpisodeMeta, FilmMeta, Library, Media, TvSeason, TvShow, VideoElement};
+use super::super::{compute_selection, EpisodeMeta, ExtraMeta, FilmMeta, Library, Media, TvSeason, TvShow, VideoElement};
 use super::api_token::get_api_token;
 use super::json_structs::*;
 use super::search_name_creator::{
-    get_movie_title_and_year_from_filename, get_show_name_and_year, get_tv_show_info_from_filename, is_tv_episode,
-    show_name_similarity,
+    get_movie_title_and_year_from_filename, get_show_name_and_year, get_tv_show_info_from_filename, is_extras_folder_name,
+    is_tv_episode, show_name_similarity,
 };
 
 static TMDB_API_MOVIE_URL: &str = "https://api.themoviedb.org/3/movie/";
@@ -329,6 +329,80 @@ fn show_folder<'a>(library_roots: &[&str], filepath: &'a str) -> Option<&'a str>
     below_root.parent()?.components().next()?.as_os_str().to_str()
 }
 
+/// Show ID of an extra, and its season when all episodes of its owner folder share one
+type ExtrasOwner = (u32, Option<i32>);
+
+/// Owner of the extras at `path`, a file or folder: the show of the episodes in the nearest
+/// folder above it that holds any, up to its library root. None when that folder holds
+/// episodes of several shows, or no folder does.
+/// `episodes`: filepath, show ID and season of the regular episodes
+fn find_extras_owner(path: &str, library_roots: &[&str], episodes: &[(&str, u32, Option<i32>)]) -> Option<ExtrasOwner> {
+    let path = Path::new(path);
+    let root = library_roots.iter().map(Path::new).find(|root| path.starts_with(root))?;
+    for folder in path.ancestors().skip(1) {
+        let mut below = episodes.iter().filter(|(filepath, ..)| Path::new(filepath).starts_with(folder));
+        if let Some(&(_, show_id, mut season)) = below.next() {
+            for &(_, other_show_id, other_season) in below {
+                if other_show_id != show_id {
+                    return None;
+                }
+                if other_season != season {
+                    season = None;
+                }
+            }
+            return Some((show_id, season));
+        }
+        if folder == root {
+            break;
+        }
+    }
+    None
+}
+
+/// The folders between the library root and `filepath` named like an extras folder, outermost first
+fn named_folders_of<'a>(filepath: &'a str, library_roots: &[&str]) -> Vec<&'a Path> {
+    let path = Path::new(filepath);
+    let Some(root) = library_roots.iter().map(Path::new).find(|root| path.starts_with(root)) else { return Vec::new() };
+    let mut folders: Vec<&Path> = path.ancestors().skip(1)
+        .take_while(|folder| *folder != root)
+        .filter(|folder| folder.file_name().and_then(|name| name.to_str()).is_some_and(is_extras_folder_name))
+        .collect();
+    folders.reverse();
+    folders
+}
+
+enum NamedFolderState {
+    /// Below no named folder that holds extras
+    Outside,
+    /// Below a named folder that is not decided yet
+    Undecided(PathBuf),
+    /// Below a named folder that holds extras of this owner
+    Extras(ExtrasOwner),
+}
+
+/// `decided`: named folders with their owner, None for one that holds no extras
+fn named_folder_state(filepath: &str, library_roots: &[&str], decided: &HashMap<PathBuf, Option<ExtrasOwner>>) -> NamedFolderState {
+    for folder in named_folders_of(filepath, library_roots) {
+        match decided.get(folder) {
+            Some(Some(owner)) => return NamedFolderState::Extras(*owner),
+            Some(None) => {}
+            None => return NamedFolderState::Undecided(folder.to_path_buf()),
+        }
+    }
+    NamedFolderState::Outside
+}
+
+/// Filepath, show ID and season of the episodes, without the files still to parse. `pending` is sorted.
+fn regular_episodes<'a>(video_files: &'a [VideoElement], pending: &[usize]) -> Vec<(&'a str, u32, Option<i32>)> {
+    video_files.iter().enumerate()
+        .filter(|(index, _)| pending.binary_search(index).is_err())
+        .filter_map(|(_, video_element)| match &video_element.media {
+            Media::Episode(episode_meta) => Some((video_element.filepath.as_str(), episode_meta.show_id, episode_meta.season)),
+            _ => None,
+        })
+        .collect()
+}
+
 async fn parse_video_files(
     api: &impl TmdbApi,
     library_roots: &[&str],
@@ -338,73 +412,99 @@ async fn parse_video_files(
 ) -> Result<(), Error>
 {
     let mut seasons = SeasonCache::new();
-    // Episode files are collected first: a show is matched once, with all its files.
-    // One folder below a library root is one show, whatever its files are called.
-    let mut shows_to_match: BTreeMap<String, ShowFiles> = BTreeMap::new();
+    let mut pending: Vec<usize> = (0..video_files.len())
+        .filter(|&index| reparse_all || !video_files[index].tmdb_searched)
+        .collect();
+    let mut named_folders: HashMap<PathBuf, Option<ExtrasOwner>> = HashMap::new();
 
-    for (index, video_element) in video_files.iter_mut().enumerate() {
-        if reparse_all || !video_element.tmdb_searched {
-            // Check if filename hints at this being a TV episode
-            if is_tv_episode(&video_element.filepath) {
-                let (parsed_name, season, episode) = get_tv_show_info_from_filename(&video_element.filepath);
-                let (name, year) = get_show_name_and_year(&parsed_name);
-                let folder = show_folder(library_roots, &video_element.filepath)
-                    .map(get_show_name_and_year)
-                    .filter(|(folder_name, _)| !folder_name.is_empty());
+    // A named folder holds extras when the episodes outside it give it an owner. So the outer
+    // named folders are decided first, and the episodes in those that hold no extras are
+    // matched before the folders inside them are decided.
+    loop {
+        let (ready, waiting): (Vec<usize>, Vec<usize>) = pending.iter().partition(|&&index| {
+            let filepath = &video_files[index].filepath;
+            matches!(named_folder_state(filepath, library_roots, &named_folders), NamedFolderState::Outside) && is_tv_episode(filepath)
+        });
+        pending = waiting;
+        match_episodes(api, library_roots, video_files, tv_shows, &mut seasons, &ready, reparse_all).await;
 
-                // A file directly in the library root goes by its own name
-                let show_key = folder.as_ref().map_or(&name, |(folder_name, _)| folder_name).clone();
-                let show_files = shows_to_match.entry(show_key).or_default();
-                if let Some((folder_name, folder_year)) = &folder {
-                    // No fixed precedence over the filename names, but it is always among the searched ones
-                    show_files.add_name(folder_name, *folder_year, usize::MAX);
-                }
-                show_files.add_name(&name, year, 1);
-                show_files.episodes.push((index, season, episode));
-                continue;
-            }
-
-            let filename = &video_element.filepath;
-
-            // Handle as movie
-            let (possible_title, year) = get_movie_title_and_year_from_filename(filename);
-
-            match api.search_movie(possible_title.as_str(), year).await {
-                Ok(search_tmdb_result) => {
-                    let Some(movie_id) = search_tmdb_result.results.first().and_then(|best_match| best_match.id) else {
-                        // TODO: Adjust filename by cutting one word from the end
-                        video_element.tmdb_searched = true;
-                        continue;
-                    };
-
-                    let movie_details = api.get_movie_details(movie_id).await
-                        .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
-
-                    let mut film = match std::mem::take(&mut video_element.media) {
-                        Media::Film(film) => film,
-                        _ => {
-                            // Was an episode before, its show's language does not apply
-                            video_element.tmdb_language = None;
-                            FilmMeta::default()
-                        }
-                    };
-                    fill_film_with_movie_details(&mut film, &movie_details, false);
-                    if film.release_date.is_none() && year.is_some() {
-                        film.release_date = Some(year.unwrap().to_string());
-                    }
-                    println!("Updated: {} [{}] ({}) by {}", film.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            film.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            film.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
-                                                            film.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
-
-                    video_element.media = Media::Film(film);
-                    fill(&mut video_element.tmdb_language, &movie_details.tmdb_movie.original_language, false);
-                    video_element.tmdb_searched = true;
-                    video_element.playback_selection = Some(compute_selection(video_element));
-                }
-                Err(str) => {return Err(anyhow!("Error when calling TMDB: {}", str))}
+        // ponytail: all folders of one round see the same episodes, so file order does not matter.
+        // Episodes a folder frees do not count for its siblings decided in the same round.
+        let episodes = regular_episodes(video_files, &pending);
+        let mut newly_decided = HashMap::new();
+        for &index in &pending {
+            if let NamedFolderState::Undecided(folder) = named_folder_state(&video_files[index].filepath, library_roots, &named_folders) {
+                newly_decided.entry(folder).or_insert_with_key(|folder| {
+                    let outside: Vec<_> = episodes.iter().filter(|(filepath, ..)| !Path::new(filepath).starts_with(folder)).copied().collect();
+                    find_extras_owner(&folder.to_string_lossy(), library_roots, &outside)
+                });
             }
         }
+        if newly_decided.is_empty() {
+            break;
+        }
+        named_folders.extend(newly_decided);
+    }
+
+    // Left are files below a named folder that holds extras and files that are no episode
+    let episodes = regular_episodes(video_files, &pending);
+    let owners: Vec<(usize, Option<ExtrasOwner>)> = pending.iter()
+        .map(|&index| {
+            let filepath = &video_files[index].filepath;
+            let owner = match named_folder_state(filepath, library_roots, &named_folders) {
+                NamedFolderState::Extras(owner) => Some(owner),
+                _ => find_extras_owner(filepath, library_roots, &episodes),
+            };
+            (index, owner)
+        })
+        .collect();
+
+    for (index, owner) in owners {
+        let video_element = &mut video_files[index];
+        match owner {
+            Some((show_id, season)) => {
+                video_element.media = Media::Extra(ExtraMeta { show_id, season });
+                video_element.tmdb_language = tv_shows.get(&show_id).and_then(|show| show.tmdb_language.clone());
+                video_element.tmdb_searched = true;
+                video_element.playback_selection = Some(compute_selection(video_element));
+            }
+            None => search_movie(api, video_element).await?,
+        }
+    }
+
+    Ok(())
+}
+
+/// Matches the shows of the episode files at `indices`, then fills the files.
+/// A show is matched once, with all its files. One folder below a library root is one show,
+/// whatever its files are called.
+async fn match_episodes(
+    api: &impl TmdbApi,
+    library_roots: &[&str],
+    video_files: &mut [VideoElement],
+    tv_shows: &mut BTreeMap<u32, TvShow>,
+    seasons: &mut SeasonCache,
+    indices: &[usize],
+    reparse_all: bool,
+) {
+    let mut shows_to_match: BTreeMap<String, ShowFiles> = BTreeMap::new();
+    for &index in indices {
+        let filepath = &video_files[index].filepath;
+        let (parsed_name, season, episode) = get_tv_show_info_from_filename(filepath);
+        let (name, year) = get_show_name_and_year(&parsed_name);
+        let folder = show_folder(library_roots, filepath)
+            .map(get_show_name_and_year)
+            .filter(|(folder_name, _)| !folder_name.is_empty());
+
+        // A file directly in the library root goes by its own name
+        let show_key = folder.as_ref().map_or(&name, |(folder_name, _)| folder_name).clone();
+        let show_files = shows_to_match.entry(show_key).or_default();
+        if let Some((folder_name, folder_year)) = &folder {
+            // No fixed precedence over the filename names, but it is always among the searched ones
+            show_files.add_name(folder_name, *folder_year, usize::MAX);
+        }
+        show_files.add_name(&name, year, 1);
+        show_files.episodes.push((index, season, episode));
     }
 
     for (show_name, show_files) in &shows_to_match {
@@ -419,11 +519,51 @@ async fn parse_video_files(
         let Some(show) = tv_shows.get_mut(&show_id) else { continue };
 
         for &(index, season, episode) in &show_files.episodes {
-            parse_episode(api, show, &mut seasons, &mut video_files[index], season, episode).await;
+            parse_episode(api, show, seasons, &mut video_files[index], season, episode).await;
         }
     }
+}
 
-    Ok(())
+/// Searches the file as a film. Fails when TMDB cannot be reached.
+async fn search_movie(api: &impl TmdbApi, video_element: &mut VideoElement) -> Result<(), Error> {
+    let (possible_title, year) = get_movie_title_and_year_from_filename(&video_element.filepath);
+
+    match api.search_movie(possible_title.as_str(), year).await {
+        Ok(search_tmdb_result) => {
+            let Some(movie_id) = search_tmdb_result.results.first().and_then(|best_match| best_match.id) else {
+                // TODO: Adjust filename by cutting one word from the end
+                video_element.tmdb_searched = true;
+                return Ok(());
+            };
+
+            let movie_details = api.get_movie_details(movie_id).await
+                .map_err(|e| anyhow!("Error when getting Movie Details: {}", e))?;
+
+            let mut film = match std::mem::take(&mut video_element.media) {
+                Media::Film(film) => film,
+                _ => {
+                    // Was an episode or extra before, its show's language does not apply
+                    video_element.tmdb_language = None;
+                    FilmMeta::default()
+                }
+            };
+            fill_film_with_movie_details(&mut film, &movie_details, false);
+            if film.release_date.is_none() && year.is_some() {
+                film.release_date = Some(year.unwrap().to_string());
+            }
+            println!("Updated: {} [{}] ({}) by {}", film.original_title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                    film.title.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                    film.release_date.as_ref().unwrap_or(&"!MISSING!".to_string()),
+                                                    film.director.as_ref().unwrap_or(&"!MISSING!".to_string()));
+
+            video_element.media = Media::Film(film);
+            fill(&mut video_element.tmdb_language, &movie_details.tmdb_movie.original_language, false);
+            video_element.tmdb_searched = true;
+            video_element.playback_selection = Some(compute_selection(video_element));
+            Ok(())
+        }
+        Err(str) => Err(anyhow!("Error when calling TMDB: {}", str)),
+    }
 }
 
 /// Fills one episode file of `show`, `season` and `episode` are the numbers parsed from its path.
@@ -697,6 +837,14 @@ async fn rematch_show_with(
 
     let mut seasons = SeasonCache::new();
     for video_element in video_files.iter_mut() {
+        if let Media::Extra(extra) = &mut video_element.media {
+            if extra.show_id == show_id {
+                extra.show_id = target_id;
+                video_element.tmdb_language = show.tmdb_language.clone();
+                video_element.playback_selection = Some(compute_selection(video_element));
+            }
+            continue;
+        }
         let Media::Episode(episode_meta) = &video_element.media else { continue };
         if episode_meta.show_id != show_id {
             continue;
@@ -730,9 +878,16 @@ async fn apply_media(
                 parse_episode(api, show, &mut SeasonCache::new(), video_element, None, None).await;
             }
         }
+        Media::Extra(extra) => {
+            let Some(show) = tv_shows.get(&extra.show_id) else {
+                return Err(anyhow!("Show {} not found", extra.show_id));
+            };
+            video_element.tmdb_language = show.tmdb_language.clone();
+            video_element.media = media;
+        }
         _ => {
             // The show's language does not apply to a film, and a film's is only known from TMDB
-            if matches!(video_element.media, Media::Episode(_)) {
+            if matches!(video_element.media, Media::Episode(_) | Media::Extra(_)) {
                 video_element.tmdb_language = None;
             }
             video_element.media = media;
@@ -870,6 +1025,10 @@ pub async fn reparse_library_tmdb_preserve_covers(library: &mut Library) -> Resu
                 }
 
                 // The show may have been re-matched since the episode was parsed
+                show.tmdb_language.clone()
+            }
+            Media::Extra(extra) => {
+                let Some(show) = tv_shows.get(&extra.show_id) else { continue };
                 show.tmdb_language.clone()
             }
         };
@@ -1548,12 +1707,16 @@ mod tests {
     fn rematch_onto_a_show_of_the_library_merges() {
         let api = seinfeld();
         let mut tv_shows = BTreeMap::from([(1, matched_show(1, 43879, "Braunschlag")), (2, matched_show(2, 1400, "Seinfeld"))]);
-        let mut video_files = vec![episode_of(1, 1), episode_of(2, 2)];
+        let extra_file = VideoElement { media: Media::Extra(ExtraMeta { show_id: 1, season: Some(1) }), ..Default::default() };
+        let mut video_files = vec![episode_of(1, 1), episode_of(2, 2), extra_file];
         let kept_episode = video_files[1].clone();
 
         let show_id = tauri::async_runtime::block_on(rematch_show_with(&api, &mut video_files, &mut tv_shows, 1, 1400)).unwrap();
 
         assert_eq!(show_id, 2);
+        // Extras move along
+        assert_eq!(video_files[2].media, Media::Extra(ExtraMeta { show_id: 2, season: Some(1) }));
+        assert_eq!(video_files[2].tmdb_language.as_deref(), Some("de"));
         // The library's show is kept as it is, no show details needed
         assert_eq!(api.requests(), (0, 0, 1));
         assert_eq!(tv_shows.keys().collect::<Vec<_>>(), [&2]);
@@ -1609,8 +1772,15 @@ mod tests {
         // An unmatched show has no language
         assert_eq!(video_element.tmdb_language, None);
 
+        // An extra: never looked up, the show's language applies
+        let extra = Media::Extra(ExtraMeta { show_id: 1, season: None });
+        apply(&mut video_element, &mut tv_shows, extra.clone()).unwrap();
+        assert_eq!(video_element.media, extra);
+        assert_eq!(video_element.tmdb_language.as_deref(), Some("de"));
+        assert_eq!(api.requests(), (0, 0, 1));
+        assert!(apply(&mut video_element, &mut tv_shows, Media::Extra(ExtraMeta { show_id: 9, season: None })).is_err());
+
         // Back to a film: the show's language goes
-        video_element.tmdb_language = Some("de".to_owned());
         apply(&mut video_element, &mut tv_shows, Media::Film(FilmMeta::default())).unwrap();
         assert_eq!(video_element.tmdb_language, None);
         // A film stays a film: its language stays
@@ -1637,6 +1807,97 @@ mod tests {
         let api = seinfeld();
         let found = tauri::async_runtime::block_on(search_shows(&api, "Seinfeld")).unwrap();
         assert_eq!(found.iter().map(|show| show.tmdb_id).collect::<Vec<_>>(), [Some(1400)]);
+    }
+
+    #[test]
+    fn extras_owner_is_the_show_of_the_nearest_episodes() {
+        let episodes = [
+            ("T:/tv/Stromberg/S03/Stromberg S03E01.avi", 1, Some(3)),
+            ("T:/tv/Stromberg/S05/Stromberg S05E01.avi", 1, Some(5)),
+            ("T:/tv/Brass Eye/Brass Eye S01E01.mkv", 2, Some(1)),
+            ("T:/tv/Brass Eye/Brass Eye S01E02.mkv", 2, Some(1)),
+            ("T:/tv/Da Ali G Show/Da Ali G Show S01E01.mkv", 3, Some(1)),
+            ("T:/tv/Da Ali G Show/Da Ali G Show S02E01.mkv", 3, Some(2)),
+            ("T:/tv/Extras/Season 1/Extras S01E01.mkv", 4, Some(1)),
+            ("T:/tv/Extras/Season 2/Extras S02E01.mkv", 4, Some(2)),
+        ];
+        let owner = |path| find_extras_owner(path, LIBRARY_ROOTS, &episodes);
+
+        // Season folder
+        assert_eq!(owner("T:/tv/Stromberg/S03/Bonus/bonus1.avi"), Some((1, Some(3))));
+        // Loose beside the episodes, one season or several
+        assert_eq!(owner("T:/tv/Brass Eye/Paedogeddon.mkv"), Some((2, Some(1))));
+        assert_eq!(owner("T:/tv/Da Ali G Show/Interview.mkv"), Some((3, None)));
+        assert_eq!(owner("T:/tv/Extras/Extras/Series 1/Outtakes.mkv"), Some((4, None)));
+        // A root holding several shows, a folder without episodes up to the root, a file outside the roots
+        assert_eq!(owner("T:/tv/loose.mkv"), None);
+        assert_eq!(owner("F:/mov/Alien/Making Of.mkv"), None);
+        assert_eq!(owner("D:/other/Brass Eye/x.mkv"), None);
+
+        // A named folder is decided by the episodes outside it: the show "Extras" is no extra of the root
+        let outside_of = |folder: &str| -> Vec<(&str, u32, Option<i32>)> {
+            episodes.iter().filter(|(filepath, ..)| !Path::new(filepath).starts_with(folder)).copied().collect()
+        };
+        assert_eq!(find_extras_owner("T:/tv/Extras", LIBRARY_ROOTS, &outside_of("T:/tv/Extras")), None);
+        assert_eq!(find_extras_owner("T:/tv/Extras/Extras", LIBRARY_ROOTS, &outside_of("T:/tv/Extras/Extras")), Some((4, None)));
+    }
+
+    #[test]
+    fn named_folders_are_found_below_the_root() {
+        let named = |filepath| named_folders_of(filepath, &["T:/tv/Extras"]).iter().map(|folder| folder.to_string_lossy().into_owned()).collect::<Vec<_>>();
+        // The library root itself is no named folder
+        assert_eq!(named("T:/tv/Extras/Show/BONUS/Deleted Scenes/a.mkv"), ["T:/tv/Extras/Show/BONUS", "T:/tv/Extras/Show/BONUS/Deleted Scenes"]);
+        assert!(named("T:/tv/Extras/Show/Season 1/a.mkv").is_empty());
+        assert!(named("D:/Extras/a.mkv").is_empty());
+    }
+
+    #[test]
+    fn bonus_material_becomes_extras_of_its_show() {
+        let roots = &["X:/tv"];
+        let api = FakeTmdb::with_shows(vec![
+            json!({ "id": 1, "name": "Extras", "original_language": "en" }),
+            json!({ "id": 2, "name": "Peep Show", "original_language": "en" }),
+            json!({ "id": 3, "name": "Stromberg", "original_language": "de" }),
+        ]);
+        let mut video_files: Vec<VideoElement> = [
+            // The show "Extras" lies in a folder named like an extras folder
+            "Extras/Season 1/Extras S01E01.mkv",
+            "Extras/Season 2/Extras S02E01.mkv",
+            "Extras/Extras/Series 1/Outtakes.mkv",
+            "Extras/Extras/Series 1/Deleted Scenes/Extras S01E01 Department Store.mkv",
+            // Parses as an episode of "Bonus Scenes"
+            "Peep Show/Season 3/Peep Show S03E01.mkv",
+            "Peep Show/Season 3/Featurettes/Bonus Scenes - S03E01.mkv",
+            "Stromberg/S03/Stromberg S03E01.avi",
+            "Stromberg/S03/Bonus/bonus1.avi",
+        ].iter().map(|path| VideoElement { filepath: format!("X:/tv/{}", path), ..Default::default() }).collect();
+        let mut tv_shows = BTreeMap::new();
+
+        // The fake panics on a movie search
+        tauri::async_runtime::block_on(parse_video_files(&api, roots, &mut video_files, &mut tv_shows, false)).unwrap();
+
+        // "Extras" is matched last: its folder is decided after the episodes around it
+        let shows: Vec<_> = tv_shows.values().map(|show| (show.id, show.tmdb_id)).collect();
+        assert_eq!(shows, [(1, Some(2)), (2, Some(3)), (3, Some(1))]);
+        let extra = |show_id, season| Media::Extra(ExtraMeta { show_id, season });
+        assert_eq!(episode_meta(&video_files[0]).show_id, 3);
+        assert_eq!(episode_meta(&video_files[1]).show_id, 3);
+        assert_eq!(video_files[2].media, extra(3, None));
+        assert_eq!(video_files[3].media, extra(3, None));
+        assert_eq!(episode_meta(&video_files[4]).show_id, 1);
+        assert_eq!(video_files[5].media, extra(1, Some(3)));
+        assert_eq!(episode_meta(&video_files[6]).show_id, 2);
+        assert_eq!(video_files[7].media, extra(2, Some(3)));
+        for video_element in &video_files {
+            assert!(video_element.tmdb_searched && video_element.playback_selection.is_some(), "{}", video_element.filepath);
+        }
+        assert_eq!(video_files[7].tmdb_language.as_deref(), Some("de"));
+
+        // One search per show, "Bonus Scenes" is not searched, and the next run asks nothing
+        let requests = api.requests();
+        assert_eq!(requests.0, 3);
+        tauri::async_runtime::block_on(parse_video_files(&api, roots, &mut video_files, &mut tv_shows, false)).unwrap();
+        assert_eq!(api.requests(), requests);
     }
 
     #[test]

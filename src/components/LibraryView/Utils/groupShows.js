@@ -1,13 +1,16 @@
 // Episodes grouped into shows and seasons, and the state derived from them.
 // Nothing here is stored: it is computed from the loaded elements.
 
+const is_show_file = (file) =>
+  file.media?.kind === "episode" || file.media?.kind === "extra";
+
 // Library tiles: films and unmatched files as they are, plus one tile per show
-// holding its episode files, at the place of the show's first episode.
+// holding its episode and extra files, at the place of the show's first file.
 export function group_library(elements) {
   const tiles = [];
   const show_tiles = new Map();
   for (const element of elements) {
-    if (element.media?.kind !== "episode") {
+    if (!is_show_file(element)) {
       tiles.push(element);
       continue;
     }
@@ -34,17 +37,24 @@ export function group_library(elements) {
 
 const by_filepath = (a, b) => a.filepath.localeCompare(b.filepath);
 
+// Files of one level without episode number: episodes the user can number, and bonus material
+const split_unnumbered = (files) => ({
+  unnumbered: files.filter((file) => file.media.kind === "episode").sort(by_filepath),
+  extras: files.filter((file) => file.media.kind === "extra").sort(by_filepath),
+});
+
 // The seasons a show has files of, specials (season 0) last, and the show's
-// extras (files without season). Per season: its numbered episodes in order
-// and its extras (files without episode number).
+// files without season. Per season: its numbered episodes in order and its
+// files without episode number. Both levels split those into unnumbered
+// episodes and extras.
 // show: the show's entry in the show table, may be missing
 export function group_seasons(show, episodes) {
   const files_by_season = new Map();
-  const extras = [];
+  const without_season = [];
   for (const file of episodes) {
     const season_number = file.media.season;
     if (season_number == null) {
-      extras.push(file);
+      without_season.push(file);
       continue;
     }
     if (!files_by_season.has(season_number)) files_by_season.set(season_number, []);
@@ -70,7 +80,7 @@ export function group_seasons(show, episodes) {
       episodes: files
         .filter((file) => file.media.episode != null)
         .sort((a, b) => a.media.episode - b.media.episode || by_filepath(a, b)),
-      extras: files.filter((file) => file.media.episode == null).sort(by_filepath),
+      ...split_unnumbered(files.filter((file) => file.media.episode == null)),
     };
   });
   seasons.sort(
@@ -79,11 +89,15 @@ export function group_seasons(show, episodes) {
       a.season_number - b.season_number
   );
 
-  return { seasons, extras: extras.sort(by_filepath) };
+  return { seasons, ...split_unnumbered(without_season) };
 }
 
-// All files of a season or show, extras included
-export const season_files = (season) => [...season.episodes, ...season.extras];
+// All files of a season, extras included
+export const season_files = (season) => [
+  ...season.episodes,
+  ...season.unnumbered,
+  ...season.extras,
+];
 
 export const all_watched = (files) =>
   files.length > 0 && files.every((file) => file.watched);

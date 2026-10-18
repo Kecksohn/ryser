@@ -40,6 +40,17 @@ pub enum Media {
     Unmatched,
     Film(FilmMeta),
     Episode(EpisodeMeta),
+    /// Bonus material of a show, not looked up on TMDB
+    Extra(ExtraMeta),
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[serde(default)]
+pub struct ExtraMeta {
+    /// Key into `Library.tv_shows`
+    pub show_id: u32,
+    /// None = belongs to the show, not to one season
+    pub season: Option<i32>,
 }
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -271,5 +282,7 @@ mod tests {
 
         let Media::Film(from_episode) = sent_media!("film_from_episode.json") else { panic!("expected a film") };
         assert_eq!((from_episode.tmdb_id, from_episode.title.as_deref()), (None, Some("Die Mitte der Welt")));
+
+        assert_eq!(sent_media!("extra.json"), Media::Extra(ExtraMeta { show_id: 3, season: Some(1) }));
     }
 }

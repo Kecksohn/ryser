@@ -34,6 +34,12 @@ const episode = (show_id, season, number, extra = {}) => ({
   media: { kind: "episode", show_id, season, episode: number, ...extra.media },
 });
 
+const extra = (show_id, season, filepath) => ({
+  filepath,
+  watched: false,
+  media: { kind: "extra", show_id, season },
+});
+
 const show = {
   name: "Heimat",
   poster_path: "/heimat.jpg",
@@ -64,6 +70,13 @@ describe("group_library", () => {
     expect(tiles[1]).toBe(film);
   });
 
+  it("puts a show's extras into its tile", () => {
+    const bonus = extra(3, null, "D:/tv/3/bonus.mkv");
+    const tiles = group_library([bonus, episode(3, 1, 1)]);
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].episodes[0]).toBe(bonus);
+  });
+
   it("gives a show tile the fields the library sort reads", () => {
     const [tile] = group_library([
       episode(3, 1, 2, { timestamp_modified: 30 }),
@@ -84,6 +97,8 @@ describe("group_seasons", () => {
     episode(3, 1, null, { filepath: "D:/tv/3/making of.mkv" }),
     episode(3, null, null, { filepath: "D:/tv/3/b-trailer.mkv" }),
     episode(3, null, null, { filepath: "D:/tv/3/a-interview.mkv" }),
+    extra(3, 1, "D:/tv/3/s1/outtakes.mkv"),
+    extra(3, null, "D:/tv/3/trailer.mkv"),
   ];
 
   it("orders seasons by number with specials last", () => {
@@ -92,17 +107,19 @@ describe("group_seasons", () => {
   });
 
   it("orders episodes by number and keeps files without number apart", () => {
-    const { seasons, extras } = group_seasons(show, files);
+    const paths = (files) => files.map((file) => file.filepath);
+    const { seasons, unnumbered, extras } = group_seasons(show, files);
     expect(numbers(seasons[0].episodes)).toEqual([2, 10]);
-    expect(seasons[0].extras.map((file) => file.filepath)).toEqual([
-      "D:/tv/3/making of.mkv",
-    ]);
+    // Unnumbered episodes and extras are listed apart
+    expect(paths(seasons[0].unnumbered)).toEqual(["D:/tv/3/making of.mkv"]);
+    expect(paths(seasons[0].extras)).toEqual(["D:/tv/3/s1/outtakes.mkv"]);
     // Files without season belong to the show, by filename
-    expect(extras.map((file) => file.filepath)).toEqual([
+    expect(paths(unnumbered)).toEqual([
       "D:/tv/3/a-interview.mkv",
       "D:/tv/3/b-trailer.mkv",
     ]);
-    expect(season_files(seasons[0])).toHaveLength(3);
+    expect(paths(extras)).toEqual(["D:/tv/3/trailer.mkv"]);
+    expect(season_files(seasons[0])).toHaveLength(4);
   });
 
   it("takes name, poster and year from the show's season list", () => {
@@ -157,6 +174,15 @@ describe("derived state", () => {
     // Nothing numbered: the files count as the episodes
     expect(watched_label([extra, season_extra])).toBe("Watched 1/2");
     expect(episode_files([extra])).toEqual([extra]);
+    // Bonus material counts with the unnumbered episodes
+    const bonus = {
+      filepath: "D:/tv/3/bonus.mkv",
+      watched: true,
+      media: { kind: "extra", show_id: 3, season: 1 },
+    };
+    expect(watched_label([watched, unwatched, season_extra, bonus])).toBe(
+      "Watched 1/2, Extras: 1/2"
+    );
   });
 
   it("counts owned episodes against TMDB's episode count", () => {
